@@ -1,0 +1,21 @@
+# 依存・ビルド成果物
+node_modules/
+dist/
+coverage/
+*.log
+
+# 秘密情報
+.env
+.env.*
+!.env.example
+
+# エディタ・OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 手元の設計資料・試作・記録（リポジトリには置かない）
+notes/
+spike/
+*.local.md
