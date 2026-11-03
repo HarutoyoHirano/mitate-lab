@@ -1,7 +1,9 @@
-// ゲーム版のテスト（CLAUDE.md 第7章 28〜33）
+// ゲーム版のテスト（CLAUDE.md 第7章 28〜35）
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, judgeDuel } from "../../server/model/duel.js";
+import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, judgeDuel, stepCheckDiff } from "../../server/model/duel.js";
+import { BRIDGE_SLIDERS, circuitAt, judgeBridge, materialForceAt, bridgeTimes } from "../../server/model/bridge.js";
+import { toCircuit } from "../../server/model/circuit.js";
 import {
   BASE_MEM,
   CASE3_B,
@@ -30,7 +32,7 @@ function grid(min: number, max: number, step: number): number[] {
   return out;
 }
 
-describe("28 事件2 仕掛けろ", () => {
+describe("28 事件2 仕掛けろ（走行テストの対決）", () => {
   const e1s = grid(DUEL_SLIDERS.e1.min, DUEL_SLIDERS.e1.max, DUEL_SLIDERS.e1.step);
   const taus = grid(DUEL_SLIDERS.tau.min, DUEL_SLIDERS.tau.max, DUEL_SLIDERS.tau.step);
   const pass = DUEL_ROUNDS.map((r) => e1s.flatMap((e) => taus.map((t) => ({ e, t }))).filter(({ e, t }) => judgeDuel(r, duelMaterial(e, t)).cleared));
@@ -43,6 +45,41 @@ describe("28 事件2 仕掛けろ", () => {
   });
   it("見本そのままでは達成しない", () => {
     for (const r of DUEL_ROUNDS) expect(judgeDuel(r, BASE).cleared).toBe(false);
+  });
+  it("ロボの点・隠す点の値は走行テストの式（stepDents）と一致する", () => {
+    const p = duelMaterial(1.8, 2);
+    for (const r of DUEL_ROUNDS)
+      for (const c of [r.robot, r.hidden]) {
+        const d = stepCheckDiff(p, c);
+        expect(d.a).toBeCloseTo(stepDents(BASE, DUEL_PERIOD)[DUEL_STEP]![c.phase], 12);
+        expect(d.b).toBeCloseTo(stepDents(p, DUEL_PERIOD)[DUEL_STEP]![c.phase], 12);
+      }
+  });
+});
+
+describe("35 橋のスライダー", () => {
+  const rs = grid(BRIDGE_SLIDERS.r.min, BRIDGE_SLIDERS.r.max, BRIDGE_SLIDERS.r.step);
+  const cs = grid(BRIDGE_SLIDERS.c1.min, BRIDGE_SLIDERS.c1.max, BRIDGE_SLIDERS.c1.step);
+  it("Bの値をそのまま回路にすると、回路の電圧は力学の式と一致する", () => {
+    for (const { params } of representativeTruths())
+      for (const T of [0.2, 1, 5])
+        for (const t of bridgeTimes(T)) expect(circuitAt(toCircuit(params), T, t)).toBeCloseTo(materialForceAt(params, T, t), 9);
+  });
+  it("隠れた範囲の全代表値・3つの押し方で、スライダーの格子に一本に重なる組み合わせがある", () => {
+    for (const { params } of representativeTruths())
+      for (const T of [0.2, 1, 5]) {
+        const ok = rs.some((r) => cs.some((c) => judgeBridge(params, T, r, c).overlap));
+        expect(ok, JSON.stringify({ params, T })).toBe(true);
+      }
+  });
+  it("時定数だけ合わせた組み合わせ（Rを2倍・C1を半分）は重ならず、速さは合うが高さが違うと判定する", () => {
+    for (const { params } of representativeTruths()) {
+      const c = toCircuit(params);
+      const j = judgeBridge(params, 1, c.r * 2, c.c1 / 2);
+      expect(j.overlap).toBe(false);
+      expect(j.speedOk).toBe(true);
+      expect(j.heightOk).toBe(false);
+    }
   });
 });
 
