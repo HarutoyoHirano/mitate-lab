@@ -21,6 +21,6 @@ function apiPlugin(): Plugin {
 export default defineConfig({
   plugins: process.env.VITEST ? [] : [apiPlugin()],
   server: { port: 5173 },
-  build: { outDir: "dist", rollupOptions: { input: { main: "index.html", lab: "lab.html" } } },
+  build: { outDir: "dist", rollupOptions: { input: { main: "index.html", game: "game.html", lab: "lab.html" } } },
   test: { include: ["tests/**/*.test.ts"] },
 } as never);

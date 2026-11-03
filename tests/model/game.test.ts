@@ -150,12 +150,14 @@ describe("32 事件1の写真", () => {
 });
 
 describe("33 ゲーム版の画面のコードに秘密が入らない", () => {
-  it("src/game に隠れた範囲・種・真の値の参照がない", () => {
-    const dir = "src/game";
-    if (!existsSync(dir)) return;
-    for (const f of readdirSync(dir)) {
-      const t = readFileSync(`${dir}/${f}`, "utf-8");
-      expect(t).not.toMatch(/scenarios\/|hiddenRange|HIDDEN_CAUSES|\.seed\b|truth\s*:/);
+  it("src/game と src/play に隠れた範囲・種・真の値の参照がない", () => {
+    for (const dir of ["src/game", "src/play"]) {
+      if (!existsSync(dir)) continue;
+      for (const f of readdirSync(dir)) {
+        const t = readFileSync(`${dir}/${f}`, "utf-8");
+        expect(t, `${dir}/${f}`).not.toMatch(/scenarios\/|hiddenRange|HIDDEN_CAUSES|\.seed\b|truth\s*:/);
+        expect(t, `${dir}/${f}`).not.toMatch(/from\s+"[^"]*(generator|scenarios|session\/|claude\/|server\/app)[^"]*"/);
+      }
     }
   });
 });

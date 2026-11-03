@@ -1,0 +1,208 @@
+/* ミカタ・ラボ「検査ロボとの対決」：夜の検査室。相手のロボは橙、あなたは青緑、証拠は紙の色。
+   一画面の舞台（スクロールしない）。明るい表示にも対応。色だけでなく文字と形でも区別する。 */
+:root {
+  --bg: #0a0e1c;
+  --stage-1: #24305a;
+  --stage-2: #131a30;
+  --panel: #0e1428;
+  --line: #2e3a5e;
+  --ink: #eef2ff;
+  --soft: #9aa6c8;
+  --you: #4fe0d0;
+  --on-you: #06201d;
+  --bot: #ff8a3d;
+  --gold: #ffd166;
+  --stamp: #ff4d5e;
+  --chip: #26304e;
+  --paper: #f4ecd8;
+  --paper-ink: #2a2216;
+  --paper-soft: #8a5a2b;
+  --metal: #2a3458;
+  --metal-2: #222b4a;
+  --metal-edge: #56658f;
+  --screen: #0a0f1e;
+  --bone: #f6eedb;
+  --bone-edge: #a8946a;
+  --pad-a: #53607e;
+  --pad-a-edge: #9aa6c8;
+  --pad-b: #1ba597;
+  --pad-b-edge: #4fe0d0;
+  --vessel: #c94a5e;
+  --vessel-edge: #ff7d8e;
+  --heart: #d23c55;
+  --heart-edge: #ff8fa0;
+  --water: #2c6a9e;
+  --water-edge: #8cc8ff;
+  --band: rgba(255, 138, 61, 0.1);
+  --focus: #ffd166;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #dfe6f1;
+    --stage-1: #f6f8fc;
+    --stage-2: #e3e9f3;
+    --panel: #ffffff;
+    --line: #c4cee0;
+    --ink: #172038;
+    --soft: #56627e;
+    --you: #0c8f84;
+    --on-you: #ffffff;
+    --bot: #d4621a;
+    --gold: #b7791f;
+    --stamp: #d7263d;
+    --chip: #e3e9f3;
+    --metal: #c9d2e6;
+    --metal-2: #b8c3db;
+    --metal-edge: #5b6a8e;
+    --screen: #172038;
+    --pad-a: #c7cfdf;
+    --pad-a-edge: #5b6a8e;
+    --pad-b: #a5e3dc;
+    --pad-b-edge: #0c8f84;
+    --vessel: #f0a7b2;
+    --vessel-edge: #c0283f;
+    --water: #9fd0f3;
+    --water-edge: #1f6fb0;
+    --band: rgba(212, 98, 26, 0.08);
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "BIZ UDPGothic", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", sans-serif; }
+button { font: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.game { min-height: 100vh; display: grid; place-items: center; padding: 8px; }
+.screen {
+  position: relative; overflow: hidden;
+  width: min(100%, calc((100vh - 16px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 1600px;
+  border-radius: 18px; border: 2px solid var(--line);
+  background: radial-gradient(ellipse at 60% 30%, var(--stage-1) 0%, var(--stage-2) 62%, var(--bg) 100%);
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr);
+  container-type: inline-size;
+}
+.screen.shake { animation: shake 0.32s cubic-bezier(.36,.07,.19,.97) 1; }
+@keyframes shake { 20% { transform: translate(calc(var(--amp) * -1), 2px); } 40% { transform: translate(var(--amp), -2px); } 60% { transform: translate(calc(var(--amp) * -0.6), 1px); } 80% { transform: translate(calc(var(--amp) * 0.4), 0); } }
+
+/* 上：章札・いまの目的・ロボの自信・AI表示 */
+.hud { display: flex; align-items: center; gap: 1.3cqw; padding: 1cqw 1.8cqw; font-size: max(12px, 1.15cqw); }
+.chap { font-weight: 900; color: var(--gold); border: 2px solid var(--gold); border-radius: 8px; padding: 2px 10px; white-space: nowrap; background: none; cursor: pointer; }
+.goal { font-weight: 700; flex: 1; font-size: max(13px, 1.3cqw); }
+.conf { position: relative; display: flex; align-items: center; gap: 8px; color: var(--soft); white-space: nowrap; }
+.conf .bar { width: 15cqw; height: 14px; border-radius: 7px; background: var(--chip); border: 2px solid var(--metal-edge); overflow: hidden; }
+.conf .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--bot), var(--gold)); transition: width 0.7s cubic-bezier(.2,.8,.2,1); }
+.conf .dmg { position: absolute; right: 0; top: -6px; color: var(--gold); font-weight: 900; font-size: 22px; animation: dmg 1.1s ease-out forwards; }
+@keyframes dmg { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-26px); opacity: 0; } }
+.ai { border: 1.5px solid var(--you); color: var(--you); border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.mini-btn { background: none; border: 1.5px solid var(--line); color: var(--soft); border-radius: 8px; padding: 3px 9px; cursor: pointer; font-size: max(11px, 1cqw); }
+
+/* 中：舞台 */
+.stage { position: relative; width: 100%; aspect-ratio: 1280 / 480; }
+.stage > svg.st { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ov { position: absolute; }
+
+/* 下：メッセージ窓とコマンド */
+.win { margin: 0 1.6cqw 1.2cqw; min-height: 0; overflow: hidden; border-radius: 16px; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); padding: 1.1cqw 1.6cqw; display: grid; grid-template-columns: 1fr auto; gap: 1.4cqw; align-items: center; }
+.who { display: inline-block; font-size: max(11px, 1cqw); font-weight: 900; padding: 2px 10px; border-radius: 6px; margin-bottom: 0.5cqw; }
+.who.bot { background: var(--bot); color: #1a0d04; }
+.who.you { background: var(--you); color: var(--on-you); }
+.who.cl { background: #b9a6ff; color: #160d33; }
+.who.calc { background: var(--gold); color: #241a04; }
+.text { font-size: max(14px, 1.6cqw); font-weight: 700; line-height: 1.5; margin: 0; }
+.sub { font-size: max(12px, 1.1cqw); color: var(--soft); margin: 0.4cqw 0 0; }
+.cmds { display: grid; gap: 0.5cqw; min-width: 21cqw; align-content: center; }
+.cmd { font-weight: 900; font-size: max(12px, 1.25cqw); padding: 0.4cqw 1.4cqw; border-radius: 12px; border: 3px solid var(--you); background: color-mix(in srgb, var(--you) 12%, var(--panel)); color: var(--you); text-align: left; cursor: pointer; transition: transform 0.06s; }
+.cmds.many .cmd small { display: none; }
+.cmd small { display: block; font-size: max(10px, 0.9cqw); font-weight: 700; opacity: 0.85; }
+.cmd.hot { background: var(--you); color: var(--on-you); box-shadow: 0 0 0 5px color-mix(in srgb, var(--you) 25%, transparent); }
+.cmd:active { transform: translateY(2px) scale(0.98); }
+.cmd:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.cmd.ghost { border-color: var(--line); color: var(--soft); background: transparent; }
+.choices { display: flex; gap: 0.8cqw; flex-wrap: wrap; margin-top: 0.6cqw; }
+.choice { border: 2px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 10px; padding: 0.4cqw 1.1cqw; font-weight: 800; cursor: pointer; font-size: max(12px, 1.2cqw); }
+.choice.on { border-color: var(--gold); color: var(--gold); }
+.words { display: flex; gap: 8px; margin-top: 0.6cqw; }
+.words input { flex: 1; padding: 0.5cqw 0.8cqw; border-radius: 10px; border: 2px solid var(--line); background: var(--chip); color: var(--ink); font: inherit; font-size: max(13px, 1.2cqw); }
+
+/* 舞台の部品 */
+.note.hit { cursor: pointer; }
+.tempo { position: absolute; left: 80%; top: 22%; display: grid; gap: 0.5cqw; width: 17%; }
+.tempo button { border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 0.4cqw; font-weight: 800; cursor: pointer; font-size: max(11px, 1.1cqw); }
+.tempo button.on { border-color: var(--bot); color: var(--bot); }
+.drum { width: 8.5cqw; height: 8.5cqw; border-radius: 50%; border: 0.6cqw solid var(--bot); background: var(--panel); color: var(--gold); font-weight: 900; font-size: max(12px, 1.3cqw); cursor: pointer; justify-self: center; box-shadow: 0 0 0 0.8cqw color-mix(in srgb, var(--bot) 18%, transparent); }
+.drum:active { transform: scale(0.92); background: var(--bot); color: #1a0d04; }
+.tray { position: absolute; left: 2%; top: 4%; width: 34%; display: grid; gap: 0.8cqw; grid-template-columns: 1fr 1fr; }
+.card-ev { background: var(--paper); color: var(--paper-ink); border-radius: 10px; padding: 0.7cqw 0.9cqw; border: 3px solid transparent; cursor: pointer; text-align: left; font-size: max(11px, 1.05cqw); }
+.card-ev strong { display: block; font-size: max(12px, 1.2cqw); }
+.card-ev.on { border-color: var(--you); transform: rotate(-2deg) scale(1.04); box-shadow: 0 8px 20px rgba(0,0,0,.35); }
+.card-ev .big { color: #c2261d; font-weight: 900; font-size: max(14px, 1.6cqw); }
+.card-ev.dim { opacity: 0.7; }
+.lineup { position: absolute; left: 2%; right: 2%; top: 2%; bottom: 2%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; }
+.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
+.ghost .puck { width: 70%; margin: 0 auto; display: block; }
+.ghost .gname { font-weight: 900; font-size: max(12px, 1.2cqw); color: var(--c); }
+.ghost .mini { width: 100%; height: auto; background: var(--panel); border-radius: 8px; align-self: center; }
+.ghost .tag { justify-self: center; font-weight: 900; font-size: max(13px, 1.4cqw); border: 3px solid var(--soft); color: var(--soft); border-radius: 8px; padding: 0 1cqw; transform: rotate(-4deg); }
+.ghost .tag.match { border-color: var(--you); color: var(--you); }
+.ghost .tag.out { border-color: var(--stamp); color: var(--stamp); }
+.ghost .tag.unsure { border-color: var(--gold); color: var(--gold); }
+.ghost .res { position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%) rotate(-10deg); font-weight: 900; font-size: max(13px, 1.5cqw); padding: 0.2cqw 0.8cqw; border-radius: 8px; background: var(--panel); border: 3px solid var(--stamp); color: var(--stamp); white-space: nowrap; }
+.ghost .res.back { border-color: var(--gold); color: var(--gold); }
+.ghost .res.win { border-color: var(--you); color: var(--you); }
+.ghost.broken { opacity: 0.55; cursor: default; }
+.ghost.summoned { border-style: solid; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent); }
+.puck.broken .shard { transform-box: fill-box; transform-origin: center; animation: shard 0.5s ease-out both; }
+@keyframes shard { from { transform: translateY(-24px) scale(1.5) rotate(40deg); opacity: 1; } }
+.knobs { position: absolute; display: grid; gap: 0.8cqw; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 2px solid var(--line); border-radius: 14px; padding: 1cqw 1.2cqw; }
+.knobs label { display: grid; gap: 0.2cqw; font-weight: 800; font-size: max(11px, 1.05cqw); }
+.knobs label span { display: flex; justify-content: space-between; }
+.knobs strong { color: var(--gold); font-variant-numeric: tabular-nums; }
+.knobs input[type="range"] { width: 100%; accent-color: var(--you); }
+.meters { position: absolute; display: grid; gap: 0.7cqw; }
+.meter { background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); border-radius: 12px; padding: 0.6cqw 0.9cqw; font-size: max(11px, 1.05cqw); }
+.meter.ok { border-color: var(--you); }
+.meter b { display: block; font-size: max(12px, 1.15cqw); }
+.meter .track { position: relative; height: 1.2cqw; min-height: 10px; border-radius: 6px; background: var(--chip); margin: 0.4cqw 0; overflow: hidden; }
+.meter .track i { position: absolute; top: 0; bottom: 0; border-radius: 6px; }
+.meter .track .zone { background: color-mix(in srgb, var(--you) 35%, transparent); }
+.meter .track .zone.hide { background: color-mix(in srgb, var(--bot) 35%, transparent); }
+.meter .track .needle { width: 4px; background: var(--ink); }
+.meter .nums { color: var(--soft); font-variant-numeric: tabular-nums; }
+.scrub { position: absolute; display: flex; gap: 0.8cqw; align-items: center; font-size: max(11px, 1.05cqw); font-weight: 800; }
+.scrub input { width: 22cqw; accent-color: var(--gold); }
+.scrub button { border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 0.3cqw 0.8cqw; cursor: pointer; font-weight: 800; }
+.photos { position: absolute; display: flex; gap: 0.6cqw; flex-wrap: wrap; }
+.photo { background: var(--paper); color: var(--paper-ink); border-radius: 8px; padding: 0.4cqw 0.7cqw; font-size: max(10px, 0.95cqw); transform: rotate(-2deg); border: 3px solid transparent; }
+.photo.ok { border-color: var(--stamp); }
+
+/* ハンコ（一瞬止めてから押す） */
+.stamp-fx { white-space: nowrap; position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) rotate(-8deg); font-weight: 900; font-size: 7cqw; letter-spacing: 0.08em; color: var(--stamp); border: 0.8cqw solid var(--stamp); border-radius: 18px; padding: 0.4cqw 2.2cqw; background: color-mix(in srgb, var(--panel) 70%, transparent); z-index: 20; animation: slam 0.28s cubic-bezier(.2,1.6,.4,1) both; pointer-events: none; }
+.stamp-fx.win { color: var(--you); border-color: var(--you); }
+.stamp-fx.miss { color: var(--soft); border-color: var(--soft); font-size: 4cqw; }
+.stamp-fx.out { animation: fade 0.25s ease-in forwards; }
+@keyframes slam { from { transform: translate(-50%, -50%) rotate(-8deg) scale(2.6); opacity: 0; } }
+@keyframes fade { to { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(0.9); } }
+.robot.shock { animation: jolt 0.4s 1; transform-box: fill-box; }
+@keyframes jolt { 30% { transform: translateX(-8px); } 60% { transform: translateX(6px); } }
+.pop { animation: pop 0.35s cubic-bezier(.2,1.6,.4,1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes pop { from { transform: scale(2.2); opacity: 0; } }
+
+/* 開いたときだけ出す欄 */
+.panel-back { position: absolute; inset: 0; background: rgba(5, 8, 18, 0.6); z-index: 30; display: grid; place-items: center; }
+.panel { background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 1.6cqw 2cqw; width: min(92%, 60cqw); max-height: 86%; overflow: auto; font-size: max(13px, 1.2cqw); }
+.panel h2 { margin: 0 0 0.8cqw; font-size: max(16px, 1.6cqw); }
+.panel table { border-collapse: collapse; width: 100%; }
+.panel th, .panel td { text-align: left; padding: 0.4cqw 0.6cqw; border-bottom: 1px solid var(--line); vertical-align: top; }
+.panel .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1cqw; flex-wrap: wrap; }
+.panel input, .panel select { font: inherit; padding: 3px 6px; background: var(--chip); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+.panel pre { white-space: pre-wrap; background: var(--chip); border-radius: 8px; padding: 0.8cqw; }
+
+@media (max-width: 760px) {
+  .screen { aspect-ratio: auto; width: 100%; min-height: calc(100vh - 16px); }
+  .win { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen.shake, .stamp-fx, .robot.shock, .pop, .puck.broken .shard, .conf .dmg { animation: none !important; }
+  .conf .bar i { transition: none; }
+}
