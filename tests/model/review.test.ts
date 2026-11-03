@@ -57,8 +57,10 @@ describe("テスト16：答え合わせと第2幕の言葉の向きが、真の�
       expect(s.summary).not.toContain(`Aより${no}`);
     }
     // 第2幕の接続：遅い↔通りにくい、速い↔通りやすい
-    expect(STORY.relaxSlow.membrane).toContain("通りにくい");
-    expect(STORY.relaxFast.membrane).toContain("通りやすい");
+    expect(STORY.relaxSlow.membraneLink).toContain("通りにくい");
+    expect(STORY.relaxFast.membraneLink).toContain("通りやすい");
+    // 問いに答える前の文には、答え（通りやすさと戻る速さの向き）を書かない
+    for (const k of Object.keys(STORY) as (keyof typeof STORY)[]) expect(STORY[k].membrane).not.toMatch(/通りやすい膜|通りにくい膜|時定数が(長|短)/);
     expect(STORY.relaxFast.summary).not.toContain("時間がかかる");
     // 回路：上乗せのかたさが大きい↔C1が小さい（C1=1/E1）
     expect(STORY.instantUp.circuit).toContain("C1 がAより小さく");

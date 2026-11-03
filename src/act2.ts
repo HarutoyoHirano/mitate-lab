@@ -53,7 +53,7 @@ export function circuitSvg(lens: Lens): string {
         ? ""
         : `<path d="M160 28 V52 M170 28 V52" stroke="var(--ink)" stroke-width="3"/>
     <path d="M170 40 H300" stroke="var(--ink)" stroke-width="2"/>
-    <text x="118" y="20" font-size="13" fill="var(--overall)">コンデンサ C∞（待ったあとも残るかたさ）</text>`
+    <text x="100" y="20" font-size="13" fill="var(--overall)">コンデンサ C∞ ＝ 1÷（待ったあとも残るかたさ）</text>`
     }
     <path d="M300 40 V80" stroke="var(--ink)" stroke-width="2"/>
     <circle cx="300" cy="80" r="3.5" fill="var(--ink)"/>
@@ -73,8 +73,8 @@ export function circuitSvg(lens: Lens): string {
     <circle cx="440" cy="80" r="3.5" fill="var(--ink)"/>
     <!-- 右の節点 → 戻り線 → 入口へ（上の線とは交わらない） -->
     <path d="M440 80 H480 V210 H50 V145" stroke="var(--ink)" stroke-width="2" fill="none"/>
-    ${lab(306, 112, m ? "" : "C1（上乗せのかたさ）", "膜（電荷をためる）")}
-    ${lab(306, 182, "抵抗 R（ねばり）", "イオンの通りにくさ")}
+    ${lab(306, 112, m ? "" : "C1＝1÷上乗せのかたさ", "膜（電荷をためる）")}
+    ${lab(306, 182, "R＝上乗せのかたさ×τ", "イオンの通りにくさ")}
     ${m ? `<text x="60" y="238" font-size="12" fill="var(--ink-soft)">電池＝イオンの濃さの差がつくる基準の電位</text>` : `<text x="60" y="238" font-size="12" fill="var(--ink-soft)">点線の中＝上乗せ分（時定数＝R×C1）</text>`}
   </svg>`;
 }

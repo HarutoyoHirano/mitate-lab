@@ -18,8 +18,8 @@ const DIR_WORD: Record<Exclude<PredictionChoice, "unknown">, string> = { same: "
 /** この説明が正しければ、曲線のどこがどう違うか */
 const LOOKS: Record<CandidateId, string> = {
   overall: "20秒待ったあとも、Aの線とずれたまま",
-  instant: "押した直後の高さが違う。抜けていく速さはAと同じで、待つと重なる",
-  relax: "押し返しが抜けるのにかかる時間が違う。抜けきると重なる",
+  instant: "押し終わりの高さが違う。上乗せ分が半分になるまでの時間はAと同じで、待つと重なる",
+  relax: "上乗せ分が半分になるまでの時間が違う（そのため押し終わりの高さも変わりうる）。待つと重なる",
   same: "どの押し方でも、Aの線と重なる",
 };
 
@@ -145,12 +145,12 @@ function renderStart(): string {
       <p class="kicker">見方を変える実験室</p>
       <h1>同じに見える。<br>でも、測り方を変えると違う。</h1>
       <div class="body-hook">
-        <p class="hook-q">まず、見本Aを押して、そのまま止めてみよう。</p>
+        <p class="hook-q">まず、見本Aを押し込んで、離さずにその深さで止めてみよう。</p>
         ${
           state.hookDone
             ? `<p><strong>棒は同じ深さで止まったまま。なのに、押し返す力は ${a0.toFixed(2)} から ${forceAfterPush(BASE, 1, 20).toFixed(2)} へ下がりました。</strong></p>
-               <p class="note">深さは固定、測っているのは押し返す力。この素材には「時間とともに押し返しがやわらぐ」性質があります。医療の計測も、押し方や測る瞬間を工夫して、こうした見えない性質を確かめています。</p>`
-            : `<div class="actions"><button class="btn" data-act="hook" ${state.animating ? "disabled" : ""}>Aを押して、止める</button></div>`
+               <p class="note">深さは固定、測っているのは押し返す力。この素材には「時間とともに押し返しがやわらぐ」性質があります。医療の計測でも、いつ・どう測るかで見える性質が変わることがあります。</p>`
+            : `<div class="actions"><button class="btn" data-act="hook" ${state.animating ? "disabled" : ""}>Aを押し込んで、深さを保つ</button></div>`
         }
       </div>
       <p>ミカタ・ラボでは、性質が分かっている<strong>見本A</strong>と、調べたい<strong>試料B</strong>を比べます。</p>
@@ -187,7 +187,7 @@ function renderIntro(): string {
     <div class="pane bench-pane bench">${benchSvg("B", state.press, state.flash)}</div>
     <div class="intro-side">
       <p class="clock">${state.clock || "いつもの検査：ふつう（1秒）に押して、20秒後の値を測る"}</p>
-      <p class="note">いつもの検査は、Bの20秒後の値を<strong>見本Aの基準値</strong>と比べ、差が<strong>判定の許容差（±${r.tolerance}）</strong>以内なら「見本と区別できない」と判定します。測定には ±${v.error} の誤差がつきます（許容差とは別）。</p>
+      <p class="note">いつもの検査は、Bの20秒後の値を、見本Aの<strong>あらかじめ分かっている値</strong>（基準カードの値。Aは測らない）と比べます。差が ±${r.tolerance} 以内なら「見本と区別できない」とする――これが<strong>検査の決まり（判定の許容差）</strong>です。それとは別に、測るたびに値は最大 ±${v.error} ぶれます（<strong>測定の誤差</strong>）。</p>
       <div class="twin">
         <div class="meter ghost"><span class="tag">見本 A（基準カードの値）</span><strong>${r.base.toFixed(3)}</strong></div>
         <div class="meter"><span class="tag">試料 B（測定）</span><strong>${state.introDone ? r.force.toFixed(3) : "—"}</strong></div>
@@ -305,7 +305,7 @@ function pickBoard(bv: PublicSessionView, c: CurveView): string {
       .join("")}</ul>
     ${bv.candidates.some((x) => x.status === "inconsistent") ? `<p class="note">前の曲線で合わなくなった説明：${candList(bv.candidates.filter((x) => x.status === "inconsistent").map((x) => x.id))}</p>` : ""}
     <div class="actions">
-      <button class="btn go" data-act="submit-pick" data-id="${c.id}" ${state.busy ? "disabled" : ""}>${state.pickDraft.length ? "これで検算する" : "どれも合っている、で検算する"}</button>
+      <button class="btn go" data-act="submit-pick" data-id="${c.id}" ${state.busy ? "disabled" : ""}>${state.pickDraft.length ? "これで検算する" : "合わなくなった説明はない、で検算する"}</button>
       <button class="btn ghost small" data-act="pick-unsure" data-id="${c.id}" ${state.busy ? "disabled" : ""}>分からない</button>
     </div>`;
 }
@@ -335,7 +335,7 @@ function judgedBoard(bv: PublicSessionView): string {
         return `<li class="cand ${x.status} ${narrowed && bv.narrowedTo === x.id ? "decided" : ""} ${mine ? "mine" : ""}">
           <span class="swatch" style="background:${CAND_COLOR[x.id]}"></span>
           <span class="name">${x.label}<span class="looks">${LOOKS[x.id]}</span>${mine ? `<span class="mine-tag">あなたの説明</span>` : ""}</span>
-          <span class="st">${x.statusLabel}</span>${stamp}</li>`;
+          <span class="st">${x.statusLabel}${x.status === "inconsistent" ? "（＝合わない）" : ""}</span>${stamp}</li>`;
       })
       .join("")}</ul>
     <p class="overall ${bv.overall}">${narrowed ? "決着！ " : ""}${bv.overallLabel}</p>
@@ -433,7 +433,7 @@ function renderDebrief(): string {
           <span><svg width="18" height="16"><circle cx="9" cy="8" r="6" fill="#fff" stroke="var(--claude)" stroke-width="3"/></svg>あなたが測ったB</span>
           <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--relax)" stroke-width="2.5" stroke-dasharray="2 4"/></svg>Bの正体の値で計算した線（終わったので開示）</span>
         </div>
-        <p class="note">とても速く押した極限では、押した直後のかたさは E∞＋E1 になります。実際に時間をかけて押すと、押している間にも上乗せ分がやわらぐので、押し終わりの力は押す速さで変わります（Aでは、ふつう ${forceAfterPush(BASE, 1, 0).toFixed(2)}、すばやく ${forceAfterPush(BASE, 0.2, 0).toFixed(2)}）。</p>
+        <p class="note">もし一瞬で押し込めたら（実際にはできない理想の場合）、押し終わりの力は E∞＋E1（Aなら 1＋1＝2）になります。実際は押している間にも上乗せ分がやわらぐので2より小さくなり、押す速さで変わります（Aでは、ふつう ${forceAfterPush(BASE, 1, 0).toFixed(2)}、すばやく ${forceAfterPush(BASE, 0.2, 0).toFixed(2)}）。深さを1にしているので、かたさと力は同じ数字になります。</p>
       </div>
       <div class="pane">
         <h2>あなたの決め手</h2>
@@ -535,7 +535,7 @@ function renderAct2(): string {
         ? `<div class="two carry">
         <div class="pane">${carrySvg(d.truth)}
           <div class="legend">
-            <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--claude)" stroke-width="4"/></svg>Bの押し返す力（ふつうに押す）</span>
+            <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--claude)" stroke-width="4"/></svg>Bの押し返す力（ふつうに押す。開示した値で計算、誤差なし）</span>
             <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="#fff" stroke="var(--ink)" stroke-width="2"/></svg>回路の電圧（一定の電流を1秒流して止める）</span>
             <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--relax)" stroke-width="2"/></svg>点線の中（C1とR）の電圧＝上乗せ分</span>
             <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="6 4"/></svg>見本A</span>
@@ -544,6 +544,7 @@ function renderAct2(): string {
         <div>
           <p class="lead"><strong>力の線と、電圧の丸が一本に重なります。</strong>変形↔電荷、押す速さ↔電流、押し返す力↔電圧と読みかえると、Bと同じ式になる回路が作れるからです。</p>
           <p>${story.circuit}</p>
+          <p class="note"><strong>時定数</strong>（じていすう）＝変化が元の約37%まで戻るのにかかる時間の目安。第1幕の「上乗せ分がやわらぐ時間 τ」と同じもので、回路では R×C1 で決まります。</p>
           <p class="caution">素材の中に回路があるわけではありません（式の形が同じだけ）。値は答え合わせで開示したBの値から計算しています。</p>
         </div>
       </div>`
@@ -556,19 +557,19 @@ function renderAct2(): string {
     <div class="${state.lensFlip ? "flip" : ""}">${circuitSvg(state.lens)}</div>
     <p class="caution">細胞の膜では、電荷がたまりイオンが動くという電気の現象が実際に起きていて、その性質を回路で表します。イオンの移動（化学）が電流（電気）になり、膜の電位を変えます。ここではイオンの通りやすさが一定の「受け身の膜」だけを扱います。値は計算値です（誤差は付けていません）。</p>
     <p class="lead">${story ? story.membrane : ""}</p>
-    <h2 class="q">イオンが通りやすくなると、電流を止めた後、もとの電位へ戻るのは速くなる？ 遅くなる？</h2>
+    <h2 class="q">イオンが通りやすくなると、電流を止めた後（第1幕の押し終わりにあたる）、基準の電位（静止電位にあたる）へ戻るのは速くなる？ 遅くなる？</h2>
     <div class="two">
       <div>
         <div class="field-label">まず予想</div>
         <div class="seg">${(["faster", "same", "slower"] as Act2Guess[]).map((g) => `<button data-set="act2guess" data-val="${g}" aria-pressed="${state.act2Guess === g}">${GUESS_LABEL[g]}</button>`).join("")}</div>
         <div class="actions" style="margin:8px 0"><button class="btn ghost small" data-act="act2-save" ${!state.act2Guess ? "disabled" : ""}>予想を保存</button>${state.act2Saved ? `<span class="note">保存：「${GUESS_LABEL[state.act2Guess!]}」</span>` : ""}</div>
-        <div class="field-label">イオンの通りやすさ <span class="note">（通りやすい＝抵抗が小さい。膜の容量はそのまま）</span></div>
+        <div class="field-label">イオンの通りやすさ <span class="note">（通りやすい＝抵抗が小さい。膜が電荷をためる量（容量）はそのまま）</span></div>
         <div class="seg">${(["easier", "same", "harder"] as Permeability[]).map((p) => `<button data-set="perm" data-val="${p}" aria-pressed="${state.perm === p}">${PERM_LABEL[p]}</button>`).join("")}</div>
         <div class="actions" style="margin-top:8px"><button class="btn go" data-act="act2-run" ${!state.act2Saved ? "disabled" : ""}>電流を入れて、止める</button></div>
         <ul class="runs">${runs.map((r) => `<li style="border-color:${RUN_COLORS[r.perm]}">${PERM_LABEL[r.perm]}<br><strong>半分に戻るまで ${(r.half ?? 0).toFixed(2)}</strong>（止めた時の差 ${r.deltaAtStop.toFixed(2)}）</li>`).join("")}</ul>
         ${
           answer
-            ? `<p class="result ${hit ? "hit" : "miss"}"><strong>${hit ? "予想どおり！" : "予想が外れた！"}　通りやすくすると、戻るのは${GUESS_LABEL[answer]}</strong><span>「そのまま」と「通りやすくする」を比べた結果です。通りやすいほど時定数（抵抗×容量）が短く、速く戻ります。</span></p>`
+            ? `<p class="result ${hit ? "hit" : "miss"}"><strong>${hit ? "予想どおり！" : "予想が外れた！"}　通りやすくすると、戻るのは${GUESS_LABEL[answer]}</strong><span>「そのまま」と「通りやすくする」を比べた結果です。通りやすいほど時定数（抵抗×容量）が短く、速く戻ります。${story ? story.membraneLink : ""}</span></p>`
             : runs.length
               ? `<p class="note">「そのまま」と「通りやすくする」の両方を試すと、問いに答えられます。</p>`
               : ""
@@ -586,7 +587,7 @@ function renderAct2(): string {
 function thoughtBlock(): string {
   const g = state.thoughtGuess;
   return `<section class="thought pane">
-    <p>通りやすくすると速く戻り、通りにくくするとゆっくり戻りました。では、抵抗をゼロよりさらに下、マイナスにしたら、止めた後はどうなるだろう？</p>
+    <p>通りやすくすると速く戻りました（通りにくくすると、ゆっくり戻ります）。では、抵抗をゼロよりさらに下、マイナスにしたら、止めた後はどうなるだろう？</p>
     <div class="two">
       <div>
         <div class="field-label">予想</div>
@@ -595,10 +596,10 @@ function thoughtBlock(): string {
         ${
           state.thoughtShown
             ? `<div class="result ${g === "noReturn" ? "hit" : "miss"} fresh"><strong>${g === "noReturn" ? "予想どおり！ 戻らない" : "予想が外れた！ 戻らずに離れていく"}</strong>
-              <span>マイナスの抵抗では、止めた後に基準へ戻らず、差がどんどん大きくなります（跳ね上がる）。</span></div>
+              <span>マイナスの抵抗では、止めた後に基準の電位へ戻らず、差がどんどん大きくなります（跳ね上がる）。</span></div>
               <div class="reveal-box">
                 <p><strong>ありえない？</strong> ふつうの抵抗器や素材は、ひとりでにマイナスにはなりません。エネルギーが湧いて出ることになるからです。</p>
-                <p><strong>でも、似たことが体の中で起きている。</strong> 神経の膜では、電位が少し上がるとナトリウムの通り道が開き、電位がさらに上がります（正のフィードバック）。この思考実験は、その<strong>跳ね上がりの始まりだけ</strong>を直線で近づけたものです。マイナスなのは「電圧が少し上がったときの電流の変わり方（傾き）」で、部品の抵抗値そのものではありません。</p>
+                <p><strong>でも、似たことが体の中で起きている。</strong> 神経の膜では、電位がある高さ（しきい値）を超えて上がると、ナトリウムの通り道が開いてイオンが流れ込み、電位がさらに上がります（正のフィードバック）。これが、神経が信号を伝えるときの電位の跳ね上がり（活動電位）の始まりです。しきい値に届かない小さな上がり方なら、さっきの受け身の膜のように戻ります。この思考実験は、その<strong>跳ね上がりの始まりだけ</strong>を直線で近づけたものです。マイナスなのは「電圧と電流のグラフの傾き」（電圧が少し上がったときの電流の変わり方）で、部品の抵抗値そのものではありません。</p>
                 <p><strong>エネルギーはどこから？</strong> ポンプがイオンを運んで保っている「イオンの濃さの差」（化学）が、跳ね上がりのエネルギー源です。</p>
                 <p class="note">実際の神経では、通り道が電位と時間によって開き閉じするので、跳ね上がりはやがて止まり、元に戻ります。この模型にはその仕組みがありません。活動電位そのものを再現したものではありません。</p>
               </div>`
@@ -642,17 +643,17 @@ function discovery(): { label: string; value: string }[] {
     { label: "変えたこと", value: speeds.length ? `押す速さ：${speeds.map(speedName).join("、")}` : "押す速さ（曲線は測らなかった）" },
     {
       label: "決め手の記録",
-      value: keys.length ? keys.map((c) => `${speedName(c.pushSeconds)}押した曲線 → ${candList(c.excluded)}が合わなくなった`).join("／") : "説明を退けた曲線はなかった",
+      value: keys.length ? keys.map((c) => `${speedName(c.pushSeconds)}押した曲線 → ${candList(c.excluded)}が合わなくなった`).join("；") : "説明を退けた曲線はなかった",
     },
     {
       label: "あなたの判断と検算",
       value: picks.length
-        ? picks.map((c) => `${speedName(c.pushSeconds)}：あなた${candList(c.studentPick as CandidateId[]) || "「合わない説明はない」"}／判定${candList(c.excluded) || "「合わない説明はない」"}`).join("／")
+        ? picks.map((c) => `${speedName(c.pushSeconds)}：あなた＝${candList(c.studentPick as CandidateId[]) || "「合わない説明はない」"}、判定＝${candList(c.excluded) || "「合わない説明はない」"}`).join("；")
         : "（自分で選んだ曲線はなし）",
     },
     { label: "Bの正体", value: d ? d.explanation : "—" },
     { label: "回路での対応", value: d ? storyFor(d.truth, d.base).circuit : "—" },
-    { label: "まだ言えないこと", value: "これは公開したモデル・範囲・誤差を前提にした判定。実物の材質や体の組織を、このモデルだけで決めたわけではない" },
+    { label: "まだ言えないこと", value: "これは、この教材が決めた式・値の範囲・誤差の決まりを前提にした判定。実物の材質や体の組織を、このモデルだけで決めたわけではない" },
   ];
 }
 
