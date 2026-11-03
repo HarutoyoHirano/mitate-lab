@@ -340,3 +340,5 @@ details.spring summary { cursor: pointer; font-weight: 700; font-size: 14px; }
 .gtab.on { border-color: var(--claude); background: var(--claude-soft, #eef0fb); box-shadow: inset 0 -3px 0 var(--claude); }
 .gtab:disabled { cursor: default; }
 .rec-grid { grid-template-columns: 1fr 1.1fr; align-items: start; }
+.sub-brand { font-size: 12px; color: var(--ink-soft); font-weight: 400; margin-left: 4px; }
+.to-game { font-size: 12.5px; margin-left: 8px; color: var(--claude); }

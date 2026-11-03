@@ -115,7 +115,7 @@ const STEPS: { id: Phase[]; label: string }[] = [
 function topbar(): string {
   const cur = STEPS.findIndex((s) => s.id.includes(state.phase));
   return `<header class="topbar">
-    <div class="brand">ミカタ・ラボ</div>
+    <div class="brand">ミカタ・ラボ <span class="sub-brand">詳しい実験室</span> <a class="to-game" href="./">ゲーム版へ</a></div>
     ${state.phase === "start" ? `<div class="spacer"></div>` : `<ol class="steps">${STEPS.map((s, i) => `<li class="${i < cur ? "done" : i === cur ? "now" : ""}"><span>${i + 1}</span>${s.label}</li>`).join("")}</ol>`}
     <span class="ai-badge ${state.claude ? "" : "off"}">${state.claude ? "Claude（AI）が相棒として参加中" : "Claude（AI）は休止中：定型のヒントで進めます"}</span>
   </header>`;
