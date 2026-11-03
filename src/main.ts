@@ -7,6 +7,7 @@ import { act2Answer, act2GraphSvg, carrySvg, circuitSvg, GUESS_LABEL, PERM_LABEL
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "./api.js";
 import { benchSvg, CAND_COLOR, SPEED_LABEL } from "./draw.js";
 import { curveGraphSvg, HOLD_MAX, makeGraphSvg, makeYMax, shapeThumb } from "./curve.js";
+import { fitToEnd, predictedCurve } from "../server/model/fit.js";
 import { decisiveNote, storyFor } from "./story.js";
 
 type Phase = "start" | "intro" | "lab" | "debrief" | "make" | "act2" | "reflect" | "done";
@@ -36,6 +37,8 @@ const state = {
   /** Claudeが参照した記録を強調する */
   highlight: null as { curveId: string; times: number[] } | null,
   hookDone: false,
+  /** 「この説明で重ねてみる」で重ねている候補 */
+  overlay: null as CandidateId | null,
   hookArrow: NaN,
   reason: "",
   busy: false,
@@ -145,7 +148,7 @@ function renderStart(): string {
       <p class="kicker">見方を変える実験室</p>
       <h1>同じに見える。<br>でも、測り方を変えると違う。</h1>
       <div class="body-hook">
-        <p class="hook-q">まず、見本Aを押し込んで、離さずにその深さで止めてみよう。</p>
+        <p class="hook-q">ゲルのような軟らかい試験片を、試験機で押し込み、その深さで止めます。押し返す力も同じままでしょうか？</p>
         ${
           state.hookDone
             ? `<p><strong>棒は同じ深さで止まったまま。なのに、押し返す力は ${a0.toFixed(2)} から ${forceAfterPush(BASE, 1, 20).toFixed(2)} へ下がりました。</strong></p>
@@ -161,7 +164,7 @@ function renderStart(): string {
         <li><strong>見方をつなぐ</strong>：調べたBを電気回路に置きかえ、細胞の膜の言葉で言い直す</li>
       </ol>
       <div class="actions"><button class="btn big" data-act="start">実験を始める</button></div>
-      <p class="note">素材は計算で作った仮想の素材です（Aが落ち着いた力を1とする）。実在の物質や体の組織、医療機器を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
+      <p class="note">試験片は計算で作った仮想の素材です（Aが落ち着いた力を1とする）。実在の材料や体の組織、試験機を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
       <details><summary>先生用の設定</summary>
         <div class="teacher">
           <label>合言葉<input type="password" id="t-pass" autocomplete="off"></label>
@@ -175,7 +178,7 @@ function renderStart(): string {
       ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
     </div>
     <div class="pane bench-pane bench hero-bench">${benchSvg("A", state.press, false, Number.isFinite(state.hookArrow) ? { a: state.hookArrow, b: NaN } : null)}
-      <p class="bench-cap">${state.clock || "<strong>A＝見本</strong>（性質が分かっている）　<strong>B＝試料</strong>（調べたい）"}</p></div>
+      <p class="bench-cap">${state.clock || "試験機：押し板で試験片を押し込み、力センサで押し返す力を測る。<br><strong>A＝見本</strong>（性質が分かっている）　<strong>B＝試料</strong>（調べたい）。見た目はそっくり"}</p></div>
   </section></main>`;
 }
 
@@ -184,7 +187,7 @@ function renderIntro(): string {
   const v = state.view!;
   const r = v.intro;
   return `${topbar()}<main class="wrap">${missionBar()}<section class="intro">
-    <div class="pane bench-pane bench">${benchSvg("B", state.press, state.flash)}</div>
+    <div class="pane bench-pane bench">${benchSvg("B", state.press, state.flash, { a: NaN, b: state.introDone ? r.force : NaN })}</div>
     <div class="intro-side">
       <p class="clock">${state.clock || "いつもの検査：ふつう（1秒）に押して、20秒後の値を測る"}</p>
       <p class="note">いつもの検査は、Bの20秒後の値を、見本Aの<strong>あらかじめ分かっている値</strong>（基準カードの値。Aは測らない）と比べます。差が ±${r.tolerance} 以内なら「見本と区別できない」とする――これが<strong>検査の決まり（判定の許容差）</strong>です。それとは別に、測るたびに値は最大 ±${v.error} ぶれます（<strong>測定の誤差</strong>）。</p>
@@ -262,7 +265,8 @@ function renderLab(): string {
     <div class="pane graph-pane">
       <div class="graph-head"><h2>${curve ? `${speedName(curve.pushSeconds)}押したときの押し返し` : "押し返しの変化（曲線）"}</h2><span class="count">押した回数 ${v.curves.length}</span></div>
       ${resultBanner(curve)}
-      ${curveGraphSvg({ pushSeconds: T, b: curve ? curve.b : null, until, yMax, big: true, error: v.error, highlight: hl })}
+      ${curveGraphSvg({ pushSeconds: T, b: curve ? curve.b : null, until, yMax, big: true, error: v.error, highlight: hl, overlay: overlayFor(curve) ?? undefined })}
+      ${overlayNote(curve)}
       <div class="legend">
         <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--ink-soft)" stroke-width="2.5" stroke-dasharray="6 4"/></svg>見本A（基準カードの線）</span>
         <span><svg width="18" height="16"><circle cx="9" cy="8" r="6" fill="#fff" stroke="var(--claude)" stroke-width="3"/></svg>試料B：判定に使う記録（縦線は誤差 ±${v.error}）</span>
@@ -288,10 +292,50 @@ function renderLab(): string {
   </section></main>`;
 }
 
+/** 重ねる候補の予測線（押し終わりの測定値に合わせる。公開モデルと証拠だけ） */
+function overlayFit(c: CurveView | null) {
+  if (!c || !state.overlay || state.animating) return null;
+  const end = state.view!.records.find((r) => r.id === `${c.id}@0`);
+  if (!end) return null;
+  return fitToEnd(state.overlay, c.pushSeconds, end.force);
+}
+
+function overlayFor(c: CurveView | null) {
+  const fit = overlayFit(c);
+  if (!fit || !c) return null;
+  return { points: predictedCurve(fit.params, c.pushSeconds), color: CAND_COLOR[fit.candidate] };
+}
+
+function overlayNote(c: CurveView | null): string {
+  const fit = overlayFit(c);
+  if (!fit || !c) return "";
+  const v = state.view!;
+  const at = (h: number) => v.records.find((r) => r.id === `${c.id}@${h}`)!;
+  const pred = (h: number) => forceAfterPush(fit.params, c.pushSeconds, h);
+  const rows = [0, 2, 20].map((h) => `<tr><td>${h === 0 ? "押し終わり" : `${h}秒後`}</td><td>${pred(h).toFixed(2)}</td><td>${at(h).force.toFixed(2)}</td></tr>`).join("");
+  const head =
+    fit.candidate === "same"
+      ? "「違いはない」なら、Bは見本Aの線（点線）と重なるはず。"
+      : fit.matched
+        ? `「${CANDIDATES[fit.candidate].label}」で、押し終わりの高さを合わせた線です。高さは合った。でも途中は？`
+        : `「${CANDIDATES[fit.candidate].label}」では、決められた範囲の中で動かしても、押し終わりの高さに届きません（いちばん近い線を表示）。`;
+  return `<div class="overlay-note" style="border-color:${CAND_COLOR[fit.candidate]}">
+    <p>${head}</p>
+    <table><tr><th></th><th>この説明の線</th><th>測ったB</th></tr>${rows}</table>
+    <button class="btn ghost small" data-act="overlay" data-id="">重ねた線を消す</button>
+  </div>`;
+}
+
+function overlayButton(id: CandidateId): string {
+  if (!shownCurve()) return "";
+  const on = state.overlay === id;
+  return `<button class="ov-btn ${on ? "on" : ""}" data-act="overlay" data-id="${on ? "" : id}" style="--c:${CAND_COLOR[id]}" ${state.animating ? "disabled" : ""}>${on ? "重ねている" : "この説明で重ねてみる"}</button>`;
+}
+
 /** 曲線を見たあと：本人が「合わなくなった説明」を選ぶ（比較器の判定はまだ開かない） */
 function pickBoard(bv: PublicSessionView, c: CurveView): string {
   return `<h2>この曲線で、合わなくなった説明はどれ？</h2>
-    <p class="note">「その説明が正しければ、曲線はこう見えるはず」と比べて選びます（いくつでも）。選んでから、プログラムの判定で検算します。</p>
+    <p class="note">「この説明で重ねてみる」で、その説明の線を重ねて試せます。合わないと思う説明を押して選び（いくつでも）、プログラムの判定で検算します。</p>
     <ul>${bv.candidates
       .filter((x) => x.status !== "inconsistent")
       .map((x) => {
@@ -300,7 +344,7 @@ function pickBoard(bv: PublicSessionView, c: CurveView): string {
           <button class="pick-btn" data-act="toggle-pick" data-id="${x.id}" aria-pressed="${on}">
             <span class="swatch" style="background:${CAND_COLOR[x.id]}"></span>
             <span class="name">${x.label}<span class="looks">${LOOKS[x.id]}</span></span>
-            <span class="st">${on ? "合わない" : "—"}</span></button></li>`;
+            <span class="st">${on ? "合わない" : "—"}</span></button>${overlayButton(x.id)}</li>`;
       })
       .join("")}</ul>
     ${bv.candidates.some((x) => x.status === "inconsistent") ? `<p class="note">前の曲線で合わなくなった説明：${candList(bv.candidates.filter((x) => x.status === "inconsistent").map((x) => x.id))}</p>` : ""}
@@ -335,7 +379,7 @@ function judgedBoard(bv: PublicSessionView): string {
         return `<li class="cand ${x.status} ${narrowed && bv.narrowedTo === x.id ? "decided" : ""} ${mine ? "mine" : ""}">
           <span class="swatch" style="background:${CAND_COLOR[x.id]}"></span>
           <span class="name">${x.label}<span class="looks">${LOOKS[x.id]}</span>${mine ? `<span class="mine-tag">あなたの説明</span>` : ""}</span>
-          <span class="st">${x.statusLabel}${x.status === "inconsistent" ? "（＝合わない）" : ""}</span>${stamp}</li>`;
+          <span class="st">${x.statusLabel}${x.status === "inconsistent" ? "（＝合わない）" : ""}</span>${stamp}${overlayButton(x.id)}</li>`;
       })
       .join("")}</ul>
     <p class="overall ${bv.overall}">${narrowed ? "決着！ " : ""}${bv.overallLabel}</p>
@@ -933,6 +977,7 @@ app.addEventListener("click", async (e) => {
         state.busy = false;
         state.hint = null;
         state.highlight = null;
+        state.overlay = null;
         state.press = 0;
         await playCurve(c);
         state.reason = "";
@@ -964,6 +1009,10 @@ app.addEventListener("click", async (e) => {
       }, 1200);
       break;
     }
+    case "overlay":
+      state.overlay = (el.dataset.id || null) as CandidateId | null;
+      render();
+      break;
     case "show-curve":
       state.shownCurveId = el.dataset.id ?? null;
       render();

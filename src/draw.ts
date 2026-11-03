@@ -18,76 +18,84 @@ export function specLabel(s: ObservationSpec): string {
   return `${SPEED_LABEL[s.pushSeconds]}（${s.pushSeconds}秒）押して、${TIME_LABEL[s.recordAt]}`;
 }
 
-/** 試験台。target の素材を押し棒が押す（both は導入の場面で二本同時）。press は 0〜1 */
+/**
+ * 試験機。ゲルのような軟らかい仮想の試験片を、押し板で押し込み、深さを保って力センサで押し返す力を測る。
+ * target の試験片を押す（both は二台同時）。press は 0〜1（押し込みの進み具合。1で所定の深さに保持）。
+ * 押し板は最初から試験片に触れていて、押し込む深さは時間に比例する（モデルと同じ一定の速さ）。
+ */
 export function benchSvg(
   target: "A" | "B" | "both",
   press: number,
   flash = false,
   arrows: { a: number; b: number } | null = null,
 ): string {
-  const squish = 0.24 * press;
   const pressed = (k: "A" | "B") => target === "both" || target === k;
-  const block = (cx: number, label: string, active: boolean) => {
-    const s = active ? squish : 0;
-    const h = 84 * (1 - s);
-    const w = 118 * (1 + s * 0.4);
-    const y = 178 - h;
+  const BASE_Y = 210;
+  const H0 = 78; // 試験片の元の高さ
+  const DEPTH_PX = 20; // 押し込む深さ（図の上）
+  const station = (x0: number, label: "A" | "B", active: boolean, force: number) => {
+    const p = active ? Math.max(0, Math.min(1, press)) : 0;
+    const cx = x0 + 90;
+    const top = BASE_Y - H0 + DEPTH_PX * p;
+    const h = BASE_Y - top;
+    const w = 96 * (1 + 0.16 * p); // 押されると少し横に広がる
+    // 試験片の格子（変形を追える印）
+    const grid: string[] = [];
+    for (let k = 1; k < 4; k++) {
+      const y = top + (h * k) / 4;
+      grid.push(`<line x1="${cx - w / 2 + 4}" x2="${cx + w / 2 - 4}" y1="${y}" y2="${y}" stroke="var(--gel-edge)" stroke-width="1" opacity="0.55"/>`);
+    }
+    for (let k = 1; k < 4; k++) {
+      const x = cx - w / 2 + (w * k) / 4;
+      const bulge = (x - cx) * 0.18 * p;
+      grid.push(`<path d="M ${x - bulge * 0.2} ${top + 3} Q ${x + bulge} ${top + h / 2} ${x - bulge * 0.2} ${BASE_Y - 3}" stroke="var(--gel-edge)" stroke-width="1" fill="none" opacity="0.55"/>`);
+    }
+    const lcd = Number.isFinite(force) ? force.toFixed(2) : "—";
+    const arrowLen = Number.isFinite(force) ? Math.min(120, force * 42) : 0;
     return `
       <g>
-        <ellipse cx="${cx}" cy="180" rx="${w / 2 + 6}" ry="5" fill="#000" opacity="0.08"/>
-        <rect x="${cx - w / 2}" y="${y}" width="${w}" height="${h}" rx="18" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2.5"/>
-        <path d="M ${cx - w / 2 + 16} ${y + 15} q ${w * 0.22} -7 ${w * 0.42} 0" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.75"/>
-        <circle cx="${cx + w / 2 - 22}" cy="${y + h - 20}" r="4" fill="#fff" opacity="0.5"/>
-        <g transform="translate(${cx - 16}, 196)">
-          <rect width="32" height="24" rx="5" fill="var(--ink)"/>
-          <text x="16" y="17" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">${label}</text>
+        <!-- 枠：支柱と上の梁 -->
+        <rect x="${x0 + 8}" y="16" width="8" height="${BASE_Y - 16}" rx="2" fill="var(--steel)"/>
+        <rect x="${x0 + 164}" y="16" width="8" height="${BASE_Y - 16}" rx="2" fill="var(--steel)"/>
+        <rect x="${x0 + 6}" y="14" width="168" height="14" rx="3" fill="var(--ink-soft)"/>
+        <!-- 力センサの表示 -->
+        <rect x="${cx - 30}" y="0" width="60" height="16" rx="3" fill="var(--ink)"/>
+        <text x="${cx}" y="12" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff" font-variant-numeric="tabular-nums">力 ${lcd}</text>
+        <!-- 駆動軸 → 力センサ → 押し板 -->
+        <rect x="${cx - 4}" y="28" width="8" height="${top - 28 - 26}" fill="var(--ink-soft)"/>
+        <rect x="${cx - 24}" y="${top - 26}" width="48" height="16" rx="3" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
+        <text x="${cx}" y="${top - 14.5}" text-anchor="middle" font-size="9" fill="var(--ink)">力センサ</text>
+        <rect x="${cx - 60}" y="${top - 10}" width="120" height="10" rx="2" fill="var(--ink)"/>
+        <!-- 試験片 -->
+        <rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="10" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2"/>
+        ${grid.join("")}
+        <path d="M ${cx - w / 2 + 10} ${top + 9} q ${w * 0.2} -4 ${w * 0.38} 0" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.7"/>
+        <!-- 深さの目盛り（左の支柱の内側） -->
+        <line x1="${x0 + 24}" x2="${x0 + 24}" y1="${BASE_Y - H0 - 6}" y2="${BASE_Y - H0 + DEPTH_PX + 6}" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <line x1="${x0 + 20}" x2="${x0 + 28}" y1="${BASE_Y - H0}" y2="${BASE_Y - H0}" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <line x1="${x0 + 20}" x2="${x0 + 28}" y1="${BASE_Y - H0 + DEPTH_PX}" y2="${BASE_Y - H0 + DEPTH_PX}" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <path d="M ${x0 + 29} ${top} l 7 -4 v 8 z" fill="var(--claude)"/>
+        <text x="${x0 + 22}" y="${BASE_Y - H0 - 10}" font-size="9" fill="var(--ink-soft)">深さ</text>
+        <!-- 押し返す力の矢印（長さが力に比例） -->
+        ${arrowLen ? `<line x1="${x0 + 152}" x2="${x0 + 152}" y1="${BASE_Y - 2}" y2="${BASE_Y - arrowLen + 8}" stroke="${label === "A" ? "var(--ink-soft)" : "var(--claude)"}" stroke-width="4" ${label === "A" ? 'stroke-dasharray="5 4"' : ""}/>
+        <path d="M ${x0 + 145} ${BASE_Y - arrowLen + 10} L ${x0 + 152} ${BASE_Y - arrowLen - 2} L ${x0 + 159} ${BASE_Y - arrowLen + 10} z" fill="${label === "A" ? "var(--ink-soft)" : "var(--claude)"}"/>` : ""}
+        ${active && press >= 1 ? `<text x="${cx}" y="${top + 22}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)" stroke="var(--gel)" stroke-width="4" paint-order="stroke">深さ：ここで固定</text>` : ""}
+        <!-- 支持台と名札 -->
+        <rect x="${x0 + 4}" y="${BASE_Y}" width="172" height="10" rx="2" fill="var(--steel)"/>
+        <g transform="translate(${cx - 16}, ${BASE_Y + 16})">
+          <rect width="32" height="22" rx="5" fill="var(--ink)"/>
+          <text x="16" y="16" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">${label}</text>
         </g>
       </g>`;
   };
-  const rod = (cx: number, active: boolean) => {
-    const top = 178 - 84 * (1 - (active ? squish : 0));
-    const tip = active && press > 0 ? 70 + (top - 70) * Math.min(1, press * 3) : 70;
-    return `<g><rect x="${cx - 5}" y="8" width="10" height="${tip - 16}" fill="var(--ink-soft)"/>
-      <rect x="${cx - 26}" y="${tip - 10}" width="52" height="10" rx="3" fill="var(--ink)"/></g>`;
-  };
-  const rods = target === "both" ? rod(90, true) + rod(250, true) : rod(target === "A" ? 90 : 250, true);
-  // 押し切って止めている間は「深さ：ここで固定」を示す（変形を指定して、力を測っている）
-  const holdY = 178 - 84 * (1 - squish);
-  const depthMark =
-    press >= 1
-      ? [90, 250]
-          .filter((cx) => pressed(cx === 90 ? "A" : "B"))
-          .map(
-            (cx) => `<g><line x1="${cx - 70}" x2="${cx + 70}" y1="${holdY}" y2="${holdY}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.8"/>
-        <text x="${cx}" y="${holdY + 24}" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">深さ：ここで固定</text></g>`,
-          )
-          .join("")
-      : "";
+  const fa = arrows ? arrows.a : NaN;
+  const fb = arrows ? arrows.b : NaN;
   return `
-    <svg viewBox="0 0 340 230" overflow="visible" role="img" aria-label="試験台：見た目がそっくりな素材AとB">
-      <rect x="12" y="178" width="316" height="12" rx="2" fill="var(--steel)"/>
-      ${block(90, "A", pressed("A"))}
-      ${block(250, "B", pressed("B"))}
-      ${rods}
-      ${depthMark}
-      ${arrows ? (Number.isFinite(arrows.a) ? pushBackArrow(90, arrows.a, true) : "") + (Number.isFinite(arrows.b) ? pushBackArrow(250, arrows.b, false) : "") : ""}
-      ${flash ? `<rect class="flash" x="0" y="0" width="340" height="230" fill="#fff"/>` : ""}
+    <svg viewBox="0 0 360 250" overflow="visible" role="img" aria-label="試験機：ゲルのような軟らかい試験片AとBを押し板で押し込み、深さを保って押し返す力を力センサで測る">
+      ${station(0, "A", pressed("A"), fa)}
+      ${station(180, "B", pressed("B"), fb)}
+      ${flash ? `<rect class="flash" x="0" y="0" width="360" height="250" fill="#fff"/>` : ""}
     </svg>`;
-}
-
-/** 押し返しの矢印（長さが力に比例）。A は基準カードの値（点線） */
-function pushBackArrow(cx: number, force: number, isA: boolean): string {
-  const x = cx + 72;
-  const base = 176;
-  const len = Math.min(150, force * 52);
-  const top = base - len;
-  const color = isA ? "var(--ink-soft)" : "var(--claude)";
-  return `<g>
-    <line x1="${x}" x2="${x}" y1="${base}" y2="${top + 10}" stroke="${color}" stroke-width="${isA ? 3 : 5}" ${isA ? 'stroke-dasharray="5 4"' : ""}/>
-    <path d="M ${x - 9} ${top + 12} L ${x} ${top - 2} L ${x + 9} ${top + 12} z" fill="${color}"/>
-    <text x="${x}" y="${top - 22}" text-anchor="middle" font-size="10" fill="${color}">押し返す力</text>
-    <text x="${x}" y="${top - 8}" text-anchor="middle" font-size="13" font-weight="700" fill="${color}">${force.toFixed(2)}</text>
-  </g>`;
 }
 
 interface PanelOpts {

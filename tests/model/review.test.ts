@@ -1,4 +1,5 @@
 // CLAUDE.md 第7章のテスト15〜18と、回路図の配線の照合（レビュー16で見つかった不整合の再発防止）
+import { readFileSync } from "node:fs";
 import { Readable } from "node:stream";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, expect, it } from "vitest";
@@ -328,5 +329,44 @@ describe("テスト22：答え合わせの「今回の決め手」は記録か�
   });
   it("一つに絞れていなければ、そう書く", () => {
     expect(decisiveNote(mk({ eInf: 1, e1: 1, tau: 3 }, 1), "c", false)).toContain("まだ一つに絞りきれていません");
+  });
+});
+
+// ---------- テスト21：候補の予測線 ----------
+import { fitToEnd } from "../../server/model/fit.js";
+import { CANDIDATES } from "../../server/model/public.js";
+
+describe("テスト21：候補の予測線は公開範囲の中で押し終わりに合わせ、真の値に依存しない", () => {
+  it("H2（E1=1, τ=3）の押し終わりに instant を合わせると E1≈1.345 になり、2秒後で離れる", () => {
+    const y = forceAfterPush({ eInf: 1, e1: 1, tau: 3 }, 1, 0);
+    const fit = fitToEnd("instant", 1, y);
+    expect(fit.matched).toBe(true);
+    expect(fit.value!).toBeCloseTo(1.34532, 4);
+    expect(forceAfterPush(fit.params, 1, 0)).toBeCloseTo(y, 6);
+    const gap2 = forceAfterPush({ eInf: 1, e1: 1, tau: 3 }, 1, 2) - forceAfterPush(fit.params, 1, 2);
+    expect(gap2).toBeGreaterThan(0.3);
+  });
+  it("値は公開範囲の中にあり、届かなければ matched=false", () => {
+    for (const id of ["overall", "instant", "relax"] as const) {
+      const [lo, hi] = CANDIDATES[id].range!;
+      for (const y of [0.5, 1.2, 1.63, 2.5, 9]) {
+        const fit = fitToEnd(id, 1, y);
+        expect(fit.value!).toBeGreaterThanOrEqual(lo);
+        expect(fit.value!).toBeLessThanOrEqual(hi);
+        if (fit.matched) expect(forceAfterPush(fit.params, 1, 0)).toBeCloseTo(y, 6);
+      }
+    }
+    // relax は τ を最大にしても E1=1 の上乗せ分を超えられない
+    expect(fitToEnd("relax", 1, 2.264).matched).toBe(false);
+  });
+  it("同じ証拠なら同じ線（隠れた原因によらない）", () => {
+    const a = new Session("t", { seed: 5, cause: "relaxSlow", value: 3 });
+    a.saveCurvePrediction(1, "same", "");
+    a.observeCurve(1, "c");
+    const y = a.publicView().records.find((r) => r.id === "c@0")!.force;
+    expect(fitToEnd("instant", 1, y)).toEqual(fitToEnd("instant", 1, y));
+    // fit.ts は秘密のモジュールを読み込まない
+    const src = readFileSync("server/model/fit.ts", "utf8");
+    expect(src).not.toMatch(/generator|scenarios|session/);
   });
 });

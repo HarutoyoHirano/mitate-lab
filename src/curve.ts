@@ -82,6 +82,8 @@ export interface CurveGraphOpts {
   readonly bTrue?: MaterialParams;
   /** Claudeが参照した記録の時刻（押し終わりからの秒数）。該当する点を強調する */
   readonly highlight?: readonly number[];
+  /** 「この説明で重ねてみる」：候補の予測線（押し終わりの測定値に合わせたもの） */
+  readonly overlay?: { readonly points: readonly CurvePoint[]; readonly color: string };
 }
 
 /** 判定（比較器）に使う記録か：押し終わりからの秒数が 0・0.5・2・5・20 */
@@ -117,6 +119,7 @@ export function curveGraphSvg(o: CurveGraphOpts): string {
     ${o.title ? `<text x="${f.L}" y="13" font-size="11" font-weight="700" fill="var(--ink)">${o.title}</text>` : ""}
     ${axes(f, o.big)}
     <polyline points="${poly(f, a, until)}" fill="none" stroke="var(--ink-soft)" stroke-width="${o.big ? 2.5 : 1.5}" stroke-dasharray="6 4"/>
+    ${o.overlay ? `<polyline points="${poly(f, o.overlay.points, until)}" fill="none" stroke="${o.overlay.color}" stroke-width="3.5" stroke-dasharray="10 5" opacity="0.95"/>` : ""}
     ${bTrueLine}${bLine}${bDots}
     ${head && o.big ? `<circle cx="${xOf(f, head.t)}" cy="${yOf(f, head.force)}" r="7" fill="none" stroke="var(--claude)" stroke-width="2"/>` : ""}
   </svg>`;
