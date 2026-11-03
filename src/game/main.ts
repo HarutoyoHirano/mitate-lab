@@ -31,9 +31,10 @@ import { curveGraphSvg, HOLD_MAX } from "../curve.js";
 import { CAND_COLOR } from "../draw.js";
 import { carrySvg, thoughtSvg } from "../act2.js";
 import { pushSpeedTable, storyFor } from "../story.js";
-import { diffMeterSvg, factorySvg, memGraphSvg, membraneCameraSvg, padCameraSvg, recoveryMiniSvg, robotSvg, type Mood, type PadState } from "./draw.js";
+import { clampPeriod, PHASE_LABEL, STEP_TOLERANCE, TAP_TO_PERIOD, TEMPOS, type StepPhase } from "../../server/model/steps.js";
+import { diffMeterSvg, factorySvg, stepBarsSvg, trackSvg, type TrackState, memGraphSvg, membraneCameraSvg, padCameraSvg, recoveryMiniSvg, robotSvg, type Mood, type PadState } from "./draw.js";
 
-type Screen = "title" | "c1-verdict" | "c1-run" | "c1-camera" | "c1-why" | "c1-reveal" | "c2" | "bridge" | "c3-camera" | "c3-why" | "c3-duel" | "finale";
+type Screen = "title" | "c1-verdict" | "c1-track" | "c1-run" | "c1-camera" | "c1-why" | "c1-reveal" | "c2" | "bridge" | "c3-camera" | "c3-why" | "c3-duel" | "finale";
 type Push = 0.2 | 1 | 5;
 interface MemPhoto {
   t: number;
@@ -87,6 +88,13 @@ const state = {
   drawUntil: 99,
   hint: null as Hint | null,
   debrief: null as Debrief | null,
+  // 走行テスト
+  period: 3,
+  taps: [] as number[],
+  runId: "",
+  track: { k: null, u: 0, dentA: 0, dentB: 0, contact: false, highlight: false } as TrackState,
+  shownSteps: 0,
+  running: false,
   // 事件2
   duelRound: 0,
   e1: 1,
@@ -152,7 +160,7 @@ function beep(kind: "shutter" | "scan" | "win" | "lose"): void {
 
 // ---------- 共通の部品 ----------
 const STEPS: { id: string; label: string; screens: Screen[] }[] = [
-  { id: "01", label: "見破れ", screens: ["c1-verdict", "c1-run", "c1-camera", "c1-why", "c1-reveal"] },
+  { id: "01", label: "見破れ", screens: ["c1-verdict", "c1-track", "c1-run", "c1-camera", "c1-why", "c1-reveal"] },
   { id: "02", label: "仕掛けろ", screens: ["c2"] },
   { id: "03", label: "つなぐ", screens: ["bridge"] },
   { id: "04", label: "膜の盲点", screens: ["c3-camera", "c3-why", "c3-duel"] },
@@ -238,26 +246,80 @@ function renderVerdict(): string {
     ${kicker("CASE 01 / THE NEW PRINT", "検査ロボの盲点を、見破れ。", "まず、ロボのいつもの検査。新しい印刷条件のクッションBを、ふつう（1秒）に押して、20秒後の力だけを見ます。")}
     ${robot(`20秒後の力：見本A ${r.base.toFixed(3)}（基準）／試料B ${r.force.toFixed(3)}（測定）。差 ${sgn(r.diff)}。許容差 ±${r.tolerance} の内側。<strong>私の検査では、区別できません。</strong>`, "smug")}
     <div class="card">
-      <h2>本当に同じ？ 予想してから、押して・保って・離してみよう</h2>
-      <p class="note">押す→深さを保つ（20秒）→押し板を離す。離したあと、へこみがどう戻るかを見ます。</p>
+      <h2>本当に同じ？ 走らせてみよう</h2>
+      <p class="note">ロボはクッションを一回押して、20秒待っただけ。でも膝のクッションは、歩くたび・走るたびに一歩ずつ踏まれる。踏まれ続けても、AとBは同じ？</p>
       <div class="bets">${(
         [
-          ["midSame", "途中も同じ", "20秒後が同じなら、戻り方も同じはず"],
-          ["midDiffer", "途中は違うかも", "どこかで差が出そう"],
-          ["unknown", "まだ分からない", "見てから考える"],
+          ["midSame", "走っても同じ", "ロボが区別できないなら、同じはず"],
+          ["midDiffer", "どこかで違う", "踏み方しだいで差が出そう"],
+          ["unknown", "まだ分からない", "走らせてから考える"],
         ] as const
       )
         .map(([id, l, s]) => `<button class="bet ${state.bet === id ? "on" : ""}" data-act="bet" data-val="${id}" aria-pressed="${state.bet === id}"><strong>${l}</strong><span>${s}</span></button>`)
         .join("")}</div>
-      <div class="actions"><button class="btn go big" data-act="run" ${!state.bet || state.busy ? "disabled" : ""}>押して、離してみる</button></div>
+      <div class="actions"><button class="btn go big" data-act="to-track" ${!state.bet || state.busy ? "disabled" : ""}>走行テストへ</button></div>
       ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
     </div>
   </section>`;
 }
 
+function tempoName(p: number): string {
+  let best = TEMPOS[0]!;
+  for (const t of TEMPOS) if (Math.abs(Math.log(t.period / p)) < Math.abs(Math.log(best.period / p))) best = t;
+  return Math.abs(best.period - p) < 1e-9 ? best.label : `${best.label}に近い`;
+}
+
+function currentRun() {
+  return state.view?.runs.find((r) => r.id === state.runId) ?? null;
+}
+
+function renderTrack(): string {
+  const v = state.view!;
+  const run = currentRun();
+  const photos = v.runPhotos.filter((p) => p.runId === state.runId);
+  const found = v.runPhotos.some((p) => p.distinguishable);
+  const anyRun = v.runs.length > 0;
+  const tapInfo = state.taps.length >= 2 ? `叩いたテンポ：一歩 ${((state.taps[state.taps.length - 1]! - state.taps[0]!) / (state.taps.length - 1) / 1000).toFixed(2)} 秒ごと` : "4回くらい叩くと、その速さで走る";
+  const betLine =
+    state.bet && found
+      ? state.bet === "midSame"
+        ? "あなたの予想「走っても同じ」→ 違いがあった。予想が外れた。ここが発見！"
+        : state.bet === "midDiffer"
+          ? "あなたの予想「どこかで違う」→ そのとおり。"
+          : "走らせてから考える、でよし。違いがあった。"
+      : "";
+  return `<section>
+    ${kicker("CASE 01 / RUN TEST", found ? "盲点、発見。" : "走らせて、違いを見つけろ。", found ? "ロボは一回押して20秒待っただけ。一歩ずつ踏まれると、違いが出ていた。" : "テンポを選んで（または叩いて決めて）走らせる。12歩ぶん、クッションがつぶれて戻る。")}
+    ${robot(found ? "その一歩は……見ていなかった。私は、一回押して20秒後の力しか測りません。" : state.running ? "……走行テスト中。私の検査とは、踏み方が違いますね。" : "走らせても同じですよ。私の検査で区別できなかったのですから。", found ? "shock" : state.running ? "scan" : "smug")}
+    <div class="card cam">
+      <div class="cam-head"><span>RUN TEST / 試験脚の走行テスト（モデルの計算と記録から描いた図）</span><strong>${run ? `${tempoName(run.period)}（一歩 ${run.period} 秒のテンポ${run.period / TAP_TO_PERIOD > 1 ? "・早送り" : ""}）` : "テンポを選ぼう"}</strong></div>
+      <div id="track-live">${trackSvg(state.track)}</div>
+      <div class="tempo-row">
+        <div class="tempos">${TEMPOS.map((t) => `<button class="tempo ${Math.abs(state.period - t.period) < 1e-9 ? "on" : ""}" data-act="tempo" data-val="${t.period}" ${state.running ? "disabled" : ""}><strong>${t.label}</strong><span>一歩 ${t.period} 秒</span></button>`).join("")}</div>
+        <button class="drum ${state.taps.length ? "on" : ""}" data-act="tap" ${state.running ? "disabled" : ""}><strong>叩いて<br>決める</strong></button>
+        <div class="tap-info"><span>${tapInfo}</span><strong>いまのテンポ：${tempoName(state.period)}（一歩 ${state.period.toFixed(2)} 秒）</strong></div>
+      </div>
+      <div class="actions"><button class="btn go big" data-act="go-run" ${state.running || state.busy ? "disabled" : ""}>▶ 12歩、走らせる</button><span class="note">何度でも走らせてよい。テンポを変えると、見える違いも変わる。</span></div>
+    </div>
+    ${
+      run
+        ? `<div class="card">
+      <div class="cam-head"><span>STEP RECORD / 一歩ごとの沈み込み</span><strong>灰＝見本A　青緑＝新作B</strong></div>
+      <div id="bars-live">${stepBarsSvg(run.a, run.b, state.shownSteps, photos)}</div>
+      <p class="note">棒＝足を上げる直前（いちばん沈んだところ）。丸＝次の着地の直前（戻りきれずに残った分）。<strong>Bの棒や丸を押すと、その一歩の証拠写真</strong>。AとBの差が ${STEP_TOLERANCE} を超えたら「違いが見えた」。</p>
+      ${photos.length ? `<div class="photos">${photos.map((p) => `<figure class="photo ${p.distinguishable ? "ok" : ""}"><div class="ph-stamp">${p.distinguishable ? "違いが見えた" : "区別できない"}</div><figcaption>${p.step + 1}歩目・${PHASE_LABEL[p.phase as StepPhase]}<br>A ${p.a.toFixed(3)}（計算）／B ${p.b.toFixed(3)}（記録）<br>差 ${sgn(p.diff)}</figcaption></figure>`).join("")}</div>` : ""}
+      ${betLine ? `<p class="bet-line">${betLine}</p>` : ""}
+    </div>`
+        : ""
+    }
+    <div class="actions">${found ? `<button class="btn go big" data-act="to-bench" ${state.busy ? "disabled" : ""}>なぜ違う？ 試験台で押し返す力を記録する</button>` : anyRun ? `<button class="btn ghost" data-act="to-bench" ${state.busy || state.running ? "disabled" : ""}>分からないので、試験台で力の記録をとる</button>` : ""}</div>
+    ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
+  </section>`;
+}
+
 function renderRun(): string {
   return `<section>
-    ${kicker("CASE 01 / THE MISSING MOMENT", "押す → 保つ → 離す", "押し板は同じ深さで止まったまま。力センサの数字を見ていよう。")}
+    ${kicker("CASE 01 / FORCE RECORD", "試験台で、押し返す力を記録する", "なぜ違うのかを調べるため、Bを試験台で押して深さを保ち、押し返す力を記録する。押し板は止まったまま。力センサの数字を見ていよう。")}
     <div class="card cam">
       <div class="cam-head"><span>RECOVERY CAMERA / 仮想の膝クッション</span><strong>${esc(state.clock)}</strong></div>
       ${padCameraSvg(state.pad)}
@@ -354,7 +416,7 @@ function renderWhy(): string {
           })()
       : "";
   return `<section>
-    ${kicker("CASE 01 / WHY", narrowed ? "正体が、一つに絞れた。" : "なぜ違う？ 合わない説明を外せ。", "写真は「違いがある」手がかり。理由を調べるため、同じ実験で記録した<strong>保持中の押し返す力</strong>を見ます（判定は力の記録で行います）。")}
+    ${kicker("CASE 01 / WHY", narrowed ? "正体が、一つに絞れた。" : "なぜ違う？ 合わない説明を外せ。", "走行テストの写真は「違いがある」手がかり。理由を調べるため、同じBを試験台で押して記録した<strong>深さを保っている間の押し返す力</strong>を見ます（判定は力の記録で行います）。")}
     <div class="why-grid">
       <div class="card">
         <div class="cam-head"><span>FORCE RECORD / ${SPEED_NAME[c.pushSeconds]}押したときの押し返し</span><strong>点線＝見本A、青＝試料B（誤差 ±${v.error}）</strong></div>
@@ -639,8 +701,8 @@ function discovery(): string[] {
   const v = state.view;
   const d = state.debrief;
   const out: string[] = [];
-  const ph = v?.photos.find((p) => p.distinguishable);
-  out.push(`事件1 見破れ：ロボは「20秒後の力」で区別できなかった。${ph ? `離して${ph.h.toFixed(1)}秒後のへこみに差 ${sgn(ph.diff)}（判定幅 ${SHAPE_TOLERANCE}）を撮った。` : ""}`);
+  const ph = v?.runPhotos.find((p) => p.distinguishable);
+  out.push(`事件1 見破れ：ロボは「一回押して20秒後の力」で区別できなかった。${ph ? `走行テスト（${tempoName(ph.period)}）の${ph.step + 1}歩目・${PHASE_LABEL[ph.phase as StepPhase]}に、沈み込みの差 ${sgn(ph.diff)}（判定幅 ${STEP_TOLERANCE}）を撮った。` : ""}`);
   if (d) out.push(`事件1 正体：${d.explanation}（押した回数 ${d.observationCount} 回。回数の多少は優劣ではない）`);
   const dl = state.duelLog;
   if (dl.length) out.push(`事件2 仕掛けろ：${dl.map((x) => `ラウンド${x.round}を 上乗せのかたさ ${x.e1.toFixed(2)}・やわらぐ時間 ${x.tau.toFixed(2)} で突破`).join("、")}`);
@@ -679,6 +741,7 @@ function render(): void {
   const body: Record<Screen, () => string> = {
     title: renderTitle,
     "c1-verdict": renderVerdict,
+    "c1-track": renderTrack,
     "c1-run": renderRun,
     "c1-camera": renderCamera,
     "c1-why": renderWhy,
@@ -712,6 +775,53 @@ function valueAt(pts: readonly { t: number; force: number }[], t: number): numbe
   return last;
 }
 
+/** 叩いてテンポを決める（3秒あくと数え直し） */
+function tapTempo(): void {
+  const now = performance.now();
+  const last = state.taps[state.taps.length - 1];
+  if (last !== undefined && now - last > 3000) state.taps = [];
+  state.taps = [...state.taps, now].slice(-5);
+  beep("scan");
+  if (state.taps.length >= 2) {
+    const iv = (state.taps[state.taps.length - 1]! - state.taps[0]!) / (state.taps.length - 1) / 1000;
+    state.period = Math.round(clampPeriod(iv * TAP_TO_PERIOD) * 100) / 100;
+  }
+  render();
+}
+
+/** 走行テストの再生：一歩の記録4点（着地直後・足を上げる直前・上げた直後・次の着地の直前）を線でつなぐ */
+async function playTrack(): Promise<void> {
+  const run = currentRun();
+  if (!run) return;
+  const reduce = reduceMotion();
+  state.running = true;
+  state.shownSteps = 0;
+  const stepMs = reduce ? 0 : Math.min(1000, Math.max(280, (run.period / TAP_TO_PERIOD) * 1000));
+  const at = (d: { land: number; peak: number; lift: number; pre: number }, u: number) => (u < 0.5 ? d.land + (d.peak - d.land) * (u / 0.5) : d.lift + (d.pre - d.lift) * ((u - 0.5) / 0.5));
+  for (let k = 0; k < run.b.length; k++) {
+    if (state.screen !== "c1-track") break;
+    beep("scan");
+    const s0 = performance.now();
+    for (;;) {
+      const u = stepMs === 0 ? 1 : Math.min(1, (performance.now() - s0) / stepMs);
+      const a = at(run.a[k]!, Math.min(u, 0.999));
+      const b = at(run.b[k]!, Math.min(u, 0.999));
+      state.track = { k, u, dentA: a, dentB: b, contact: u < 0.5, highlight: Math.abs(b - a) > STEP_TOLERANCE };
+      state.shownSteps = k + (u >= 0.5 ? 1 : 0);
+      const tl = document.querySelector("#track-live");
+      if (tl) tl.innerHTML = trackSvg(state.track);
+      const bl = document.querySelector("#bars-live");
+      if (bl) bl.innerHTML = stepBarsSvg(run.a, run.b, state.shownSteps, []);
+      else render();
+      if (u >= 1) break;
+      await sleep(30);
+    }
+  }
+  state.shownSteps = run.b.length;
+  state.running = false;
+  render();
+}
+
 async function playRun(): Promise<void> {
   const c = curve()!;
   const T = c.pushSeconds;
@@ -738,7 +848,14 @@ async function playRun(): Promise<void> {
     state.pad = { phase: "hold", press: 1, dentA: 0, dentB: 0, forceA: valueAt(c.a, T + h), forceB: valueAt(c.b, T + h), highlight: false };
     state.clock = `深さを保ったまま ${h.toFixed(1)}秒（早送り）：押し板は止まっているのに、力は下がる`;
   });
-  await sleep(reduce ? 0 : 500);
+  await sleep(reduce ? 0 : 900);
+  if (state.screen === "c1-run") {
+    state.animating = false;
+    state.pickDraft = [];
+    state.overlay = null;
+    go("c1-why");
+    return;
+  }
   await seg(reduce ? 0 : 4200, (u) => {
     // 最初の6秒を一定の倍率でゆっくり、その後40秒まで速く
     const h = u < 0.75 ? (u / 0.75) * 6 : 6 + ((u - 0.75) / 0.25) * 34;
@@ -884,6 +1001,11 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
       memHint: 0,
       memLog: [],
       copied: false,
+      period: 3,
+      taps: [],
+      runId: "",
+      shownSteps: 0,
+      running: false,
     });
     state.screen = "c1-verdict";
   });
@@ -949,6 +1071,52 @@ app.addEventListener("click", async (e) => {
     case "bet":
       state.bet = el.dataset.val as PredictionChoice;
       render();
+      break;
+    case "to-track":
+      go("c1-track");
+      break;
+    case "tempo":
+      state.period = Number(el.dataset.val);
+      state.taps = [];
+      render();
+      break;
+    case "tap":
+      tapTempo();
+      break;
+    case "go-run":
+      if (!v) return;
+      await guard(async () => {
+        const r = await api.run(v.sessionId, state.period);
+        state.view = r.view;
+        state.runId = r.runId;
+      });
+      if (state.runId) await playTrack();
+      break;
+    case "run-photo": {
+      if (!v || state.running || !state.runId) return;
+      const step = Number(el.dataset.step);
+      const phase = el.dataset.phase!;
+      await guard(async () => {
+        const before = v.runPhotos.some((p) => p.distinguishable);
+        state.view = (await api.runPhoto(v.sessionId, state.runId, step, phase)).view;
+        const now = state.view.runPhotos.find((p) => p.runId === state.runId && p.step === step && p.phase === phase);
+        beep("shutter");
+        if (now?.distinguishable && !before) setTimeout(() => beep("win"), 160);
+      });
+      break;
+    }
+    case "to-bench":
+      if (!v) return;
+      state.boardView = v;
+      await guard(async () => {
+        const r = await api.observeCurve(v.sessionId, 1, crypto.randomUUID(), "unknown", "");
+        state.view = r.view;
+        state.curveId = r.curveId;
+      });
+      if (state.curveId) {
+        state.screen = "c1-run";
+        await playRun();
+      }
       break;
     case "run":
       if (!v || !state.bet) return;
@@ -1179,6 +1347,13 @@ app.addEventListener("click", async (e) => {
       state.view = null;
       render();
       break;
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (state.screen === "c1-track" && !state.running && (e.key === " " || e.key === "Enter") && (e.target as HTMLElement).dataset?.act === "tap") {
+    e.preventDefault();
+    tapTempo();
   }
 });
 
