@@ -34,6 +34,11 @@
   --g-zone-hidden: rgba(196, 88, 29, 0.28);
   --g-marker: #13262b;
   --g-focus: #1d6fd6;
+  --g-bone: #f6eedb;
+  --g-bone-shade: #dccdab;
+  --g-bone-edge: #a8946a;
+  --g-skin: rgba(205, 160, 130, 0.16);
+  --g-skin-edge: rgba(170, 120, 90, 0.45);
   /* 本体の図（曲線・回路）が使う色 */
   --claude: #0b7b78;
   --claude-wash: #dff0ee;
@@ -85,6 +90,11 @@
     --g-zone-pass: rgba(90, 214, 198, 0.3);
     --g-zone-hidden: rgba(244, 163, 92, 0.32);
     --g-marker: #e6f0ef;
+    --g-bone: #d8ccb2;
+    --g-bone-shade: #a8987a;
+    --g-bone-edge: #e9dcc0;
+    --g-skin: rgba(230, 190, 160, 0.10);
+    --g-skin-edge: rgba(230, 190, 160, 0.4);
     --claude: #5ad6c6;
     --claude-wash: #1b3a3b;
     --ink: #e6f0ef;
@@ -316,3 +326,6 @@ details summary { cursor: pointer; font-weight: 700; }
 @keyframes nozzle { from { transform: translateX(0); } to { transform: translateX(40px); } }
 @keyframes squash { 0%, 100% { transform: scaleY(1); } 40% { transform: scaleY(0.62); } }
 @media (prefers-reduced-motion: reduce) { .factory .nozzle, .factory .squash { animation: none; } }
+.factory .squash-knee { transform-box: fill-box; transform-origin: center; animation: squash 1.2s ease-in-out infinite; }
+.factory .drip { animation: blink 0.6s steps(2) infinite; }
+@media (prefers-reduced-motion: reduce) { .factory .squash-knee, .factory .drip { animation: none; } }
