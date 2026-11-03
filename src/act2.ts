@@ -1,5 +1,6 @@
 // 第2幕：見方を変える。隠れた答えは持たない（公開の式で計算するだけ）。
 import {
+  type ThoughtPermeability,
   BASE_MEMBRANE,
   membraneDeltaAtStop,
   membraneHalfReturnTime,
@@ -66,7 +67,7 @@ export function circuitSvg(lens: Lens): string {
 
 export interface Act2Run {
   readonly perm: Permeability;
-  readonly half: number;
+  readonly half: number | null;
   readonly deltaAtStop: number;
 }
 
@@ -95,7 +96,7 @@ export function act2GraphSvg(runs: readonly Act2Run[]): string {
           const h = (tMax * i) / 60;
           pts.push(`${offset + xs(h)},${ys(f(r.perm, h))}`);
         }
-        const halfX = offset + xs(membraneHalfReturnTime(m));
+        const halfX = offset + xs(membraneHalfReturnTime(m) ?? 0);
         return `<polyline points="${pts.join(" ")}" fill="none" stroke="${RUN_COLOR[r.perm]}" stroke-width="2.5"/>
           ${unit === "ratio" ? `<line x1="${halfX}" x2="${halfX}" y1="${ys(0.5)}" y2="${H - B}" stroke="${RUN_COLOR[r.perm]}" stroke-dasharray="3 3"/>` : ""}`;
       })
@@ -117,3 +118,52 @@ export function act2GraphSvg(runs: readonly Act2Run[]): string {
 }
 
 export const RUN_COLORS = RUN_COLOR;
+
+export type ThoughtGuess = "fasterStill" | "slower" | "noReturn";
+export const THOUGHT_GUESS_LABEL: Record<ThoughtGuess, string> = {
+  fasterStill: "もっと速く戻る",
+  slower: "ゆっくり戻る",
+  noReturn: "戻らない",
+};
+
+/** 思考実験：止めた時の差で割った表示に、マイナスの抵抗の線を重ねる（枠の上端で止める） */
+export function thoughtSvg(showNegative: boolean): string {
+  const W = 480;
+  const H = 230;
+  const L = 64;
+  const R = 12;
+  const T = 20;
+  const B = 34;
+  const tMax = 4;
+  const yMax = 2.5;
+  const xs = (t: number) => L + ((W - L - R) * t) / tMax;
+  const ys = (v: number) => T + (H - T - B) * (1 - v / yMax);
+  const line = (perm: ThoughtPermeability, color: string, width: number) => {
+    const m = withPermeability(BASE_MEMBRANE, perm);
+    const pts: string[] = [];
+    let clipped = false;
+    for (let i = 0; i <= 80; i++) {
+      const h = (tMax * i) / 80;
+      const v = membraneNormalizedAfterStop(m, h);
+      if (v > yMax) {
+        clipped = true;
+        pts.push(`${xs(h)},${ys(yMax)}`);
+        break;
+      }
+      pts.push(`${xs(h)},${ys(v)}`);
+    }
+    const last = pts[pts.length - 1]!.split(",").map(Number);
+    return `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="${width}"/>
+      ${clipped ? `<path d="M ${last[0]} ${last[1]! + 2} l -7 10 h 14 z" fill="${color}"/><text x="${last[0]! + 10}" y="${last[1]! + 14}" font-size="13" font-weight="700" fill="${color}">枠の外へ</text>` : ""}`;
+  };
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="思考実験：抵抗がマイナスのとき">
+    <line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--ink-soft)"/>
+    <line x1="${L}" x2="${W - R}" y1="${ys(0)}" y2="${ys(0)}" stroke="var(--ink-soft)"/>
+    <line x1="${L}" x2="${W - R}" y1="${ys(1)}" y2="${ys(1)}" stroke="var(--grid)"/>
+    <text x="${L - 6}" y="${ys(1) + 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">止めた時</text>
+    <text x="${L - 6}" y="${ys(0) + 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">基準</text>
+    ${line("easier", RUN_COLOR.easier, 2)}${line("same", RUN_COLOR.same, 2)}${line("harder", RUN_COLOR.harder, 2)}
+    ${showNegative ? line("negative", "var(--hanko)", 3.5) : ""}
+    <text x="${(L + W - R) / 2}" y="${H - 10}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">止めてからの時間（止めた時の差で割った表示）</text>
+  </svg>`;
+}

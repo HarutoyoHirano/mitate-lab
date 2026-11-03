@@ -34,17 +34,20 @@ export interface MembraneCircuit {
 }
 
 export type Permeability = "easier" | "same" | "harder";
+/** 思考実験：通り道がマイナスの抵抗のように働く（外からエネルギーを入れる仕組みがあるときだけ起きる） */
+export type ThoughtPermeability = Permeability | "negative";
 
 /** イオンの通りやすさ：通りやすい＝抵抗が小さい */
-export const PERMEABILITY_FACTOR: Readonly<Record<Permeability, number>> = Object.freeze({
+export const PERMEABILITY_FACTOR: Readonly<Record<ThoughtPermeability, number>> = Object.freeze({
   easier: 0.5,
   same: 1,
   harder: 2,
+  negative: -1,
 });
 
 export const BASE_MEMBRANE: MembraneCircuit = Object.freeze({ capacitance: 1, resistance: 1, restPotential: -1 });
 
-export function withPermeability(m: MembraneCircuit, perm: Permeability): MembraneCircuit {
+export function withPermeability(m: MembraneCircuit, perm: ThoughtPermeability): MembraneCircuit {
   return { ...m, resistance: m.resistance * PERMEABILITY_FACTOR[perm] };
 }
 
@@ -65,7 +68,8 @@ export function membraneNormalizedAfterStop(m: MembraneCircuit, h: number): numb
   return Math.exp(-h / (m.resistance * m.capacitance));
 }
 
-/** 止めた時の差の半分に戻るまでの時間 */
-export function membraneHalfReturnTime(m: MembraneCircuit): number {
+/** 止めた時の差の半分に戻るまでの時間（抵抗がマイナスなら戻らないので null） */
+export function membraneHalfReturnTime(m: MembraneCircuit): number | null {
+  if (m.resistance <= 0) return null;
   return m.resistance * m.capacitance * Math.LN2;
 }

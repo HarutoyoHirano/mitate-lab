@@ -2,7 +2,7 @@
 import { BASE, CANDIDATES, PUSH_SECONDS, RECORD_AT, type CandidateId, type ObservationSpec, type PushSeconds, type RecordAt } from "../server/model/public.js";
 import { forceAfterPush } from "../server/model/sls.js";
 import type { Permeability } from "../server/model/circuit.js";
-import { act2GraphSvg, circuitSvg, GUESS_LABEL, PERM_LABEL, RUN_COLORS, runAct2, type Act2Guess, type Act2Run, type Lens } from "./act2.js";
+import { act2GraphSvg, circuitSvg, GUESS_LABEL, PERM_LABEL, RUN_COLORS, runAct2, thoughtSvg, THOUGHT_GUESS_LABEL, type Act2Guess, type Act2Run, type Lens, type ThoughtGuess } from "./act2.js";
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "./api.js";
 import { benchSvg, CAND_COLOR, graphHtml, revealSvg, SPEED_LABEL, specLabel, TIME_SHORT } from "./draw.js";
 
@@ -50,6 +50,8 @@ const state = {
   act2Guess: null as Act2Guess | null,
   act2Runs: [] as Act2Run[],
   act2Saved: false,
+  thoughtGuess: null as ThoughtGuess | null,
+  thoughtShown: false,
 };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -171,7 +173,10 @@ function renderLab(): string {
             .join("")}</div>
         </div>
         <input class="reason" id="reason" maxlength="200" placeholder="そう思った理由（ひとこと・任意）" value="${esc(state.reason)}">
-        <button class="btn go" data-act="observe" ${!ready || lock || narrowed ? "disabled" : ""}>Bを押して、シャッター</button>
+        <div class="go-row">
+          <button class="btn go" data-act="observe" ${!ready || lock || narrowed ? "disabled" : ""}>Bを押して、シャッター</button>
+          ${state.claude ? `<button class="btn claude" data-act="claude-observe" ${!ready || lock || narrowed ? "disabled" : ""} title="予想を置いたこの観察を、Claude（AI）が許可された操作で実行します">相棒に押してもらう</button>` : ""}
+        </div>
         <p class="note">${narrowed ? "決着しました。答え合わせへ進めます。" : ready ? `予想：${specLabel(pending!)}に「${PRED_LABEL[pending!.choice]}」` : "予想のピンを置くと、押せるようになります。"}</p>
         <button class="btn ghost small" data-act="measure-a" ${lock ? "disabled" : ""}>同じ条件でAも押してみる</button>
       </div>
@@ -321,15 +326,47 @@ function renderAct2(): string {
         <div class="field-label">イオンの通りやすさ <span class="note">（通りやすい＝抵抗が小さい）</span></div>
         <div class="seg">${(["easier", "same", "harder"] as Permeability[]).map((p) => `<button data-set="perm" data-val="${p}" aria-pressed="${state.perm === p}">${PERM_LABEL[p]}</button>`).join("")}</div>
         <div class="actions" style="margin-top:8px"><button class="btn go" data-act="act2-run" ${!state.act2Saved ? "disabled" : ""}>電流を入れて、止める</button></div>
-        <ul class="runs">${runs.map((r) => `<li style="border-color:${RUN_COLORS[r.perm]}">${PERM_LABEL[r.perm]}<br><strong>半分に戻るまで ${r.half.toFixed(2)}</strong>（止めた時の差 ${r.deltaAtStop.toFixed(2)}）</li>`).join("")}</ul>
+        <ul class="runs">${runs.map((r) => `<li style="border-color:${RUN_COLORS[r.perm]}">${PERM_LABEL[r.perm]}<br><strong>半分に戻るまで ${(r.half ?? 0).toFixed(2)}</strong>（止めた時の差 ${r.deltaAtStop.toFixed(2)}）</li>`).join("")}</ul>
         ${runs.length >= 2 ? `<p class="result ${allRight ? "hit" : "miss"}"><strong>${allRight ? "予想どおり！" : "予想とくらべてみよう"}</strong><span>通りやすいほど速く戻り、通りにくいほどゆっくり戻る。第1幕の「やわらぐのが遅い素材」は、膜なら「イオンが通りにくい」と同じ形です。</span></p>` : ""}
       </div>
       <div class="pane">${act2GraphSvg(runs)}
         <p class="note">止めた時の高さは、通りやすさでも変わります。戻る速さは、右の「割った表示」と「半分に戻るまで」で比べます。時間の目盛りは素材と同じに伸ばしています（実際の膜はずっと速い）。</p>
       </div>
     </div>
+    ${runs.length >= 2 ? thoughtBlock() : ""}
     <div class="actions" style="margin-top:16px"><button class="btn big" data-act="to-reflect" ${runs.length < 2 ? "disabled" : ""}>振り返りへ</button>${runs.length < 2 ? `<span class="note">通りやすさを変えて二回以上試すと進めます。</span>` : ""}</div>
   </section></main>`;
+}
+
+function thoughtBlock(): string {
+  const g = state.thoughtGuess;
+  return `<section class="thought pane">
+    <p class="kicker">もしも、の思考実験</p>
+    <h2 class="q">もしも、イオンの通り道が「マイナスの抵抗」のように働いたら？</h2>
+    <p>通りやすくすると速く戻り、通りにくくするとゆっくり戻りました。では、抵抗をゼロよりさらに下、マイナスにしたら、止めた後はどうなるだろう？</p>
+    <div class="two">
+      <div>
+        <div class="field-label">予想</div>
+        <div class="seg">${(["fasterStill", "slower", "noReturn"] as ThoughtGuess[]).map((x) => `<button data-set="thought" data-val="${x}" aria-pressed="${g === x}" ${state.thoughtShown ? "disabled" : ""}>${THOUGHT_GUESS_LABEL[x]}</button>`).join("")}</div>
+        <div class="actions" style="margin-top:10px"><button class="btn go" data-act="thought-run" ${!g || state.thoughtShown ? "disabled" : ""}>マイナスにして、電流を入れて止める</button></div>
+        ${
+          state.thoughtShown
+            ? `<div class="result ${g === "noReturn" ? "hit" : "miss"} fresh"><strong>${g === "noReturn" ? "予想どおり！ 戻らない" : "予想が外れた！ 戻らずに離れていく"}</strong>
+              <span>マイナスの抵抗では、止めた後に基準へ戻らず、差がどんどん大きくなります（跳ね上がる）。</span></div>
+              <div class="reveal-box">
+                <p><strong>ありえない？</strong> ふつうの抵抗器や素材は、ひとりでにマイナスにはなりません。エネルギーが湧いて出ることになるからです。</p>
+                <p><strong>でも、体の中では起きている。</strong> 神経の膜では、電位が少し上がるとナトリウムの通り道が開き、電位がさらに上がります。この区間はマイナスの抵抗のように働き、電位が一気に跳ね上がります。これが神経の信号（活動電位）の始まりです。</p>
+                <p><strong>エネルギーはどこから？</strong> ポンプがイオンを運んで保っている「イオンの濃さの差」（化学）が、跳ね上がりのエネルギー源です。</p>
+                <p class="note">ここでは跳ね上がる向きだけを見せています。通り道が閉じて元に戻るしくみなど、活動電位の詳しい時間変化は扱っていません。</p>
+              </div>`
+            : ""
+        }
+      </div>
+      <div class="pane">${thoughtSvg(state.thoughtShown)}
+        <p class="note">緑：通りやすい　灰：そのまま　紫：通りにくい${state.thoughtShown ? "　赤：マイナスの抵抗（思考実験）" : ""}</p>
+      </div>
+    </div>
+  </section>`;
 }
 
 // ---------- 振り返り ----------
@@ -341,7 +378,7 @@ function mapSvg(): string {
   return `<svg viewBox="0 0 640 260" role="img" aria-label="見方のつながり">
     <ellipse cx="320" cy="130" rx="122" ry="36" fill="var(--claude-wash)" stroke="var(--claude)" stroke-width="2"/>
     <text x="320" y="126" text-anchor="middle" font-size="15" font-weight="700" fill="var(--claude)">時間をかけてやわらぐ変化</text>
-    <text x="320" y="147" text-anchor="middle" font-size="12" fill="var(--ink-soft)">どれくらいでやわらぐか（時定数）</text>
+    <text x="320" y="147" text-anchor="middle" font-size="12" fill="var(--ink-soft)">戻る速さは時定数／マイナスなら跳ね上がる</text>
     <path d="M207 60 L260 104 M433 60 L380 104 M207 200 L260 156 M433 200 L380 156" stroke="var(--line)" stroke-width="2.5"/>
     ${node(10, 20, "素材（力学・物理）", "ばねとダンパ、押し方と一瞬", "var(--overall)")}
     ${node(434, 20, "回路（電気・物理）", "抵抗とコンデンサ、同じ形の式", "var(--ink-soft)")}
@@ -512,6 +549,7 @@ app.addEventListener("click", async (e) => {
       state.act2Saved = false;
     }
     if (set === "perm") state.perm = val as Permeability;
+    if (set === "thought") state.thoughtGuess = val as ThoughtGuess;
     render();
     return;
   }
@@ -542,13 +580,16 @@ app.addEventListener("click", async (e) => {
       await savePin(c === "higher" ? b + off : c === "lower" ? b - off : b);
       break;
     }
-    case "observe": {
+    case "observe":
+    case "claude-observe": {
       if (!v) return;
       const spec = selectedSpec();
       const pending = v.pendingPrediction;
       const pin = state.pin;
+      const byPartner = el.dataset.act === "claude-observe";
       await guard(async () => {
-        const res = await api.observe(v.sessionId, spec, crypto.randomUUID());
+        const res = byPartner ? await api.claudeObserve(v.sessionId, spec, crypto.randomUUID()) : await api.observe(v.sessionId, spec, crypto.randomUUID());
+        const note = "note" in res ? (res as { note: Hint }).note : null;
         const rec = res.view.records[res.view.records.length - 1]!;
         state.busy = false;
         state.result = null;
@@ -568,7 +609,7 @@ app.addEventListener("click", async (e) => {
         });
         state.pin = null;
         state.reason = "";
-        state.hint = null;
+        state.hint = note;
         setTimeout(() => {
           state.freshId = null;
           state.stampNow = [];
@@ -652,6 +693,10 @@ app.addEventListener("click", async (e) => {
       break;
     case "act2-run":
       state.act2Runs = [...state.act2Runs.filter((r) => r.perm !== state.perm), runAct2(state.perm)];
+      render();
+      break;
+    case "thought-run":
+      state.thoughtShown = true;
       render();
       break;
     case "to-reflect":

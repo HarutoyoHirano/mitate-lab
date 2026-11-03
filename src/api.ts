@@ -32,6 +32,8 @@ export const api = {
     post<{ view: PublicSessionView }>(`/api/session/${id}/prediction`, { ...spec, choice, reason }),
   observe: (id: string, spec: ObservationSpec, observationId: string) =>
     post<{ view: PublicSessionView }>(`/api/session/${id}/observe`, { ...spec, observationId }),
+  claudeObserve: (id: string, spec: ObservationSpec, observationId: string) =>
+    post<{ view: PublicSessionView; note: Hint; byClaude: boolean }>(`/api/session/${id}/claude-observe`, { ...spec, observationId }),
   measureA: (id: string, spec: ObservationSpec) =>
     post<{ view: PublicSessionView }>(`/api/session/${id}/measure-a`, { ...spec, measurementId: crypto.randomUUID() }),
   hint: (id: string) => post<{ view: PublicSessionView; hint: Hint }>(`/api/session/${id}/hint`),

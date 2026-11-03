@@ -1,11 +1,14 @@
 // CLAUDE.md 第7章のテスト9（API応答・Claude入力に秘密が出ない）とテスト12（Claude出力の検証）、セッションの規則
 import { afterEach, describe, expect, it } from "vitest";
 import { HIDDEN_CAUSES } from "../../scenarios/material1.js";
-import { buildPartnerInput, claudeHint, setPartnerCaller, validatePartnerOutput } from "../../server/claude/partner.js";
+import { buildPartnerInput, claudeHint, claudeObserve, setAgentCaller, setPartnerCaller, validatePartnerOutput } from "../../server/claude/partner.js";
 import { ALLOWED_OBSERVATIONS } from "../../server/model/public.js";
 import { Session } from "../../server/session/session.js";
 
-afterEach(() => setPartnerCaller(null));
+afterEach(() => {
+  setPartnerCaller(null);
+  setAgentCaller(null);
+});
 
 function playSome(s: Session) {
   let n = 0;
@@ -110,5 +113,65 @@ describe("テスト12：Claude出力の検証", () => {
     });
     const h = await claudeHint(new Session("t", { seed: 1 }));
     expect(h.source).toBe("template");
+  });
+});
+
+describe("許可ツール run_observation：学生が了承した観察だけを実行する", () => {
+  const spec = ALLOWED_OBSERVATIONS[0]!; // すばやく・瞬間
+  const toolUse = (name: string, input: unknown, id = "tu1") => [{ type: "tool_use", id, name, input }] as never;
+
+  it("Claudeが了承どおりの引数で呼べば、一回だけ実行し、結果の読みを返す", async () => {
+    const calls: string[] = [];
+    setAgentCaller(async (_s, _m, _t, toolName) => {
+      calls.push(toolName);
+      return toolName === "run_observation"
+        ? toolUse("run_observation", { pushSeconds: spec.pushSeconds, recordAt: spec.recordAt })
+        : toolUse("respond", { evidenceIds: ["c1"], interpretation: "この記録はAより大きく出ました。", nextSuggestion: "別の瞬間ではどうでしょう？", hintStage: 1 }, "tu2");
+    });
+    const s = new Session("t", { seed: 3 });
+    s.savePrediction(spec, "higher");
+    const out = await claudeObserve(s, spec, "c1");
+    expect(out.byClaude).toBe(true);
+    expect(out.note.source).toBe("claude");
+    expect(calls).toEqual(["run_observation", "respond"]);
+    expect(s.publicView().observationCount).toBe(1);
+  });
+
+  it("了承と違う引数で呼んだら、Claudeには実行させず、サーバーが了承した観察を実行する", async () => {
+    setAgentCaller(async () => toolUse("run_observation", { pushSeconds: 5, recordAt: 20 }));
+    const s = new Session("t", { seed: 3 });
+    s.savePrediction(spec, "higher");
+    const out = await claudeObserve(s, spec, "c2");
+    expect(out.byClaude).toBe(false);
+    const rec = s.publicView().records.find((r) => r.id === "c2")!;
+    expect([rec.pushSeconds, rec.recordAt]).toEqual([spec.pushSeconds, spec.recordAt]);
+    expect(s.publicView().observationCount).toBe(1);
+  });
+
+  it("予想が保存されていなければ、どちらも実行しない", async () => {
+    let called = false;
+    setAgentCaller(async () => {
+      called = true;
+      return null;
+    });
+    const s = new Session("t", { seed: 3 });
+    await expect(claudeObserve(s, spec, "c3")).rejects.toThrow();
+    expect(called).toBe(false);
+    expect(s.publicView().observationCount).toBe(0);
+  });
+
+  it("結果の読みに数字が入ったら1回だけ書き直させ、だめなら定型の言葉で伝える", async () => {
+    let responds = 0;
+    setAgentCaller(async (_s, _m, _t, toolName) => {
+      if (toolName === "run_observation") return toolUse("run_observation", { pushSeconds: spec.pushSeconds, recordAt: spec.recordAt });
+      responds++;
+      return toolUse("respond", { evidenceIds: ["c4"], interpretation: "差は0.3です", nextSuggestion: "次は？", hintStage: 1 }, `r${responds}`);
+    });
+    const s = new Session("t", { seed: 3 });
+    s.savePrediction(spec, "higher");
+    const out = await claudeObserve(s, spec, "c4");
+    expect(responds).toBe(2);
+    expect(out.note.source).toBe("template");
+    expect(s.publicView().observationCount).toBe(1);
   });
 });

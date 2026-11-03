@@ -239,4 +239,153 @@ export async function claudeTranslate(session: Session, text: string): Promise<T
   };
 }
 
+// ---------- 許可ツールでの観察の実行（学生が了承した観察だけ） ----------
+
+/** 複数回のやり取りができる呼び出し口（テストでは偽物を入れる） */
+export type AgentCaller = (
+  system: string,
+  messages: Anthropic.MessageParam[],
+  tools: Anthropic.Tool[],
+  toolName: string,
+) => Promise<Anthropic.ContentBlock[] | null>;
+
+let agentCaller: AgentCaller | null = null;
+
+export function setAgentCaller(c: AgentCaller | null): void {
+  agentCaller = c;
+}
+
+function defaultAgentCaller(): AgentCaller | null {
+  const key = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.CLAUDE_MODEL;
+  if (!key || !model) return null;
+  const client = new Anthropic({ apiKey: key, timeout: 20_000, maxRetries: 1 });
+  return async (system, messages, tools, toolName) => {
+    const msg = await client.messages.create({
+      model,
+      max_tokens: 800,
+      system,
+      messages,
+      tools,
+      tool_choice: { type: "tool", name: toolName },
+    });
+    return msg.content;
+  };
+}
+
+const RUN_TOOL: Anthropic.Tool = {
+  name: "run_observation",
+  description: "学生が了承した観察を一回だけ実行する。押す時間と記録時刻は、学生が了承したものと同じでなければならない",
+  input_schema: {
+    type: "object",
+    properties: {
+      pushSeconds: { type: "number", enum: [0.2, 1, 5] },
+      recordAt: { type: "number", enum: [0, 0.5, 2, 5, 20] },
+    },
+    required: ["pushSeconds", "recordAt"],
+  },
+};
+
+export interface ObserveOutcome {
+  readonly recordId: string;
+  readonly note: Hint;
+  /** Claudeがツールで実行したか（false ならサーバーが直接実行した） */
+  readonly byClaude: boolean;
+}
+
+/**
+ * 学生が了承した観察を、Claudeに許可ツール run_observation で実行させ、結果を一緒に読む。
+ * Claudeが使えない・違う引数で呼ぶ・ツールを呼ばないときは、サーバーが同じ観察を直接実行する。
+ */
+export async function claudeObserve(session: Session, spec: ObservationSpec, observationId: string): Promise<ObserveOutcome> {
+  const before = session.publicView();
+  const p = before.pendingPrediction;
+  if (!p || p.pushSeconds !== spec.pushSeconds || p.recordAt !== spec.recordAt) {
+    // 予想がなければ、Claudeにもサーバーにも実行させない（session.observe が拒否する）
+    session.observe(spec, observationId);
+  }
+  const c = agentCaller ?? defaultAgentCaller();
+  const limit = Number(process.env.MAX_CONCURRENT_CLAUDE_CALLS) || 8;
+  const direct = (): ObserveOutcome => {
+    const rec = session.observe(spec, observationId);
+    return { recordId: rec.id, note: resultTemplate(session, rec.id), byClaude: false };
+  };
+  if (!c || inFlight >= limit) return direct();
+  inFlight++;
+  try {
+    const messages: Anthropic.MessageParam[] = [
+      {
+        role: "user",
+        content: `学生が次の観察を了承しました。押す時間は${spec.pushSeconds}秒、記録時刻は押し終わってから${spec.recordAt}秒後です。run_observation でこの観察を一回だけ実行してください。\n状態：${buildPartnerInput(before)}`,
+      },
+    ];
+    let first: Anthropic.ContentBlock[] | null;
+    try {
+      first = await c(SYSTEM, messages, [RUN_TOOL, RESPOND_TOOL], "run_observation");
+    } catch {
+      return direct();
+    }
+    const call = first?.find((b) => b.type === "tool_use" && b.name === "run_observation");
+    const args = call && call.type === "tool_use" ? (call.input as Record<string, unknown>) : null;
+    if (!call || call.type !== "tool_use" || !args || args.pushSeconds !== spec.pushSeconds || args.recordAt !== spec.recordAt) {
+      return direct(); // 了承と違う引数・呼ばない：Claudeには実行させない
+    }
+    const rec = session.observe(spec, observationId);
+    const after = session.publicView();
+    const toolResult = JSON.stringify({
+      証拠ID: rec.id,
+      Bの力: Math.round(rec.force * 1000) / 1000,
+      同じ押し方でのAの基準値: Math.round(rec.baseForce * 1000) / 1000,
+      学生の予想: rec.prediction?.choice ?? null,
+      この観察で合わなくなった候補: rec.excluded.map((id) => after.candidates.find((x) => x.id === id)?.label),
+      全体の状態: after.overallLabel,
+    });
+    messages.push({ role: "assistant", content: first! });
+    messages.push({
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: call.id, content: toolResult },
+        { type: "text", text: "結果を学生と一緒に読み、respond で返してください。数字は書かず、証拠IDで指してください。正解は言わないでください。" },
+      ],
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let blocks: Anthropic.ContentBlock[] | null;
+      try {
+        blocks = await c(SYSTEM, messages, [RUN_TOOL, RESPOND_TOOL], "respond");
+      } catch {
+        break;
+      }
+      const resp = blocks?.find((b) => b.type === "tool_use" && b.name === "respond");
+      if (!resp || resp.type !== "tool_use") break;
+      const v = validatePartnerOutput(resp.input, after);
+      if (v.ok) {
+        return {
+          recordId: rec.id,
+          byClaude: true,
+          note: { stage: 1, text: `${v.value.interpretation} ${v.value.nextSuggestion}`.trim(), suggestion: null, source: "claude", evidenceIds: v.value.evidenceIds },
+        };
+      }
+      if (v.reason !== "digits") break;
+      messages.push({ role: "assistant", content: blocks! });
+      messages.push({
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: resp.id, content: "文章に数字が含まれていました。数字を使わず、証拠IDと言葉で指して書き直してください。", is_error: true }],
+      });
+    }
+    return { recordId: rec.id, note: resultTemplate(session, rec.id), byClaude: true };
+  } finally {
+    inFlight--;
+  }
+}
+
+function resultTemplate(session: Session, recordId: string): Hint {
+  const v = session.publicView();
+  const rec = v.records.find((r) => r.id === recordId)!;
+  const labels = rec.excluded.map((id) => `「${v.candidates.find((c) => c.id === id)?.label}」`).join("と");
+  const text = labels
+    ? `この観察で${labels}が合わなくなりました。全体の状態は「${v.overallLabel}」です。`
+    : `この観察では、合わなくなった候補はありませんでした。全体の状態は「${v.overallLabel}」です。`;
+  return { stage: 1, text, suggestion: null, source: "template", evidenceIds: [recordId] };
+}
+
 export { specText };

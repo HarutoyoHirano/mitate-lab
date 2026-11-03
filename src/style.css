@@ -208,3 +208,11 @@ table.vals tr.diff td { font-weight: 700; background: #eaf5ef; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* 思考実験 */
+.thought { margin-top: 22px; border: 2px dashed var(--hanko); background: #fffaf9; }
+.thought .kicker { color: var(--hanko); }
+.reveal-box { margin-top: 10px; padding: 10px 14px; background: #fff; border-left: 5px solid var(--hanko); border-radius: 0 var(--radius-s) var(--radius-s) 0; }
+.reveal-box p { margin: 4px 0 8px; }
+.go-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.go-row .btn.go { flex: 1; }

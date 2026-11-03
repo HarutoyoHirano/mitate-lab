@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { HIDDEN_CAUSES, type HiddenCauseId } from "../scenarios/material1.js";
 import { isPushSeconds, isRecordAt, type ObservationSpec } from "./model/public.js";
 import { Session, SessionError, type PredictionChoice, type Reflection } from "./session/session.js";
-import { claudeHint, claudeTranslate, claudeAvailable } from "./claude/partner.js";
+import { claudeHint, claudeObserve, claudeTranslate, claudeAvailable } from "./claude/partner.js";
 
 const MAX_SESSIONS = 500;
 const sessions = new Map<string, Session>();
@@ -102,6 +102,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
       case "observe": {
         const rec = s.observe(specFrom(body), String(body.observationId ?? ""));
         send(res, 200, { view: s.publicView(), recordId: rec.id });
+        return true;
+      }
+      case "claude-observe": {
+        const out = await claudeObserve(s, specFrom(body), String(body.observationId ?? ""));
+        send(res, 200, { view: s.publicView(), recordId: out.recordId, note: out.note, byClaude: out.byClaude });
         return true;
       }
       case "measure-a": {
