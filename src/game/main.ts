@@ -65,6 +65,8 @@ const LOOKS: Record<CandidateId, string> = {
 const state = {
   screen: "title" as Screen,
   view: null as PublicSessionView | null,
+  /** 押す前の公開ビュー。本人が説明を選ぶまでは、こちらの判定だけを見せる（判断を先取りしない） */
+  boardView: null as PublicSessionView | null,
   claude: false,
   sound: false,
   busy: false,
@@ -329,9 +331,10 @@ function renderWhy(): string {
   const c = curve()!;
   const fit = overlayFit();
   const awaiting = v.awaitingPick && c.studentPick === null;
+  const bv = awaiting && state.boardView ? state.boardView : v;
   const yMax = Math.max(2.4, ...v.curves.flatMap((x) => x.b.map((p) => p.force + 0.2)));
-  const narrowed = v.overall === "narrowed";
-  const live = v.candidates.filter((x) => x.status !== "inconsistent" || c.excluded.includes(x.id));
+  const narrowed = !awaiting && v.overall === "narrowed";
+  const live = bv.candidates.filter((x) => x.status !== "inconsistent" || (!awaiting && c.excluded.includes(x.id)));
   const recommend = v.hintStage >= 3 ? v.planBySpeed.filter((p) => p.decisivePairs.length > 0).map((p) => p.pushSeconds) : [];
   const check =
     !awaiting && c.studentPick !== null
@@ -941,6 +944,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "run":
       if (!v || !state.bet) return;
+      state.boardView = v;
       await guard(async () => {
         const r = await api.observeCurve(v.sessionId, 1, crypto.randomUUID(), state.bet!, "");
         state.view = r.view;
@@ -1007,6 +1011,7 @@ app.addEventListener("click", async (e) => {
       await guard(async () => {
         state.view = (await api.pick(v.sessionId, state.curveId, act === "pick-unsure" ? "unsure" : state.pickDraft)).view;
         state.pickDraft = [];
+        state.boardView = null;
         if (state.view.overall === "narrowed") beep("win");
       });
       break;
@@ -1025,6 +1030,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "push-again":
       if (!v || !state.nextSpeed || !state.nextChoice) return;
+      state.boardView = v;
       await guard(async () => {
         const r = await api.observeCurve(v.sessionId, state.nextSpeed!, crypto.randomUUID(), state.nextChoice!, "");
         state.view = r.view;
