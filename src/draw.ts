@@ -70,7 +70,7 @@ export function benchSvg(
         <rect x="${cx - 24}" y="${platenTop - 26}" width="48" height="16" rx="3" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
         <text x="${cx}" y="${platenTop - 14.5}" text-anchor="middle" font-size="9" fill="var(--ink)">力センサ</text>
         <rect x="${cx - 60}" y="${platenTop - 10}" width="120" height="10" rx="2" fill="var(--ink)"/>
-        ${dent !== null ? `<line x1="${cx - 56}" x2="${cx + 56}" y1="${BASE_Y - H0}" y2="${BASE_Y - H0}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3"/><text x="${cx + 58}" y="${BASE_Y - H0 + 3}" font-size="8.5" fill="var(--ink-soft)">元の高さ</text>` : ""}
+        ${dent !== null ? `<line x1="${cx - 56}" x2="${cx + 56}" y1="${BASE_Y - H0}" y2="${BASE_Y - H0}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3"/><text x="${cx + 58}" y="${BASE_Y - H0 + 3}" font-size="8.5" fill="var(--ink-soft)">元の表面</text>` : ""}
         <!-- 試験片 -->
         <rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="10" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2"/>
         ${grid.join("")}
@@ -268,11 +268,11 @@ export function dentCloseupSvg(dentA: number, dentB: number, h: number, frame: b
   const d = dentB - dentA;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="証拠写真の拡大図：離して${h}秒後のAとBのへこみ">
     ${frame ? `<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="10" fill="none" stroke="var(--hanko)" stroke-width="3"/>` : `<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5"/>`}
-    <text x="12" y="22" font-size="13" font-weight="700" fill="var(--ink)">離して ${h.toFixed(1)}秒後のへこみ</text>
-    <text x="${W - 12}" y="22" font-size="13" font-weight="700" text-anchor="end" fill="${frame ? "var(--hanko)" : "var(--ink-soft)"}" font-variant-numeric="tabular-nums">差 ${(d >= 0 ? "+" : "−") + Math.abs(d).toFixed(3)}</text>
+    <text x="12" y="22" font-size="13" font-weight="700" fill="var(--ink)">離して ${h.toFixed(1)}秒後</text>
+    <text x="${W - 12}" y="22" font-size="13" font-weight="700" text-anchor="end" fill="${frame ? "var(--hanko)" : "var(--ink-soft)"}" font-variant-numeric="tabular-nums">差（B−A）${(d >= 0 ? "+" : "−") + Math.abs(d).toFixed(3)}</text>
     <line x1="33" x2="33" y1="${yOf(0)}" y2="${yOf(0.62)}" stroke="var(--ink-soft)"/>${ticks}
     <line x1="40" x2="${W - 8}" y1="${yOf(0)}" y2="${yOf(0)}" stroke="var(--ink-soft)" stroke-dasharray="4 3"/>
-    <text x="${W - 10}" y="${yOf(0) - 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">押す前の高さ</text>
+    <text x="${W - 10}" y="${yOf(0) - 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">押す前の表面</text>
     ${block(46, dentA, "var(--ink-soft)", "見本A")}
     ${block(190, dentB, "var(--claude)", "試料B")}
     <line x1="142" x2="186" y1="${ya}" y2="${ya}" stroke="var(--ink-soft)" stroke-dasharray="3 3"/>
@@ -306,7 +306,8 @@ export function recoveryGraphSvg(recB: readonly { h: number; dent: number }[], d
     ${grid}${ticks}
     <text x="${W - R}" y="${H - 1}" font-size="11" text-anchor="end" fill="var(--ink-soft)">離してからの秒数 →</text>
     <polyline points="${aPts.join(" ")}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="6 4"/>
-    <polyline points="${bLine}" fill="none" stroke="var(--claude)" stroke-width="2.5"/>
+    <polyline points="${bLine}" fill="none" stroke="var(--claude)" stroke-width="2"/>
+    ${recB.map((p) => `<circle cx="${xs(p.h).toFixed(1)}" cy="${ys(p.dent).toFixed(1)}" r="1.8" fill="var(--claude)"/>`).join("")}
     ${photoHs.map((h) => `<path d="M${xs(h) - 5} ${T - 10} h10 l-5 7 z" fill="var(--hanko)"/>`).join("")}
     <line x1="${xs(cursor)}" x2="${xs(cursor)}" y1="${T}" y2="${H - B}" stroke="var(--claude)" stroke-width="1.5"/>
     <circle cx="${xs(cursor)}" cy="${ys(cy)}" r="5" fill="var(--claude)"/>

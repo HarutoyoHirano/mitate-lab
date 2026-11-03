@@ -129,10 +129,10 @@ function missionBar(): string {
     const c = latestCurve();
     goal = "押してからの押し返しの変化（曲線）を見て、いつもの検査が見落としていた違いを見つけ、なぜ違うのかを絞り込む";
     if (state.animating) next = "曲線が伸びていくのを見る。Aの線（点線）と、どこでずれて、どこで重なる？";
-    else if (c && c.studentPick === null && !v.photos.some((p) => p.curveId === c.id)) next = "下の再生バーで時間を止め、AとBのへこみに違いが見える瞬間を撮る。それから右の候補で、合わなくなった説明を選ぶ";
+    else if (c && c.studentPick === null && !v.photos.some((p) => p.curveId === c.id)) next = "下の「離してから〔 〕秒」のつまみを動かして、AとBのへこみに違いが見える時刻を探し、「この瞬間を撮る」。それから右の候補で、合わなくなった説明を選ぶ";
     else if (c && c.studentPick === null) next = "右の候補から「この曲線と合わなくなった説明」を選んで、検算する（分からなければ「分からない」）";
     else if (v.overall === "narrowed") next = "決着しました。「答え合わせへ」で、Bの正体を確かめる（別の速さで確かめてもよい）";
-    else if (!state.choice) next = "① 押す速さを選ぶ → ② 押し終わりの高さを予想する → ③ 押して、曲線を見る";
+    else if (!state.choice) next = v.curves.length === 0 ? "① 押す速さを選ぶ → ② 深さを保っている間もAと同じかを予想する → ③ 押して、曲線を見る" : "① 押す速さを選ぶ → ② 押し終わりの力（曲線の高さ）を予想する → ③ 押して、曲線を見る";
     else next = "予想を選びました。押して、曲線が伸びていくのを見る";
   } else if (state.phase === "debrief") {
     goal = "Bの正体と、どの押し方が決め手になったかを確かめる";
@@ -165,7 +165,7 @@ function renderStart(): string {
           state.hookDone
             ? `<p><strong>押し板は同じ深さで止まったまま。なのに、押し返す力は ${a0.toFixed(2)} から ${forceAfterPush(BASE, 1, 20).toFixed(2)} へ下がりました。</strong></p>
                <p class="note">深さは固定、測っているのは押し返す力。この素材には「時間とともに押し返しがやわらぐ」性質があります。医療の計測でも、いつ・どう測るかで見える性質が変わることがあります。</p>
-               <details class="spring"><summary>ばねならどうなる？</summary><p class="note">ふつうのばねは、深さを保てば押し返す力は一定のまま（力＝かたさ×深さ）。止めたのに力が下がるのは、ばねだけでは説明できない、時間がかかわる性質です。</p></details>`
+               <details class="spring"><summary>ばねならどうなる？</summary><p class="note">ふつうのばねは、深さを保てば押し返す力は一定のまま（力＝かたさ×深さ）で、離せばすぐ元の長さに戻ります。止めたのに力が下がるのは、ばねだけでは説明できない、時間がかかわる性質です。</p></details>`
             : `<div class="actions"><button class="btn" data-act="hook" ${state.animating ? "disabled" : ""}>Aを押し込んで、深さを保つ</button></div>`
         }
       </div>
@@ -177,7 +177,7 @@ function renderStart(): string {
         <li><strong>見方をつなぐ</strong>：調べたBを電気回路に置きかえ、細胞の膜の言葉で言い直す</li>
       </ol>
       <div class="actions"><button class="btn big" data-act="start">実験を始める</button></div>
-      <p class="note">試験片は計算で作った仮想の素材です（Aを押して十分に待ったあとの力を1とする目盛り）。実在の材料や体の組織、試験機を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
+      <p class="note">パッドは計算で作った仮想の素材で、電極ではありません。ここでは同じ素材の試験片で調べます。試験片は計算で作った仮想の素材です（Aを押して十分に待ったあとの力を1とする目盛り）。実在の材料や体の組織、試験機を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
       <details><summary>先生用の設定</summary>
         <div class="teacher">
           <label>合言葉<input type="password" id="t-pass" autocomplete="off"></label>
@@ -266,7 +266,7 @@ function renderLab(): string {
         <div><div class="field-label">① 押す速さ</div>
           <div class="seg speed">${PUSH_SECONDS.map((x) => `<button data-set="push" data-val="${x}" aria-pressed="${x === state.push}" ${lock ? "disabled" : ""}>${SPEED_LABEL[x]}<small>${x}秒で押す</small></button>`).join("")}</div>
         </div>
-        <div><div class="field-label">${v.curves.length === 0 ? "② 予想：20秒後は区別できなかったB。<strong>途中も同じ</strong>？" : "② 予想：Bの<strong>押し終わりの高さ</strong>は、Aと比べて？"}</div>
+        <div><div class="field-label">${v.curves.length === 0 ? "② 予想：20秒後は区別できなかったB。<strong>深さを保っている間（押し終わって0.5〜5秒）</strong>も同じ？" : "② 予想：Bの<strong>押し終わりの力（曲線の高さ）</strong>は、Aと比べて？"}</div>
           <div class="shapes">${(v.curves.length === 0 ? (["midSame", "midDiffer", "unknown"] as PredictionChoice[]) : (["same", "higher", "lower", "unknown"] as PredictionChoice[])).map((c) => `<button class="shape" data-set="choice" data-val="${c}" aria-pressed="${state.choice === c}" ${lock ? "disabled" : ""}>${shapeThumb(c)}<span>${SHAPE_LABEL[c]}</span></button>`).join("")}</div>
         </div>
         <input class="reason" id="reason" maxlength="200" placeholder="そう思った理由（ひとこと・任意）" value="${esc(state.reason)}" ${lock ? "disabled" : ""}>
@@ -329,14 +329,16 @@ function recoveryPanel(c: CurveView): string {
   const mine = v.photos.filter((p) => p.curveId === c.id);
   return `<section class="rec-panel" aria-label="離した後の戻り">
     <h3>押し板を上げると…へこみはどう戻る？ <span class="note">時間を止めて、違いが見える瞬間を撮ろう</span></h3>
+    <p class="note">ここからは押し板を離すので、押し返す力はゼロ。測るのは<strong>へこみの深さ</strong>（押し込んだ深さ＝1 とした割合）。離した瞬間に一部はすぐ戻り、残りがゆっくり戻ります。点線は見本A（基準の線・測らない）、青は試料B（測った記録、誤差 ±0.01）。</p>
     <div id="rec-live">${recLiveHtml(c)}</div>
     <div class="rec-controls">
-      <button class="btn small ghost" data-act="rec-play" ${state.busy ? "disabled" : ""}>▶ 離したところから再生（はじめはゆっくり）</button>
+      <button class="btn small ghost" data-act="rec-play" ${state.busy ? "disabled" : ""}>▶ 離したところから再生（はじめはゆっくり。つまみで止まる）</button>
       <label class="rec-slider">離してから <input type="range" id="rec-h" min="0" max="${RECOVERY_MAX}" step="${RECOVERY_STEP}" value="${state.recH}"> <strong id="rec-h-val">${state.recH.toFixed(1)}</strong> 秒</label>
       <button class="btn small shoot" data-act="photo" data-id="${c.id}" ${state.busy ? "disabled" : ""}>この瞬間を撮る</button>
     </div>
-    ${mine.length ? `<div class="photos">${mine.map((p) => `<div class="photo ${p.distinguishable ? "ok" : ""}"><strong>${p.distinguishable ? "★ ここなら違いが見えた" : "この瞬間では区別できない"}</strong><span>離して${p.h.toFixed(1)}秒後：A ${p.dentA.toFixed(3)}／B ${p.dentB.toFixed(3)}（差 ${p.diff >= 0 ? "+" : "−"}${Math.abs(p.diff).toFixed(3)}、判定幅 ${SHAPE_TOLERANCE}）</span></div>`).join("")}</div>
-      ${mine.some((p) => p.distinguishable) ? `<p class="note">最後（40秒後）だけを見たら、見落としていた違いです。${mine.some((p) => !p.distinguishable) ? "区別できなかった写真も、記録として正当です。" : ""}</p>` : ""}` : `<p class="note">形の測定には ±0.01 の誤差があります。AとBの差が判定幅 ${SHAPE_TOLERANCE} を超えたら「違いが見えた」とします。</p>`}
+    ${mine.length ? `<div class="photos">${mine.map((p) => `<div class="photo ${p.distinguishable ? "ok" : ""}"><strong>${p.distinguishable ? "★ ここなら違いが見えた" : "この瞬間では区別できない"}</strong><span>離して${p.h.toFixed(1)}秒後のへこみ：A（基準）${p.dentA.toFixed(3)}／B（測定）${p.dentB.toFixed(3)}　差（B−A）${p.diff >= 0 ? "+" : "−"}${Math.abs(p.diff).toFixed(3)}${Math.abs(p.diff) > 0.005 ? (p.diff > 0 ? "：Bのほうが深い＝戻りが遅い" : "：Bのほうが浅い＝戻りが速い") : ""}</span></div>`).join("")}</div>
+      ${mine.some((p) => p.distinguishable) ? `<p class="note">最後（40秒後）だけを見たら、見落としていた違いです。${mine.some((p) => !p.distinguishable) ? "区別できなかった写真も、記録として正当です。" : ""}</p>` : `<p class="note">この時刻では区別できませんでした。つまみを動かして、別の時刻でも撮ってみよう。</p>`}` : ""}
+    <p class="note">AとBのへこみの差が <strong>${SHAPE_TOLERANCE}</strong> を超えたら「違いが見えた」とします。これは、いつもの検査の力の許容差 ±${TEST_TOLERANCE} とは別に決めた幅です（たまたま同じ数）。</p>
   </section>`;
 }
 
@@ -474,7 +476,7 @@ function describeCurve(v: PublicSessionView, c: CurveView): string {
     const j = judgeAgainstBase(r.force, r.baseForce);
     return j.indistinguishable ? "Aとほぼ同じ" : j.diff > 0 ? strong : weak;
   };
-  return `押し終わった直後：${word(0, "Aより強く押し返す", "Aより弱く押し返す")}　→　2秒後：${word(2, "まだAより強い", "まだAより弱い")}　→　20秒後：${word(20, "Aより強いまま", "Aより弱いまま")}`;
+  return `押し終わった直後：${word(0, "Aより強く押し返す", "Aより弱く押し返す")}　→　0.5秒後：${word(0.5, "Aより強い", "Aより弱い")}　→　2秒後：${word(2, "Aより強い", "Aより弱い")}　→　5秒後：${word(5, "Aより強い", "Aより弱い")}　→　20秒後：${word(20, "Aより強い", "Aより弱い")}`;
 }
 
 function resultBanner(c: CurveView | null): string {
@@ -482,20 +484,27 @@ function resultBanner(c: CurveView | null): string {
   if (!c || state.animating) return `<div class="result idle">${state.animating ? "測っています…" : "押す速さを選び、予想を選んで押すと、ここに結果が出ます。"}</div>`;
   const p = c.prediction;
   const mid = p && (p.choice === "midSame" || p.choice === "midDiffer");
+  const first = v.curves[0]?.id === c.id;
+  const midDiff = [0.5, 2, 5].some((h) => {
+    const r = v.records.find((x) => x.id === `${c.id}@${h}`);
+    return r ? !judgeAgainstBase(r.force, r.baseForce).indistinguishable : false;
+  });
   const head =
     !p || p.choice === "unknown"
-      ? `押し終わりの高さは${DIR_WORD[c.endDirection]}。何が見えた？`
+      ? first
+        ? `深さを保っている間（0.5〜5秒後）は、${midDiff ? "Aと区別できる差があった" : "Aと区別できなかった"}。何が見えた？`
+        : `押し終わりの力は${DIR_WORD[c.endDirection]}。何が見えた？`
       : c.predictionHit
         ? mid
           ? p.choice === "midDiffer"
-            ? "予想どおり！ 途中は違った"
-            : "予想どおり。途中も区別できなかった"
+            ? "予想どおり！ 深さを保っている間（0.5〜5秒後）は違った"
+            : "予想どおり。深さを保っている間（0.5〜5秒後）も区別できなかった"
           : "予想どおり！"
         : mid
           ? p.choice === "midSame"
-            ? "予想が外れた！ 途中は違った。ここが発見のチャンス"
-            : "予想が外れた。途中も区別できなかった"
-          : `予想が外れた！ ここが発見のチャンス（押し終わりは${DIR_WORD[c.endDirection]}）`;
+            ? "予想が外れた！ 深さを保っている間（0.5〜5秒後）は違った。ここが発見のチャンス"
+            : "予想が外れた。深さを保っている間（0.5〜5秒後）も区別できなかった"
+          : `予想が外れた！ ここが発見のチャンス（押し終わりの力は${DIR_WORD[c.endDirection]}）`;
   const cls = !p || p.choice === "unknown" ? "idle" : c.predictionHit ? "hit" : "miss";
   return `<div class="result ${cls} ${state.freshBanner && c.id === latestCurve()?.id ? "fresh" : ""}">
     <strong>${head}</strong>
@@ -583,10 +592,10 @@ function renderDebrief(): string {
       <p>${decisiveNote(v.records, kc?.id ?? null, v.overall === "narrowed")}</p>
     </div>
     <div class="pane speed-table">
-      <h2>もう一つの驚き：押し方ごとの、押し終わりの差（Bの正体の値で計算）</h2>
+      <h2>もう一つの驚き：押し方を変えると、差の大きさが変わる</h2>
       ${speedTableHtml(d.truth, d.base, v)}
       <p><strong>どの違いを調べたいかで、よい測り方が変わる。速く押せばよいとは限らない。</strong></p>
-      <p class="note">押し終わりの差は「高さ」の違いだけです。高さが同じでも、そのあとの下がり方で分かれる説明があります（曲線の画面の「この説明で重ねてみる」）。</p>
+      <p class="note">この表は押し終わりの力だけです。あなたの決め手は、押し終わりだけでなく、そのあとの下がり方（途中の点）で決まることもあります。押し終わりの力が同じでも、下がり方で分かれる説明があります（曲線の画面の「この説明で重ねてみる」）。</p>
     </div>
     <div class="bridge pane">
       <p><strong>では、あなたは「いつもの検査をすり抜ける素材」を自分でつくれるでしょうか？</strong></p>
@@ -600,11 +609,11 @@ function speedTableHtml(truth: MaterialParams, base: MaterialParams, v: PublicSe
   const t = pushSpeedTable(truth, base);
   const used = new Set(v.curves.map((c) => c.pushSeconds));
   const max = Math.max(...t.rows.map((r) => Math.abs(r.diff)));
-  return `<table class="vals speeds"><tr><th>押し方</th><th>押し終わりの差（B−A）</th><th></th><th>あなたは</th></tr>
+  return `<table class="vals speeds"><tr><th>押し方</th><th>押し終わりの力の差（B−A、誤差なしの計算値）</th><th></th><th>あなたは</th></tr>
     ${t.rows
       .map(
         (r) => `<tr class="${r.pushSeconds === t.best ? "diff" : ""}"><td>${speedName(r.pushSeconds)}</td><td class="num">${r.diff >= 0 ? "+" : "−"}${Math.abs(r.diff).toFixed(3)}</td>
-        <td><span class="bar" style="width:${Math.round((Math.abs(r.diff) / max) * 120)}px"></span>${r.pushSeconds === t.best ? " いちばん大きい" : ""}</td><td>${used.has(r.pushSeconds) ? "測った" : "—"}</td></tr>`,
+        <td><span class="bar" style="width:${Math.round((Math.abs(r.diff) / max) * 120)}px"></span>${r.pushSeconds === t.best ? " 差の大きさがいちばん大きい（＋−は向き）" : ""}</td><td>${used.has(r.pushSeconds) ? "測った" : "—"}</td></tr>`,
       )
       .join("")}</table>`;
 }
@@ -717,7 +726,8 @@ function renderAct2(): string {
         <p class="note">膜（黄）＝電荷をためるコンデンサ、イオンの通り道（緑）の通りにくさ＝抵抗（通り道が多いほど抵抗は小さい）、イオンの濃さの差がつくる基準の電位＝電池。イオンの移動（化学）が電流（電気）になり、膜の電位（生物の信号のもと）を変えます。値は計算値です（誤差は付けていません）。</p></div>
     </div>
     <p class="lead">${story ? story.membrane : ""}</p>
-    <p class="lead">止めた時の高さ（最後の値）だけで、通りやすさの違いまで分かるでしょうか？ 戻る速さも見てみよう。</p>
+    <p class="lead">電流を止めた瞬間の、基準の電位からの差だけで、通りやすさの違いまで分かるでしょうか？ 差が半分になるまでの時間も見てみよう。</p>
+    <p class="note">ここでの「戻る」は、第1幕の「深さを保ったまま押し返しが下がる」にあたります（離した後のへこみの戻りではありません）。</p>
     <h2 class="q">イオンが通りやすくなると、電流を止めた後（第1幕の押し終わりにあたる）、基準の電位（何も入れていないときの膜電位。生物では「静止電位」と呼ぶ）へ戻るのは速くなる？ 遅くなる？</h2>
     <div class="two">
       <div>
@@ -874,6 +884,8 @@ function render(): void {
 
 // ---------- 動き ----------
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** 戻りの再生を止めるための番号（つまみを動かすと進む） */
+let recPlayToken = 0;
 const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function valueAt(pts: readonly { t: number; force: number }[], t: number): number {
@@ -1012,8 +1024,8 @@ async function playCurve(c: CurveView): Promise<void> {
     render();
     await sleep(45);
   }
-  state.recH = 2;
-  state.clock = "離してから40秒：どちらも元の高さに近い。途中はどうだった？";
+  state.recH = RECOVERY_MAX;
+  state.clock = "離してから40秒：どちらも押す前の表面に近い。その途中はどうだった？";
   state.animating = false;
   state.press = 1;
   state.pickDraft = [];
@@ -1063,6 +1075,7 @@ app.addEventListener("input", (e) => {
   const t = e.target as HTMLInputElement;
   if (t.id === "reason") state.reason = t.value;
   if (t.id === "rec-h") {
+    recPlayToken++; // 再生中なら止める
     state.recH = Number(t.value);
     updateRecLive();
   }
@@ -1180,17 +1193,19 @@ app.addEventListener("click", async (e) => {
     case "rec-play": {
       const c = shownCurve();
       if (!c) return;
+      const token = ++recPlayToken;
       state.released = true;
       const reduce = reduceMotion();
       const ms = reduce ? 0 : 5000;
       const s0 = performance.now();
       for (;;) {
         const el = performance.now() - s0;
-        if (el >= ms) break;
+        if (el >= ms || token !== recPlayToken) break;
         state.recH = Math.round(((el / ms) ** 2 * RECOVERY_MAX) / RECOVERY_STEP) * RECOVERY_STEP;
         updateRecLive();
         await sleep(40);
       }
+      if (token !== recPlayToken) break; // つまみを動かしたら、そこで止める
       state.recH = RECOVERY_MAX;
       updateRecLive();
       break;
