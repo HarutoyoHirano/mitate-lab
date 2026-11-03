@@ -109,7 +109,7 @@ function missionBar(): string {
     next = "読み終えたら「素材をつくってみる」へ";
   } else if (state.phase === "make") {
     goal = "わかったことを使って、条件に合う素材を自分でつくる";
-    next = "つまみを動かして、二つの検査の合否が変わるのを見る。両方そろえば合格";
+    next = "つまみを動かして、二つの検査の判定が変わるのを見る。両方の条件がそろえばミッション達成";
   } else if (state.phase === "act2") {
     goal = "見つけた「押し返しが抜けるまでの時間」が、電気や細胞の中ではどう見えるかを確かめる";
     next = state.act2Runs.length < 2 ? "予想を保存して、イオンの通りやすさを変えて二回以上試す" : "最後に「もしも」の思考実験へ。終わったら振り返りへ";
@@ -166,14 +166,15 @@ function renderIntro(): string {
     <div class="pane bench-pane bench">${benchSvg("both", state.press, state.flash)}</div>
     <div class="intro-side">
       <p class="clock">${state.clock || "いつもの検査：ふつう（1秒）に押して、20秒後の値を測る"}</p>
+      <p class="note">いつもの検査は「試料Bが見本Aと同じか」を確かめる検査です。20秒後の値の差が誤差（±${v.error}）の範囲なら「見本と同じ」と判定します。</p>
       <div class="twin">
         <div class="meter"><span class="tag">見本 A</span><strong>${state.introDone ? a.toFixed(3) : "—"}</strong></div>
         <div class="meter"><span class="tag">試料 B</span><strong>${state.introDone ? b.toFixed(3) : "—"}</strong></div>
       </div>
       ${
         state.introDone
-          ? `<p class="same">合格。同じ…？</p>
-             <p>差は誤差（±${v.error}）の範囲。いつもの検査では、BはAと同じです。<br><strong>でも、いつもの検査は、押してから20秒後しか見ていません。</strong>途中で何が起きているのでしょう？</p>
+          ? `<p class="same">判定：見本と同じ。…本当に？</p>
+             <p>差は誤差（±${v.error}）の範囲。いつもの検査では、BはAと「同じ」と判定されました。<br><strong>でも、いつもの検査は、押してから20秒後しか見ていません。</strong>途中で何が起きているのでしょう？</p>
              <div class="actions"><button class="btn big" data-act="to-lab">途中を見てみる</button></div>`
           : `<p class="note">押して、そのまま20秒待っています（早送り）。</p>`
       }
@@ -369,7 +370,7 @@ function renderMake(): string {
   const tabs = [...MISSIONS.map((m) => ({ id: m.id as MissionId | "free", label: m.title, done: state.passed[m.id] })), { id: "free" as const, label: "自由づくり", done: false }];
   return `${topbar()}<main class="wrap">${missionBar()}<section class="page make">
     <p class="kicker">素材をつくる</p>
-    <h1>検査をすり抜ける素材を、つくれるか？</h1>
+    <h1>いつもの検査をすり抜ける素材を、つくれるか？</h1>
     <div class="tabs" role="tablist">${tabs.map((t) => `<button role="tab" class="${state.mission === t.id ? "on" : ""}" data-act="mission" data-val="${t.id}">${t.done ? "✓ " : ""}${esc(t.label)}</button>`).join("")}</div>
     <div class="make-grid">
       <div class="pane sliders">
@@ -407,10 +408,10 @@ function updateMakeLive(): void {
     head = `<div class="goal-box ${r.passed ? "pass" : ""}">
       <p class="goal">${esc(m.goal)}</p>
       <ul class="checks">
-        <li class="${r.usualOk ? "ok" : ""}">${r.usualOk ? "✓" : "・"} いつもの検査（ふつうに押して20秒後）：見本との差 ${d.usual >= 0 ? "+" : ""}${d.usual.toFixed(3)}</li>
-        <li class="${r.quickOk ? "ok" : ""}">${r.quickOk ? "✓" : "・"} すばやい検査（すばやく押した直後）：見本との差 ${d.quick >= 0 ? "+" : ""}${d.quick.toFixed(3)}</li>
+        <li class="${r.usualOk ? "ok" : ""}">${r.usualOk ? "✓" : "・"} いつもの検査（ふつうに押して20秒後）${state.mission === "hideFromUsual" ? "で「見本と同じ」と判定される" : "で「見本と違う」と判定される"}：見本との差 ${d.usual >= 0 ? "+" : ""}${d.usual.toFixed(3)}</li>
+        <li class="${r.quickOk ? "ok" : ""}">${r.quickOk ? "✓" : "・"} すばやい検査（すばやく押した直後）${state.mission === "hideFromUsual" ? "で違いがバレる" : "で見本とそっくり"}：見本との差 ${d.quick >= 0 ? "+" : ""}${d.quick.toFixed(3)}</li>
       </ul>
-      ${r.passed ? `<span class="hanko yes big-stamp ${firstPass ? "now" : ""}">合格</span><p class="win">${state.mission === "hideFromUsual" ? "いつもの検査をすり抜けた！ 違いは「押した直後」や「抜けていく途中」に隠れています。" : "逆もできた！ すばやく押す検査だけでも、見落とす違いがあります。"}</p>` : ""}
+      ${r.passed ? `<span class="hanko yes big-stamp ${firstPass ? "now" : ""}">達成</span><p class="win">${state.mission === "hideFromUsual" ? "いつもの検査をすり抜けた！ 違いは「押した直後」や「抜けていく途中」に隠れています。" : "逆もできた！ すばやく押す検査だけでも、見落とす違いがあります。"}</p>` : ""}
     </div>`;
   } else {
     head = `<div class="goal-box"><p class="goal">好きな素材をつくって、曲線がどう変わるかを見よう。</p>
