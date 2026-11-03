@@ -2,7 +2,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HIDDEN_CAUSES, type HiddenCauseId } from "../scenarios/material1.js";
-import { isPushSeconds, isRecordAt, type ObservationSpec, type PushSeconds } from "./model/public.js";
+import { isCandidateId, isPushSeconds, isRecordAt, type CandidateId, type ObservationSpec, type PushSeconds } from "./model/public.js";
 import { Session, SessionError, type PredictionChoice, type Reflection } from "./session/session.js";
 import { claudeHint, claudeObserve, claudeTranslate, claudeAvailable } from "./claude/partner.js";
 
@@ -116,13 +116,29 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
         return true;
       }
       case "observe-curve": {
+        // 予想と理由は「押す」時点でまとめて保存する（画面に書いた内容と記録を一致させる）
+        if (body.choice !== undefined) s.saveCurvePrediction(pushFrom(body), body.choice as PredictionChoice, typeof body.reason === "string" ? body.reason : "");
         const rec = s.observeCurve(pushFrom(body), String(body.observationId ?? ""));
         send(res, 200, { view: s.publicView(), curveId: rec.id });
         return true;
       }
       case "claude-observe": {
+        if (body.choice !== undefined) s.saveCurvePrediction(pushFrom(body), body.choice as PredictionChoice, typeof body.reason === "string" ? body.reason : "");
         const out = await claudeObserve(s, pushFrom(body), String(body.observationId ?? ""));
         send(res, 200, { view: s.publicView(), recordId: out.recordId, note: out.note, byClaude: out.byClaude });
+        return true;
+      }
+      case "pick": {
+        const pick = body.pick === "unsure" ? "unsure" : Array.isArray(body.pick) ? (body.pick as unknown[]).filter(isCandidateId) : null;
+        if (!pick) throw new SessionError("説明の選び方が正しくない");
+        s.pickExcluded(String(body.curveId ?? ""), pick as CandidateId[] | "unsure");
+        send(res, 200, { view: s.publicView() });
+        return true;
+      }
+      case "confirm": {
+        if (!isCandidateId(body.candidateId)) throw new SessionError("候補が正しくない");
+        s.confirmCandidate(body.candidateId);
+        send(res, 200, { view: s.publicView() });
         return true;
       }
       case "measure-a": {

@@ -8,7 +8,10 @@ import {
   CANDIDATES,
   ERROR,
   INTRO_OBSERVATION,
+  TEST_TOLERANCE,
+  isCandidateId,
   isPushSeconds,
+  judgeAgainstBase,
   isRecordAt,
   type CandidateId,
   type ObservationSpec,
@@ -18,13 +21,21 @@ import { forceAfterPush } from "../model/sls.js";
 import type { HiddenCauseId } from "../../scenarios/material1.js";
 import { templateHint, type Hint } from "./hints.js";
 
-/** 学生の予想：同じ押し方・時刻で、BはAと比べてどうなるか */
-export type PredictionChoice = "higher" | "same" | "lower";
+/** 学生の予想：同じ押し方・時刻で、BはAと比べてどうなるか（「まだ分からない」も選べる） */
+export type PredictionChoice = "higher" | "same" | "lower" | "unknown";
+export const PREDICTION_CHOICES: readonly PredictionChoice[] = ["same", "higher", "lower", "unknown"];
 export const PREDICTION_LABELS: Readonly<Record<PredictionChoice, string>> = {
   higher: "Aより大きい",
   same: "Aと同じくらい",
   lower: "Aより小さい",
+  unknown: "まだ分からない",
 };
+
+/** 測った値と基準値の差を、予想と同じ言葉にする（許容差以内なら same） */
+export function directionOf(measured: number, base: number): Exclude<PredictionChoice, "unknown"> {
+  const { diff, indistinguishable } = judgeAgainstBase(measured, base);
+  return indistinguishable ? "same" : diff > 0 ? "higher" : "lower";
+}
 
 export interface SavedPrediction extends ObservationSpec {
   readonly choice: PredictionChoice;
@@ -56,6 +67,21 @@ export interface CurveRecord {
   readonly prediction: CurvePrediction | null;
   readonly excluded: readonly CandidateId[];
   readonly evidenceIds: readonly string[];
+  /** 押し終わり（h=0）の測定値と基準Aの差から決めた向き。予想の正誤はこれと比べる */
+  readonly endDirection: Exclude<PredictionChoice, "unknown">;
+  /** 予想が当たったか（「まだ分からない」や予想なしは null） */
+  readonly predictionHit: boolean | null;
+  /** 本人が「この曲線で合わなくなった」と選んだ説明（"unsure"＝分からない、null＝まだ選んでいない） */
+  readonly studentPick: readonly CandidateId[] | "unsure" | null;
+}
+
+/** いつもの検査の結果（Bだけを測り、基準カードの値と比べる） */
+export interface IntroResult {
+  readonly force: number;
+  readonly base: number;
+  readonly diff: number;
+  readonly tolerance: number;
+  readonly indistinguishable: boolean;
 }
 
 export interface MeasuredA extends ObservationSpec {
@@ -63,11 +89,10 @@ export interface MeasuredA extends ObservationSpec {
   readonly force: number;
 }
 
+/** 振り返り：記録から自動で埋まる「今回の発見」カードに、本人が一言ずつ足す */
 export interface Reflection {
-  readonly firstGuess: string;
-  readonly keyObservation: string;
-  readonly notEnoughWithOne: string;
-  readonly otherSubjectWords: string;
+  readonly keyReason: string;
+  readonly nextCheck: string;
 }
 
 export class SessionError extends Error {
@@ -97,6 +122,7 @@ export class Session {
   #pending: SavedPrediction | null = null;
   #pendingCurve: CurvePrediction | null = null;
   readonly #curves: CurveRecord[] = [];
+  readonly #confirmed: CandidateId[] = [];
   #hintStage: 1 | 2 | 3 | 4 = 1;
   #hintsUsed = 0;
   readonly #maxHints: number;
@@ -109,8 +135,7 @@ export class Session {
     this.teacherMode = !!opts.teacherMode;
     this.#maxHints = opts.maxHints ?? 10;
     this.#generator = new ObservationGenerator({ seed: opts.seed, cause: opts.cause, value: opts.value });
-    // 導入観察：1秒で押して20秒後を、AとBの両方で記録する（Bは証拠に入れる）
-    this.#measureA(INTRO_OBSERVATION, "intro-A");
+    // 導入観察：1秒で押して20秒後を、Bについて記録する（証拠に入れる）。Aは基準カードの値と比べる
     this.#recordB(INTRO_OBSERVATION, "intro-B", null);
   }
 
@@ -122,7 +147,7 @@ export class Session {
   savePrediction(spec: ObservationSpec, choice: PredictionChoice, reason = ""): void {
     this.#assertOpen();
     assertSpec(spec);
-    if (!["higher", "same", "lower"].includes(choice)) throw new SessionError("予想の選び方が正しくない");
+    if (!PREDICTION_CHOICES.includes(choice)) throw new SessionError("予想の選び方が正しくない");
     this.#pending = { pushSeconds: spec.pushSeconds, recordAt: spec.recordAt, choice, reason: reason.slice(0, 200) };
     if (this.#hintStage === 1) this.#hintStage = 2;
   }
@@ -131,7 +156,7 @@ export class Session {
   saveCurvePrediction(pushSeconds: PushSeconds, choice: PredictionChoice, reason = ""): void {
     this.#assertOpen();
     if (!isPushSeconds(pushSeconds)) throw new SessionError("許可されていない押し方です");
-    if (!["higher", "same", "lower"].includes(choice)) throw new SessionError("予想の選び方が正しくない");
+    if (!PREDICTION_CHOICES.includes(choice)) throw new SessionError("予想の選び方が正しくない");
     this.#pendingCurve = { pushSeconds, choice, reason: reason.slice(0, 200) };
     if (this.#hintStage === 1) this.#hintStage = 2;
   }
@@ -170,10 +195,49 @@ export class Session {
     const excluded = CANDIDATE_IDS.filter(
       (c) => before.candidates[c].status !== "inconsistent" && after.candidates[c].status === "inconsistent",
     );
-    const rec: CurveRecord = { id: observationId, pushSeconds, a: a.display, b: b.display, prediction: p, excluded, evidenceIds: ids };
+    const end = b.evidence.find((m) => m.recordAt === 0)!;
+    const endDirection = directionOf(end.force, forceAfterPush(BASE, pushSeconds, 0));
+    const rec: CurveRecord = {
+      id: observationId,
+      pushSeconds,
+      a: a.display,
+      b: b.display,
+      prediction: p,
+      excluded,
+      evidenceIds: ids,
+      endDirection,
+      predictionHit: p.choice === "unknown" ? null : p.choice === endDirection,
+      studentPick: null,
+    };
     this.#curves.push(rec);
     this.#hintStage = 1;
     return rec;
+  }
+
+  /** 本人が「この曲線で合わなくなった説明」を選ぶ（比較器の結果を開く前の、自分の判断） */
+  pickExcluded(curveId: string, pick: readonly CandidateId[] | "unsure"): CurveRecord {
+    this.#assertOpen();
+    const i = this.#curves.findIndex((c) => c.id === curveId);
+    if (i < 0) throw new SessionError("その曲線は見つかりません", 404);
+    if (pick !== "unsure" && (!Array.isArray(pick) || !pick.every(isCandidateId))) throw new SessionError("説明の選び方が正しくない");
+    const rec = { ...this.#curves[i]!, studentPick: pick === "unsure" ? "unsure" : [...new Set(pick)] } as CurveRecord;
+    this.#curves[i] = rec;
+    return rec;
+  }
+
+  /** 本人が確認した候補（言葉→候補の翻訳を確かめたもの）。Claudeへの入力に含める */
+  confirmCandidate(id: CandidateId): void {
+    this.#assertOpen();
+    if (!isCandidateId(id)) throw new SessionError("候補が正しくない");
+    if (!this.#confirmed.includes(id)) this.#confirmed.push(id);
+  }
+
+  /** いつもの検査の判定：Bの測定値を基準カードの値と比べる（許容差は測定誤差とは別） */
+  introResult(): IntroResult {
+    const r = this.#records.find((x) => x.id === "intro-B")!;
+    const base = forceAfterPush(BASE, INTRO_OBSERVATION.pushSeconds, INTRO_OBSERVATION.recordAt);
+    const j = judgeAgainstBase(r.force, base);
+    return { force: r.force, base, diff: j.diff, tolerance: TEST_TOLERANCE, indistinguishable: j.indistinguishable };
   }
 
   /** Bを一回押して、選んだ時刻の一点を記録する。観察IDで二重実行を防ぐ */
@@ -235,10 +299,8 @@ export class Session {
   saveReflection(r: Reflection): void {
     const clip = (s: unknown) => String(s ?? "").slice(0, 400);
     this.#reflection = {
-      firstGuess: clip(r.firstGuess),
-      keyObservation: clip(r.keyObservation),
-      notEnoughWithOne: clip(r.notEnoughWithOne),
-      otherSubjectWords: clip(r.otherSubjectWords),
+      keyReason: clip(r?.keyReason),
+      nextCheck: clip(r?.nextCheck),
     };
   }
 
@@ -253,7 +315,6 @@ export class Session {
       observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       keyObservations: this.#records.filter((r) => r.excluded.length > 0).map((r) => ({ id: r.id, excluded: r.excluded })),
       keyCurves: this.#curves.filter((c) => c.excluded.length > 0).map((c) => ({ id: c.id, pushSeconds: c.pushSeconds, excluded: c.excluded })),
-      allTimes: this.#generator.observeAllTimes("B", 1),
     };
   }
 
@@ -278,6 +339,8 @@ export class Session {
       narrowedTo: comparison.narrowedTo,
       records: this.#records.map((r) => ({ ...r })),
       measuredA: this.#measuredA.map((m) => ({ ...m })),
+      intro: this.introResult(),
+      confirmedCandidates: [...this.#confirmed],
       pendingPrediction: this.#pending,
       pendingCurve: this.#pendingCurve,
       curves: this.#curves.map((c) => ({ ...c })),
@@ -374,7 +437,6 @@ export interface Debrief {
   readonly observationCount: number;
   readonly keyObservations: readonly { id: string; excluded: readonly CandidateId[] }[];
   readonly keyCurves: readonly { id: string; pushSeconds: number; excluded: readonly CandidateId[] }[];
-  readonly allTimes: readonly { pushSeconds: number; recordAt: number; force: number }[];
 }
 
 export interface PublicSessionView {
@@ -389,6 +451,8 @@ export interface PublicSessionView {
   readonly narrowedTo: CandidateId | null;
   readonly records: readonly ObservationRecord[];
   readonly measuredA: readonly MeasuredA[];
+  readonly intro: IntroResult;
+  readonly confirmedCandidates: readonly CandidateId[];
   readonly pendingPrediction: SavedPrediction | null;
   readonly pendingCurve: CurvePrediction | null;
   readonly curves: readonly CurveRecord[];

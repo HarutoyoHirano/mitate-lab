@@ -39,6 +39,18 @@ export const ALLOWED_OBSERVATIONS: readonly ObservationSpec[] = PUSH_SECONDS.fla
 /** 導入観察：1秒で押し、20秒後の1点を見る */
 export const INTRO_OBSERVATION: ObservationSpec = Object.freeze({ pushSeconds: 1, recordAt: 20 });
 
+/**
+ * 検査の判定の許容差（測定誤差 ERROR とは別の、検査の決まり）。
+ * 隠れた範囲の真の差は 0.006 以下なので、Bの測定値と基準Aの差は最大 0.026 で、どの乱数でもこの幅に収まる（テスト15）。
+ */
+export const TEST_TOLERANCE = 0.03;
+
+/** 測定値と基準値の差から、検査の判定を計算する（画面とテストで同じ関数を使う） */
+export function judgeAgainstBase(measured: number, base: number): { diff: number; indistinguishable: boolean } {
+  const diff = measured - base;
+  return { diff, indistinguishable: Math.abs(diff) <= TEST_TOLERANCE + 1e-12 };
+}
+
 export type CandidateId = "overall" | "instant" | "relax" | "same";
 export const CANDIDATE_IDS: readonly CandidateId[] = ["overall", "instant", "relax", "same"];
 

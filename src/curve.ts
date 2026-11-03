@@ -1,7 +1,7 @@
 // 曲線の描画：押している間と、押し終わってから20秒後までの押し返し。
 // Aは基準カードの値なので真の線を描いてよい。Bは測った点（誤差つき）とそれを結ぶ線だけ。
 import type { CurvePoint } from "../server/model/generator.js";
-import { BASE, type MaterialParams } from "../server/model/public.js";
+import { BASE, RECORD_AT, type MaterialParams } from "../server/model/public.js";
 import { forceAfterPush, forceDuringPush } from "../server/model/sls.js";
 
 export const HOLD_MAX = 20;
@@ -57,6 +57,7 @@ function axes(f: Frame, big: boolean): string {
   return `${lines.join("")}
     <rect x="${f.L}" y="${f.T}" width="${x0 - f.L}" height="${f.H - f.T - f.B}" fill="var(--claude-wash)" opacity="0.6"/>
     <text x="${(f.L + x0) / 2}" y="${f.T + 14}" font-size="${fs}" text-anchor="middle" fill="var(--claude)" font-weight="700">押している間</text>
+    ${big ? `<text x="${(f.L + x0) / 2}" y="${f.T + 28}" font-size="${fs - 1}" text-anchor="middle" fill="var(--claude)">${f.pushSeconds}秒・横に拡大</text>` : ""}
     <line x1="${f.L}" x2="${f.L}" y1="${f.T}" y2="${f.H - f.B}" stroke="var(--ink-soft)"/>
     <line x1="${f.L}" x2="${f.W - f.R}" y1="${f.H - f.B}" y2="${f.H - f.B}" stroke="var(--ink-soft)"/>
     ${big ? ticks : ""}`;
@@ -77,6 +78,15 @@ export interface CurveGraphOpts {
   readonly big: boolean;
   readonly error: number;
   readonly title?: string;
+  /** 答え合わせ：開示した値で計算したBの線（終了後だけ） */
+  readonly bTrue?: MaterialParams;
+  /** Claudeが参照した記録の時刻（押し終わりからの秒数）。該当する点を強調する */
+  readonly highlight?: readonly number[];
+}
+
+/** 判定（比較器）に使う記録か：押し終わりからの秒数が 0・0.5・2・5・20 */
+function isJudged(t: number, pushSeconds: number): boolean {
+  return t >= pushSeconds - 1e-9 && (RECORD_AT as readonly number[]).some((h) => Math.abs(t - pushSeconds - h) < 1e-9);
 }
 
 /** 測った曲線：A（基準の真の線、点線）とB（測った点と線） */
@@ -88,32 +98,54 @@ export function curveGraphSvg(o: CurveGraphOpts): string {
   const until = o.until;
   const bPts = o.b ? o.b.filter((p) => p.t <= until + 1e-9) : [];
   const bLine = o.b ? `<polyline points="${poly(f, [{ t: 0, force: 0 }, ...o.b], until)}" fill="none" stroke="var(--claude)" stroke-width="${o.big ? 3 : 2}"/>` : "";
+  const hl = (t: number) => (o.highlight ?? []).some((h) => Math.abs(t - o.pushSeconds - h) < 1e-9);
   const bDots = o.big
-    ? bPts.map((p) => `<line x1="${xOf(f, p.t)}" x2="${xOf(f, p.t)}" y1="${yOf(f, p.force + o.error)}" y2="${yOf(f, p.force - o.error)}" stroke="var(--claude)" stroke-width="1.5" opacity="0.6"/><circle cx="${xOf(f, p.t)}" cy="${yOf(f, p.force)}" r="3" fill="var(--claude)"/>`).join("")
+    ? bPts
+        .map((p) => {
+          const x = xOf(f, p.t);
+          const y = yOf(f, p.force);
+          if (!isJudged(p.t, o.pushSeconds)) return `<circle cx="${x}" cy="${y}" r="2.2" fill="var(--claude)" opacity="0.45"/>`;
+          return `<line x1="${x}" x2="${x}" y1="${yOf(f, p.force + o.error)}" y2="${yOf(f, p.force - o.error)}" stroke="var(--claude)" stroke-width="2" opacity="0.7"/>
+            <circle cx="${x}" cy="${y}" r="6" fill="#fff" stroke="var(--claude)" stroke-width="3"/>
+            ${hl(p.t) ? `<circle class="hl" cx="${x}" cy="${y}" r="13" fill="none" stroke="var(--hanko)" stroke-width="3"/>` : ""}`;
+        })
+        .join("")
     : "";
+  const bTrueLine = o.bTrue ? `<polyline points="${poly(f, trueCurve(o.bTrue, o.pushSeconds), until)}" fill="none" stroke="var(--relax)" stroke-width="2.5" stroke-dasharray="2 4"/>` : "";
   const head = bPts.length && until < o.pushSeconds + HOLD_MAX ? bPts[bPts.length - 1]! : null;
   return `<svg viewBox="0 0 ${f.W} ${f.H}" class="${o.big ? "curve-big" : "curve-mini"}" role="img" aria-label="押し返しの変化：見本Aと試料B">
     ${o.title ? `<text x="${f.L}" y="13" font-size="11" font-weight="700" fill="var(--ink)">${o.title}</text>` : ""}
     ${axes(f, o.big)}
     <polyline points="${poly(f, a, until)}" fill="none" stroke="var(--ink-soft)" stroke-width="${o.big ? 2.5 : 1.5}" stroke-dasharray="6 4"/>
-    ${bLine}${bDots}
+    ${bTrueLine}${bLine}${bDots}
     ${head && o.big ? `<circle cx="${xOf(f, head.t)}" cy="${yOf(f, head.force)}" r="7" fill="none" stroke="var(--claude)" stroke-width="2"/>` : ""}
   </svg>`;
 }
 
-/** 予想の絵：Aの線（点線）に対して、Bがほぼ重なる／高く出る／低く出る */
-export function shapeThumb(kind: "same" | "higher" | "lower"): string {
+/** 予想の絵：押し終わりの高さが、Aの線（点線）と比べて ほぼ同じ／高い／低い／まだ分からない。押し終わりに丸印 */
+export function shapeThumb(kind: "same" | "higher" | "lower" | "unknown"): string {
   const a = "M6 46 L22 14 C 34 30, 50 38, 90 40";
-  const b = kind === "same" ? "M6 46 L22 16 C 34 31, 50 38, 90 40" : kind === "higher" ? "M6 46 L22 4 C 36 12, 52 30, 90 40" : "M6 46 L22 26 C 30 36, 44 40, 90 40";
+  if (kind === "unknown")
+    return `<svg viewBox="0 0 96 50" width="96" height="50" aria-hidden="true">
+    <path d="${a}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="5 3"/>
+    <text x="40" y="22" font-size="20" font-weight="700" fill="var(--claude)" text-anchor="middle">?</text></svg>`;
+  const peak = kind === "higher" ? 4 : kind === "lower" ? 26 : 14;
+  const b = kind === "same" ? "M6 46 L22 14 C 34 31, 50 38, 90 40" : kind === "higher" ? "M6 46 L22 4 C 36 12, 52 30, 90 40" : "M6 46 L22 26 C 30 36, 44 40, 90 40";
   return `<svg viewBox="0 0 96 50" width="96" height="50" aria-hidden="true">
     <path d="${a}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="5 3"/>
     <path d="${b}" fill="none" stroke="var(--claude)" stroke-width="3"/>
+    <circle cx="22" cy="${peak}" r="4.5" fill="#fff" stroke="var(--claude)" stroke-width="2.5"/>
   </svg>`;
 }
 
 /** 素材をつくる挑戦：見本と自作素材の真の曲線、検査の時刻に印 */
-export function makeGraphSvg(p: MaterialParams, pushSeconds: number, testAt: number, title: string, ok: boolean): string {
-  const yMax = Math.max(2.5, Math.ceil((forceDuringPush(p, pushSeconds, pushSeconds) + 0.3) * 2) / 2);
+/** 素材をつくる挑戦の二つのグラフで共通に使う縦軸の上限 */
+export function makeYMax(p: MaterialParams): number {
+  const peak = Math.max(...[0.2, 1].flatMap((T) => [forceDuringPush(p, T, T), forceDuringPush(BASE, T, T)]));
+  return Math.max(2.5, Math.ceil((peak + 0.3) * 2) / 2);
+}
+
+export function makeGraphSvg(p: MaterialParams, pushSeconds: number, testAt: number, title: string, ok: boolean, yMax: number): string {
   const f: Frame = { W: 360, H: 220, L: 40, R: 10, T: 26, B: 26, yMin: 0, yMax, pushSeconds };
   const a = trueCurve(BASE, pushSeconds);
   const m = trueCurve(p, pushSeconds);

@@ -25,6 +25,19 @@ export function circuitVoltageAfterStop(c: MechanicalCircuit, current: number, s
   return charge / c.cInf + parallel;
 }
 
+/** 電流 I を流し始めてから t 秒後（流している間）の電圧。押している間の力に対応する */
+export function circuitVoltageDuringCharge(c: MechanicalCircuit, current: number, t: number): number {
+  const tau = c.r * c.c1;
+  return (current * t) / c.cInf + current * c.r * (1 - Math.exp(-t / tau));
+}
+
+/** 並列部分（C1 と R）だけの電圧。力学の「上乗せ分」（力から E∞·変形 を引いた分）に対応する */
+export function parallelVoltage(c: MechanicalCircuit, current: number, seconds: number, t: number): number {
+  const tau = c.r * c.c1;
+  if (t <= seconds) return current * c.r * (1 - Math.exp(-t / tau));
+  return current * c.r * (1 - Math.exp(-seconds / tau)) * Math.exp(-(t - seconds) / tau);
+}
+
 /** 受け身の膜の等価回路（コンデンサ＝膜、抵抗＝イオンの通りにくさ、電池＝基準の電位） */
 export interface MembraneCircuit {
   readonly capacitance: number;

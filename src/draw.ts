@@ -51,13 +51,26 @@ export function benchSvg(
       <rect x="${cx - 26}" y="${tip - 10}" width="52" height="10" rx="3" fill="var(--ink)"/></g>`;
   };
   const rods = target === "both" ? rod(90, true) + rod(250, true) : rod(target === "A" ? 90 : 250, true);
+  // 押し切って止めている間は「深さ：ここで固定」を示す（変形を指定して、力を測っている）
+  const holdY = 178 - 84 * (1 - squish);
+  const depthMark =
+    press >= 1
+      ? [90, 250]
+          .filter((cx) => pressed(cx === 90 ? "A" : "B"))
+          .map(
+            (cx) => `<g><line x1="${cx - 70}" x2="${cx + 70}" y1="${holdY}" y2="${holdY}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.8"/>
+        <text x="${cx}" y="${holdY + 24}" font-size="12" font-weight="700" text-anchor="middle" fill="var(--ink)">深さ：ここで固定</text></g>`,
+          )
+          .join("")
+      : "";
   return `
     <svg viewBox="0 0 340 230" overflow="visible" role="img" aria-label="試験台：見た目がそっくりな素材AとB">
       <rect x="12" y="178" width="316" height="12" rx="2" fill="var(--steel)"/>
       ${block(90, "A", pressed("A"))}
       ${block(250, "B", pressed("B"))}
       ${rods}
-      ${arrows ? pushBackArrow(90, arrows.a, true) + pushBackArrow(250, arrows.b, false) : ""}
+      ${depthMark}
+      ${arrows ? (Number.isFinite(arrows.a) ? pushBackArrow(90, arrows.a, true) : "") + (Number.isFinite(arrows.b) ? pushBackArrow(250, arrows.b, false) : "") : ""}
       ${flash ? `<rect class="flash" x="0" y="0" width="340" height="230" fill="#fff"/>` : ""}
     </svg>`;
 }
@@ -72,7 +85,8 @@ function pushBackArrow(cx: number, force: number, isA: boolean): string {
   return `<g>
     <line x1="${x}" x2="${x}" y1="${base}" y2="${top + 10}" stroke="${color}" stroke-width="${isA ? 3 : 5}" ${isA ? 'stroke-dasharray="5 4"' : ""}/>
     <path d="M ${x - 9} ${top + 12} L ${x} ${top - 2} L ${x + 9} ${top + 12} z" fill="${color}"/>
-    <text x="${x}" y="${top - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${color}">${force.toFixed(2)}</text>
+    <text x="${x}" y="${top - 22}" text-anchor="middle" font-size="10" fill="${color}">押し返す力</text>
+    <text x="${x}" y="${top - 8}" text-anchor="middle" font-size="13" font-weight="700" fill="${color}">${force.toFixed(2)}</text>
   </g>`;
 }
 

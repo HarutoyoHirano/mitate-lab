@@ -1,5 +1,5 @@
 // 素材をつくる挑戦：隠れた答えは持たない。公開の式だけで、二つの検査の合否を計算する（画面とテストで同じ関数を使う）
-import { BASE, type MaterialParams } from "./public.js";
+import { BASE, TEST_TOLERANCE, type MaterialParams } from "./public.js";
 import { forceAfterPush } from "./sls.js";
 
 export const SLIDERS = {
@@ -25,12 +25,12 @@ export const MISSIONS: readonly Mission[] = [
   {
     id: "hideFromUsual",
     title: "ミッション1：いつもの検査をすり抜けろ",
-    goal: "いつもの検査では「見本と同じ」と判定される（差0.02以下）のに、すばやく押すと違いがバレる（差0.15以上）素材をつくろう",
+    goal: "いつもの検査では「見本と区別できない」と判定される（差0.03以下）のに、すばやく押すと違いがバレる（差0.15以上）素材をつくろう",
   },
   {
     id: "hideFromQuick",
     title: "ミッション2：逆もできる？",
-    goal: "すばやく押すと見本とそっくり（差0.02以下）なのに、いつもの検査では「見本と違う」と判定される（差0.1以上）素材をつくろう",
+    goal: "すばやく押すと見本と区別できない（差0.03以下）のに、いつもの検査では「見本と違う」と判定される（差0.1以上）素材をつくろう",
   },
 ];
 
@@ -47,11 +47,11 @@ export function testDiffs(p: MaterialParams): TestDiff {
 export function missionResult(id: MissionId, p: MaterialParams): { passed: boolean; usualOk: boolean; quickOk: boolean; diffs: TestDiff } {
   const d = testDiffs(p);
   if (id === "hideFromUsual") {
-    const usualOk = Math.abs(d.usual) <= 0.02;
+    const usualOk = Math.abs(d.usual) <= TEST_TOLERANCE;
     const quickOk = Math.abs(d.quick) >= 0.15;
     return { passed: usualOk && quickOk, usualOk, quickOk, diffs: d };
   }
-  const quickOk = Math.abs(d.quick) <= 0.02;
+  const quickOk = Math.abs(d.quick) <= TEST_TOLERANCE;
   const usualOk = Math.abs(d.usual) >= 0.1;
   return { passed: usualOk && quickOk, usualOk, quickOk, diffs: d };
 }

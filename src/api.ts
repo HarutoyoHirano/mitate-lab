@@ -2,7 +2,7 @@
 import type { Hint } from "../server/session/hints.js";
 import type { Debrief, PublicSessionView, PredictionChoice, Reflection } from "../server/session/session.js";
 import type { Translation } from "../server/claude/partner.js";
-import type { ObservationSpec } from "../server/model/public.js";
+import type { CandidateId, ObservationSpec } from "../server/model/public.js";
 
 export type { Hint, Debrief, PublicSessionView, PredictionChoice, Reflection, Translation };
 
@@ -34,10 +34,13 @@ export const api = {
     post<{ view: PublicSessionView }>(`/api/session/${id}/observe`, { ...spec, observationId }),
   curvePredict: (id: string, pushSeconds: number, choice: PredictionChoice, reason: string) =>
     post<{ view: PublicSessionView }>(`/api/session/${id}/curve-prediction`, { pushSeconds, choice, reason }),
-  observeCurve: (id: string, pushSeconds: number, observationId: string) =>
-    post<{ view: PublicSessionView; curveId: string }>(`/api/session/${id}/observe-curve`, { pushSeconds, observationId }),
-  claudeObserve: (id: string, pushSeconds: number, observationId: string) =>
-    post<{ view: PublicSessionView; note: Hint; byClaude: boolean }>(`/api/session/${id}/claude-observe`, { pushSeconds, observationId }),
+  /** 予想と理由は「押す」時点でまとめて送る */
+  observeCurve: (id: string, pushSeconds: number, observationId: string, choice: PredictionChoice, reason: string) =>
+    post<{ view: PublicSessionView; curveId: string }>(`/api/session/${id}/observe-curve`, { pushSeconds, observationId, choice, reason }),
+  claudeObserve: (id: string, pushSeconds: number, observationId: string, choice: PredictionChoice, reason: string) =>
+    post<{ view: PublicSessionView; note: Hint; byClaude: boolean }>(`/api/session/${id}/claude-observe`, { pushSeconds, observationId, choice, reason }),
+  pick: (id: string, curveId: string, pick: CandidateId[] | "unsure") => post<{ view: PublicSessionView }>(`/api/session/${id}/pick`, { curveId, pick }),
+  confirm: (id: string, candidateId: CandidateId) => post<{ view: PublicSessionView }>(`/api/session/${id}/confirm`, { candidateId }),
   measureA: (id: string, spec: ObservationSpec) =>
     post<{ view: PublicSessionView }>(`/api/session/${id}/measure-a`, { ...spec, measurementId: crypto.randomUUID() }),
   hint: (id: string) => post<{ view: PublicSessionView; hint: Hint }>(`/api/session/${id}/hint`),

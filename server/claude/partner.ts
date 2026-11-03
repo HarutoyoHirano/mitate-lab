@@ -55,7 +55,7 @@ export function claudeAvailable(): boolean {
 }
 
 const SYSTEM = `あなたは「ミカタ・ラボ」の実験の相棒「Claude（AI）」です。
-学生は、見本Aと試料Bを比べています。いつもの検査（ふつうに押して二十秒後の値）ではAとBは同じです。学生は押す速さを選んで、押してからの押し返しの変化（曲線）を測り、違いと、なぜ違うのかを調べています。
+学生は、見本Aと試料Bを比べています。いつもの検査（ふつうに押して二十秒後の値）では、BはAと区別できません（同じ素材だと決まったわけではありません）。学生は押す速さを選んで、押してからの押し返しの変化（曲線）を測り、違いと、なぜ違うのかを調べています。
 あなたは隠れた正解を知りません。学生と同じ証拠と、プログラムが計算した判定・実験計画の支援だけを見ています。
 
 守ること：
@@ -91,7 +91,17 @@ export function buildPartnerInput(view: PublicSessionView): string {
     保存中の予想: view.pendingPrediction,
     ヒントの段階: view.hintStage,
     計画支援_押す速さごと: view.hintStage >= 3 ? view.planBySpeed : "（段階三以上で表示）",
-    測った曲線: view.curves.map((c) => ({ 観察ID: c.id, 押す速さ: c.pushSeconds, 証拠ID: c.evidenceIds, 学生の予想: c.prediction?.choice ?? null, 合わなくなった候補: c.excluded })),
+    測った曲線: view.curves.map((c) => ({
+      観察ID: c.id,
+      押す速さ: c.pushSeconds,
+      証拠ID: c.evidenceIds,
+      学生の予想_押し終わりの高さ: c.prediction?.choice ?? null,
+      学生の理由: c.prediction?.reason ?? null,
+      押し終わりの実際: c.endDirection,
+      学生が合わないと選んだ候補: c.studentPick,
+      比較器で合わなくなった候補: c.excluded,
+    })),
+    学生が確認した説明: view.confirmedCandidates,
     保存中の曲線の予想: view.pendingCurve,
     学生の言葉: view.studentWords.slice(-3),
   };
