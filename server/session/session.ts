@@ -264,6 +264,8 @@ export class Session {
     if (!c) throw new SessionError("その曲線は見つかりません", 404);
     const idx = RECOVERY_TIMES.findIndex((t) => Math.abs(t - h) < 1e-9);
     if (idx < 0) throw new SessionError("その時刻は記録にありません");
+    const same = this.#photos.find((x) => x.curveId === curveId && Math.abs(x.h - h) < 1e-9);
+    if (same) return same; // 同じ曲線・同じ時刻は一枚（テスト32）
     const dentB = c.recovery[idx]!.dent;
     const dentA = dentAfterRelease(BASE, c.pushSeconds, h);
     const j = judgePhoto(dentB, dentA);
