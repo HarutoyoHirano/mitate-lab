@@ -4,6 +4,7 @@ import { HIDDEN_CAUSES, type HiddenCauseId, type HiddenCauseSpec } from "../../s
 import { BASE, ERROR, isPushSeconds, isRecordAt, RECORD_AT, type MaterialParams, type ObservationSpec, type PushSeconds } from "./public.js";
 import { forceAfterPush, forceDuringPush } from "./sls.js";
 import { dentAfterRelease, RECOVERY_TIMES, SHAPE_ERROR, type RecoveryPoint } from "./recovery.js";
+import { clampPeriod, STEP_ERROR, stepDents, type StepDents } from "./steps.js";
 
 /** 再現できる乱数（mulberry32） */
 export function createRng(seed: number): () => number {
@@ -47,6 +48,8 @@ export class ObservationGenerator {
   readonly #rng: () => number;
   /** 形の記録用の乱数列（力の記録の乱数列を変えないよう別にする） */
   readonly #shapeRng: () => number;
+  /** 走行テスト用の乱数列（力・形の記録の乱数列を変えないよう別にする） */
+  readonly #stepRng: () => number;
   readonly #cause: HiddenCauseSpec | null;
   readonly #truth: MaterialParams;
   readonly #seed: number;
@@ -55,6 +58,7 @@ export class ObservationGenerator {
     this.#seed = opts.seed;
     this.#rng = createRng(opts.seed);
     this.#shapeRng = createRng((opts.seed ^ 0x5eed5) >>> 0);
+    this.#stepRng = createRng((opts.seed ^ 0x57e95) >>> 0);
     if (opts.overrideParams) {
       this.#cause = null;
       this.#truth = { ...opts.overrideParams };
@@ -76,6 +80,13 @@ export class ObservationGenerator {
     if (!isPushSeconds(pushSeconds)) throw new Error("許可されていない押し方");
     const p = material === "A" ? BASE : this.#truth;
     return RECOVERY_TIMES.map((h) => ({ h, dent: dentAfterRelease(p, pushSeconds, h) + (2 * this.#shapeRng() - 1) * SHAPE_ERROR }));
+  }
+
+  /** 走行テスト：Bを一歩ずつ踏んだときの、各歩4点のへこみ（各点に独立な誤差 ±0.01）。比較器の証拠には使わない */
+  observeRun(period: number): StepDents[] {
+    if (!Number.isFinite(period)) throw new Error("テンポが正しくない");
+    const e = () => (2 * this.#stepRng() - 1) * STEP_ERROR;
+    return stepDents(this.#truth, clampPeriod(period)).map((d) => ({ land: d.land + e(), peak: d.peak + e(), lift: d.lift + e(), pre: d.pre + e() }));
   }
 
   /** 一回押して、選んだ時刻の一点を記録する（有界一様誤差つき） */

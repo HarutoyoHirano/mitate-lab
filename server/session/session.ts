@@ -1,5 +1,7 @@
 // セッション：一人の学生の探究の記録。秘密（観測生成器）を持つが、外に出すのは publicView() だけ。
 import { compare, OVERALL_LABELS, STATUS_LABELS, type ComparisonResult, type Evidence } from "../model/comparator.js";
+import { BASE as BASE_MAT } from "../model/public.js";
+import { clampPeriod, STEP_PHASES, STEP_TOLERANCE, stepDents, type StepDents, type StepPhase } from "../model/steps.js";
 import { ObservationGenerator, type CurvePoint } from "../model/generator.js";
 import { plan, planBySpeed, type PlanAdvice, type SpeedAdvice } from "../model/planner.js";
 import {
@@ -115,6 +117,25 @@ export interface Reflection {
   readonly nextCheck: string;
 }
 
+/** 走行テストの記録（Aは計算、Bは誤差つきの記録。比較器の証拠には使わない） */
+export interface RunRecord {
+  readonly id: string;
+  readonly period: number;
+  readonly a: readonly StepDents[];
+  readonly b: readonly StepDents[];
+}
+
+export interface RunPhoto {
+  readonly runId: string;
+  readonly period: number;
+  readonly step: number;
+  readonly phase: StepPhase;
+  readonly a: number;
+  readonly b: number;
+  readonly diff: number;
+  readonly distinguishable: boolean;
+}
+
 export class SessionError extends Error {
   constructor(
     message: string,
@@ -144,6 +165,8 @@ export class Session {
   readonly #curves: CurveRecord[] = [];
   readonly #confirmed: CandidateId[] = [];
   readonly #photos: Photo[] = [];
+  readonly #runs: RunRecord[] = [];
+  readonly #runPhotos: RunPhoto[] = [];
   #hintStage: 1 | 2 | 3 | 4 = 1;
   #hintsUsed = 0;
   readonly #maxHints: number;
@@ -258,6 +281,33 @@ export class Session {
   }
 
   /** 証拠写真を撮る：形の戻りの記録から、選んだ時刻のAとBのへこみを残す（記録した値から判定。新しい誤差は引かない） */
+  /** 走行テスト：Bを一歩ずつ踏む（Aは計算）。比較器の証拠には使わない */
+  run(period: number): RunRecord {
+    this.#assertOpen();
+    if (!Number.isFinite(period)) throw new SessionError("テンポが正しくない");
+    if (this.#runs.length >= 40) throw new SessionError("走行テストの回数の上限です");
+    const p = clampPeriod(period);
+    const rec: RunRecord = { id: `run${this.#runs.length + 1}`, period: p, a: stepDents(BASE_MAT, p), b: this.#generator.observeRun(p) };
+    this.#runs.push(rec);
+    return rec;
+  }
+
+  /** 走行テストの証拠：選んだ一歩・一点の差（記録した値から計算。同じ点は一枚） */
+  takeRunPhoto(runId: string, step: number, phase: StepPhase): RunPhoto {
+    this.#assertOpen();
+    const r = this.#runs.find((x) => x.id === runId);
+    if (!r) throw new SessionError("その走行テストは見つかりません", 404);
+    if (!Number.isInteger(step) || step < 0 || step >= r.b.length) throw new SessionError("その一歩は記録にありません");
+    if (!STEP_PHASES.includes(phase)) throw new SessionError("その点は記録にありません");
+    const same = this.#runPhotos.find((x) => x.runId === runId && x.step === step && x.phase === phase);
+    if (same) return same;
+    const a = r.a[step]![phase];
+    const b = r.b[step]![phase];
+    const photo: RunPhoto = { runId, period: r.period, step, phase, a, b, diff: b - a, distinguishable: Math.abs(b - a) > STEP_TOLERANCE };
+    this.#runPhotos.push(photo);
+    return photo;
+  }
+
   takePhoto(curveId: string, h: number): Photo {
     this.#assertOpen();
     const c = this.#curves.find((x) => x.id === curveId);
@@ -418,6 +468,8 @@ export class Session {
       curves: this.#curves.map((c, i) => (guide && i === this.#curves.length - 1 ? { ...c, excluded: [] } : { ...c })),
       awaitingPick: this.awaitingPick,
       photos: this.#photos.map((x) => ({ ...x })),
+      runs: this.#runs.map((x) => ({ ...x })),
+      runPhotos: this.#runPhotos.map((x) => ({ ...x })),
       observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       hintStage: this.#hintStage,
       hintsLeft: this.#maxHints - this.#hintsUsed,
@@ -533,6 +585,8 @@ export interface PublicSessionView {
   /** 本人が最新の曲線について判断する前か */
   readonly awaitingPick: boolean;
   readonly photos: readonly Photo[];
+  readonly runs: readonly RunRecord[];
+  readonly runPhotos: readonly RunPhoto[];
   readonly observationCount: number;
   readonly hintStage: number;
   readonly hintsLeft: number;

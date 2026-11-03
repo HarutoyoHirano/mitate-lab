@@ -135,6 +135,16 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
         send(res, 200, { view: s.publicView() });
         return true;
       }
+      case "run": {
+        const rec = s.run(Number(body.period));
+        send(res, 200, { view: s.publicView(), runId: rec.id });
+        return true;
+      }
+      case "run-photo": {
+        s.takeRunPhoto(String(body.runId ?? ""), Number(body.step), String(body.phase ?? "") as never);
+        send(res, 200, { view: s.publicView() });
+        return true;
+      }
       case "photo": {
         s.takePhoto(String(body.curveId ?? ""), Number(body.h));
         send(res, 200, { view: s.publicView() });

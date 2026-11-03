@@ -21,6 +21,8 @@ import {
 } from "../../server/model/membraneGame.js";
 import { Session } from "../../server/session/session.js";
 import { BASE } from "../../server/model/public.js";
+import { DUTY, STEP_ERROR, STEP_PHASES, STEP_TOLERANCE, stepDents, TEMPOS } from "../../server/model/steps.js";
+import { representativeTruths } from "./helpers.js";
 
 function grid(min: number, max: number, step: number): number[] {
   const out: number[] = [];
@@ -118,5 +120,54 @@ describe("33 ゲーム版の画面のコードに秘密が入らない", () => {
       const t = readFileSync(`${dir}/${f}`, "utf-8");
       expect(t).not.toMatch(/scenarios\/|hiddenRange|HIDDEN_CAUSES|\.seed\b|truth\s*:/);
     }
+  });
+});
+
+describe("34 走行テスト", () => {
+  it("一歩ごとの解析解が、力を指定した標準線形固体の数値積分と一致する", () => {
+    for (const p of [BASE, { eInf: 1, e1: 2, tau: 1 }, { eInf: 1, e1: 1, tau: 4 }, { eInf: 1, e1: 0.5, tau: 0.3 }]) {
+      for (const period of [0.75, 3]) {
+        const steps = stepDents(p, period, 4);
+        // dσ/dt = [E1 dF/dt − E∞ σ/τ]/(E∞+E1)、F は階段状。x = (F − σ)/E∞
+        const dt = 1e-4;
+        let s = 0;
+        let F = 0;
+        const tc = period * DUTY;
+        const xs: number[] = [];
+        for (let k = 0; k < 4; k++) {
+          s += (p.e1 * (1 - F)) / (p.eInf + p.e1);
+          F = 1;
+          xs.push((F - s) / p.eInf);
+          for (let t = 0; t < tc - 1e-12; t += dt) s += ((-p.eInf * s) / p.tau / (p.eInf + p.e1)) * dt;
+          xs.push((F - s) / p.eInf);
+          s += (p.e1 * (0 - F)) / (p.eInf + p.e1);
+          F = 0;
+          xs.push(-s / p.eInf);
+          for (let t = 0; t < period - tc - 1e-12; t += dt) s += ((-p.eInf * s) / p.tau / (p.eInf + p.e1)) * dt;
+          xs.push(-s / p.eInf);
+        }
+        const exact = steps.flatMap((d) => [d.land, d.peak, d.lift, d.pre]);
+        for (let i = 0; i < xs.length; i++) expect(Math.abs(xs[i]! - exact[i]!)).toBeLessThan(2e-3);
+      }
+    }
+  });
+  it("隠れた範囲の全代表値で、四つのテンポのどれかに、最悪の誤差でも判定幅を超える点がある", () => {
+    for (const t of representativeTruths()) {
+      let best = 0;
+      for (const tempo of TEMPOS) {
+        const a = stepDents(BASE, tempo.period);
+        const b = stepDents(t.params, tempo.period);
+        for (let k = 0; k < a.length; k++) for (const ph of STEP_PHASES) best = Math.max(best, Math.abs(b[k]![ph] - a[k]![ph]));
+      }
+      expect(best - STEP_ERROR).toBeGreaterThan(STEP_TOLERANCE);
+    }
+  });
+  it("同じ一歩・同じ点の証拠は一枚。記録した値から判定する", () => {
+    const s = new Session("t", { seed: 4, cause: "relaxSlow" });
+    const r = s.run(3);
+    s.takeRunPhoto(r.id, 2, "peak");
+    const ph = s.takeRunPhoto(r.id, 2, "peak");
+    expect(s.publicView().runPhotos.length).toBe(1);
+    expect(ph.diff).toBeCloseTo(r.b[2]!.peak - r.a[2]!.peak, 12);
   });
 });
