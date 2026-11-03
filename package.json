@@ -1,0 +1,19 @@
+{
+  "name": "mikata-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ミカタ・ラボ：同じに見える二つの仮想素材の違いを、測り方を考えて見抜く実験室",
+  "scripts": {
+    "test": "vitest run",
+    "test:model": "vitest run tests/model",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

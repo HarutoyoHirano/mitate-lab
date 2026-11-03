@@ -18,7 +18,7 @@ process.stdin.on("end", () => {
     process.exit(0);
   } catch (e) {
     const out = (e.stdout?.toString() ?? "") + (e.stderr?.toString() ?? "");
-    process.stderr.write("数値テストが失敗しました。区別可能性・初期症状・正解分離のいずれかが崩れています。\n" + out.slice(-4000));
+    process.stderr.write("数値テストが失敗しました。識別・判定・秘密分離のいずれかが崩れています。\n" + out.slice(-4000));
     process.exit(2);
   }
 });
