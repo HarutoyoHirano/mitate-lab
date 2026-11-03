@@ -126,8 +126,14 @@ export function curveGraphSvg(o: CurveGraphOpts): string {
 }
 
 /** 予想の絵：押し終わりの高さが、Aの線（点線）と比べて ほぼ同じ／高い／低い／まだ分からない。押し終わりに丸印 */
-export function shapeThumb(kind: "same" | "higher" | "lower" | "unknown"): string {
+export function shapeThumb(kind: "same" | "higher" | "lower" | "unknown" | "midSame" | "midDiffer"): string {
   const a = "M6 46 L22 14 C 34 30, 50 38, 90 40";
+  if (kind === "midSame") kind = "same";
+  if (kind === "midDiffer")
+    return `<svg viewBox="0 0 96 50" width="96" height="50" aria-hidden="true">
+    <path d="${a}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="5 3"/>
+    <path d="M6 46 L22 14 C 40 14, 56 30, 90 40" fill="none" stroke="var(--claude)" stroke-width="3"/>
+    <circle cx="44" cy="20" r="6" fill="none" stroke="var(--hanko)" stroke-width="2"/></svg>`;
   if (kind === "unknown")
     return `<svg viewBox="0 0 96 50" width="96" height="50" aria-hidden="true">
     <path d="${a}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="5 3"/>

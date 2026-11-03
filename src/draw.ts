@@ -28,15 +28,19 @@ export function benchSvg(
   press: number,
   flash = false,
   arrows: { a: number; b: number } | null = null,
+  /** 離した後：押し板を上げ、各試験片のへこみ（深さ1に対する割合）を描く */
+  released: { a: number; b: number } | null = null,
 ): string {
   const pressed = (k: "A" | "B") => target === "both" || target === k;
   const BASE_Y = 210;
   const H0 = 78; // 試験片の元の高さ
   const DEPTH_PX = 20; // 押し込む深さ（図の上）
   const station = (x0: number, label: "A" | "B", active: boolean, force: number) => {
-    const p = active ? Math.max(0, Math.min(1, press)) : 0;
+    const dent = released ? Math.max(0, label === "A" ? released.a : released.b) : null;
+    const p = dent !== null ? Math.min(1, dent) : active ? Math.max(0, Math.min(1, press)) : 0;
     const cx = x0 + 90;
     const top = BASE_Y - H0 + DEPTH_PX * p;
+    const platenTop = dent !== null ? BASE_Y - H0 - 26 : top;
     const h = BASE_Y - top;
     const w = 96 * (1 + 0.16 * p); // 押されると少し横に広がる
     // 試験片の格子（変形を追える印）
@@ -62,10 +66,11 @@ export function benchSvg(
         <rect x="${cx - 30}" y="0" width="60" height="16" rx="3" fill="var(--ink)"/>
         <text x="${cx}" y="12" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff" font-variant-numeric="tabular-nums">力 ${lcd}</text>
         <!-- 駆動軸 → 力センサ → 押し板 -->
-        <rect x="${cx - 4}" y="28" width="8" height="${top - 28 - 26}" fill="var(--ink-soft)"/>
-        <rect x="${cx - 24}" y="${top - 26}" width="48" height="16" rx="3" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
-        <text x="${cx}" y="${top - 14.5}" text-anchor="middle" font-size="9" fill="var(--ink)">力センサ</text>
-        <rect x="${cx - 60}" y="${top - 10}" width="120" height="10" rx="2" fill="var(--ink)"/>
+        <rect x="${cx - 4}" y="28" width="8" height="${platenTop - 28 - 26}" fill="var(--ink-soft)"/>
+        <rect x="${cx - 24}" y="${platenTop - 26}" width="48" height="16" rx="3" fill="#fff" stroke="var(--ink)" stroke-width="1.5"/>
+        <text x="${cx}" y="${platenTop - 14.5}" text-anchor="middle" font-size="9" fill="var(--ink)">力センサ</text>
+        <rect x="${cx - 60}" y="${platenTop - 10}" width="120" height="10" rx="2" fill="var(--ink)"/>
+        ${dent !== null ? `<line x1="${cx - 56}" x2="${cx + 56}" y1="${BASE_Y - H0}" y2="${BASE_Y - H0}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3 3"/><text x="${cx + 58}" y="${BASE_Y - H0 + 3}" font-size="8.5" fill="var(--ink-soft)">元の高さ</text>` : ""}
         <!-- 試験片 -->
         <rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="10" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2"/>
         ${grid.join("")}
@@ -79,7 +84,7 @@ export function benchSvg(
         <!-- 押し返す力の矢印（長さが力に比例） -->
         ${arrowLen ? `<line x1="${x0 + 152}" x2="${x0 + 152}" y1="${BASE_Y - 2}" y2="${BASE_Y - arrowLen + 8}" stroke="${label === "A" ? "var(--ink-soft)" : "var(--claude)"}" stroke-width="4" ${label === "A" ? 'stroke-dasharray="5 4"' : ""}/>
         <path d="M ${x0 + 145} ${BASE_Y - arrowLen + 10} L ${x0 + 152} ${BASE_Y - arrowLen - 2} L ${x0 + 159} ${BASE_Y - arrowLen + 10} z" fill="${label === "A" ? "var(--ink-soft)" : "var(--claude)"}"/>` : ""}
-        ${active && press >= 1 ? `<text x="${cx}" y="${top + 22}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)" stroke="var(--gel)" stroke-width="4" paint-order="stroke">深さ：ここで固定</text>` : ""}
+        ${dent === null && active && press >= 1 ? `<text x="${cx}" y="${top + 22}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)" stroke="var(--gel)" stroke-width="4" paint-order="stroke">深さ：ここで固定</text>` : ""}
         <!-- 支持台と名札 -->
         <rect x="${x0 + 4}" y="${BASE_Y}" width="172" height="10" rx="2" fill="var(--steel)"/>
         <g transform="translate(${cx - 16}, ${BASE_Y + 16})">
@@ -92,8 +97,8 @@ export function benchSvg(
   const fb = arrows ? arrows.b : NaN;
   return `
     <svg viewBox="0 0 360 250" overflow="visible" role="img" aria-label="試験機：ゲルのような軟らかい試験片AとBを押し板で押し込み、深さを保って押し返す力を力センサで測る。右の矢印の長さが押し返す力">
-      ${station(0, "A", pressed("A"), fa)}
-      ${station(180, "B", pressed("B"), fb)}
+      ${station(0, "A", pressed("A"), released ? NaN : fa)}
+      ${station(180, "B", pressed("B"), released ? NaN : fb)}
       ${flash ? `<rect class="flash" x="0" y="0" width="360" height="250" fill="#fff"/>` : ""}
     </svg>`;
 }
@@ -239,5 +244,71 @@ export function revealSvg(points: readonly { recordAt: number; force: number }[]
     ${points.map((p) => `<rect x="${xs(p.recordAt) - 5}" y="${ys(p.force) - 5}" width="10" height="10" fill="var(--ink)"/>`).join("")}
     ${RECORD_AT.map((t) => `<text x="${xs(t)}" y="${H - 12}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">${TIME_SHORT[t]}</text>`).join("")}
     <text x="${W - R}" y="${T + 10}" font-size="12" text-anchor="end" fill="var(--ink-soft)">点線：A　実線：B（終了後にだけ見せる、5時刻まとめた記録）</text>
+  </svg>`;
+}
+
+
+/** 証拠写真の拡大図：同じ時刻のAとBの試験片の上面を、へこみの目盛りを拡大して並べる */
+export function dentCloseupSvg(dentA: number, dentB: number, h: number, frame: boolean): string {
+  const W = 300;
+  const H = 220;
+  const top = 46;
+  const scale = 240; // へこみ1あたりの画素（拡大）
+  const yOf = (d: number) => top + Math.min(0.62, Math.max(-0.02, d)) * scale;
+  const bottom = H - 28;
+  const block = (x: number, d: number, color: string, label: string) => `
+    <rect x="${x}" y="${yOf(d)}" width="96" height="${Math.max(4, bottom - yOf(d))}" rx="6" fill="var(--gel)" stroke="${color}" stroke-width="2.5"/>
+    <text x="${x + 48}" y="${H - 10}" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">${label}</text>
+    <text x="${x + 48}" y="${Math.min(bottom - 6, yOf(d) + 20)}" text-anchor="middle" font-size="13" font-weight="700" fill="${color}" font-variant-numeric="tabular-nums">${d.toFixed(3)}</text>`;
+  const ticks = [0, 0.2, 0.4, 0.6]
+    .map((v) => `<line x1="30" x2="36" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--ink-soft)"/><text x="27" y="${yOf(v) + 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">${v.toFixed(1)}</text>`)
+    .join("");
+  const ya = yOf(dentA);
+  const yb = yOf(dentB);
+  const d = dentB - dentA;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="証拠写真の拡大図：離して${h}秒後のAとBのへこみ">
+    ${frame ? `<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="10" fill="none" stroke="var(--hanko)" stroke-width="3"/>` : `<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5"/>`}
+    <text x="12" y="22" font-size="13" font-weight="700" fill="var(--ink)">離して ${h.toFixed(1)}秒後のへこみ</text>
+    <text x="${W - 12}" y="22" font-size="13" font-weight="700" text-anchor="end" fill="${frame ? "var(--hanko)" : "var(--ink-soft)"}" font-variant-numeric="tabular-nums">差 ${(d >= 0 ? "+" : "−") + Math.abs(d).toFixed(3)}</text>
+    <line x1="33" x2="33" y1="${yOf(0)}" y2="${yOf(0.62)}" stroke="var(--ink-soft)"/>${ticks}
+    <line x1="40" x2="${W - 8}" y1="${yOf(0)}" y2="${yOf(0)}" stroke="var(--ink-soft)" stroke-dasharray="4 3"/>
+    <text x="${W - 10}" y="${yOf(0) - 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">押す前の高さ</text>
+    ${block(46, dentA, "var(--ink-soft)", "見本A")}
+    ${block(190, dentB, "var(--claude)", "試料B")}
+    <line x1="142" x2="186" y1="${ya}" y2="${ya}" stroke="var(--ink-soft)" stroke-dasharray="3 3"/>
+    <line x1="166" x2="166" y1="${ya}" y2="${yb}" stroke="var(--hanko)" stroke-width="3"/>
+  </svg>`;
+}
+
+/** 離した後の戻りのグラフ：Aは基準の線、Bは測った点。いまの時刻と、撮った写真の印 */
+export function recoveryGraphSvg(recB: readonly { h: number; dent: number }[], dentA: (h: number) => number, cursor: number, photoHs: readonly number[]): string {
+  const W = 340;
+  const H = 220;
+  const L = 34;
+  const R = 10;
+  const T = 30;
+  const B = 32;
+  const tMax = 40;
+  const yMax = 0.7;
+  const xs = (h: number) => L + ((W - L - R) * h) / tMax;
+  const ys = (d: number) => T + (H - T - B) * (Math.min(yMax, Math.max(0, d)) / yMax);
+  const aPts: string[] = [];
+  for (let i = 0; i <= 160; i++) {
+    const h = (tMax * i) / 160;
+    aPts.push(`${xs(h).toFixed(1)},${ys(dentA(h)).toFixed(1)}`);
+  }
+  const bLine = recB.map((p) => `${xs(p.h).toFixed(1)},${ys(p.dent).toFixed(1)}`).join(" ");
+  const grid = [0, 0.2, 0.4, 0.6].map((v) => `<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/><text x="${L - 4}" y="${ys(v) + 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">${v.toFixed(1)}</text>`).join("");
+  const ticks = [0, 10, 20, 30, 40].map((h) => `<text x="${xs(h)}" y="${H - 14}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">${h}</text>`).join("");
+  const cy = recB.find((p) => Math.abs(p.h - cursor) < 1e-9)?.dent ?? dentA(cursor);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="離した後のへこみの戻り：見本Aの線と試料Bの記録">
+    <text x="4" y="16" font-size="13" font-weight="700" fill="var(--ink)">へこみの戻り（下ほど深い）</text>
+    ${grid}${ticks}
+    <text x="${W - R}" y="${H - 1}" font-size="11" text-anchor="end" fill="var(--ink-soft)">離してからの秒数 →</text>
+    <polyline points="${aPts.join(" ")}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="6 4"/>
+    <polyline points="${bLine}" fill="none" stroke="var(--claude)" stroke-width="2.5"/>
+    ${photoHs.map((h) => `<path d="M${xs(h) - 5} ${T - 10} h10 l-5 7 z" fill="var(--hanko)"/>`).join("")}
+    <line x1="${xs(cursor)}" x2="${xs(cursor)}" y1="${T}" y2="${H - B}" stroke="var(--claude)" stroke-width="1.5"/>
+    <circle cx="${xs(cursor)}" cy="${ys(cy)}" r="5" fill="var(--claude)"/>
   </svg>`;
 }

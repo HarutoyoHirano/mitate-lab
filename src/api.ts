@@ -40,6 +40,7 @@ export const api = {
   claudeObserve: (id: string, pushSeconds: number, observationId: string, choice: PredictionChoice, reason: string) =>
     post<{ view: PublicSessionView; note: Hint; byClaude: boolean }>(`/api/session/${id}/claude-observe`, { pushSeconds, observationId, choice, reason }),
   pick: (id: string, curveId: string, pick: CandidateId[] | "unsure") => post<{ view: PublicSessionView }>(`/api/session/${id}/pick`, { curveId, pick }),
+  photo: (id: string, curveId: string, h: number) => post<{ view: PublicSessionView }>(`/api/session/${id}/photo`, { curveId, h }),
   confirm: (id: string, candidateId: CandidateId) => post<{ view: PublicSessionView }>(`/api/session/${id}/confirm`, { candidateId }),
   measureA: (id: string, spec: ObservationSpec) =>
     post<{ view: PublicSessionView }>(`/api/session/${id}/measure-a`, { ...spec, measurementId: crypto.randomUUID() }),
