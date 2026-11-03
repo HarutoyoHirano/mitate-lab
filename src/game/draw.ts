@@ -1,4 +1,4 @@
-// ゲーム版の図：検査ロボ、回復カメラ（パッド）、膜カメラ、膜電位のグラフ、対決の目盛り。
+// ゲーム版の図：検査ロボ、回復カメラ（クッション）、膜カメラ、膜電位のグラフ、対決の目盛り。
 // 図はどれも、渡された記録・計算値から描く（隠れた答えは受け取らない）。
 import { BASE_MEM, deltaMv, PULSE_MS, RECORD_MS, REST_MV, type Membrane } from "../../server/model/membraneGame.js";
 
@@ -35,7 +35,7 @@ export interface PadState {
 }
 
 /**
- * 回復カメラ：見本A（基準の計算）と試料B（測定記録）のパッドを並べる。
+ * 回復カメラ：見本A（基準の計算）と試料B（測定記録）のクッションを並べる。
  * 縦の目盛りは「押した深さ＝1」を 96 画素で描く（へこみの差を見やすくするため、厚みに対して深さを大きめに描いている）。
  */
 export function padCameraSvg(s: PadState): string {
@@ -93,7 +93,7 @@ export function padCameraSvg(s: PadState): string {
       ? `<g><rect x="${W / 2 - 52}" y="${H - 30}" width="104" height="26" rx="13" fill="${s.highlight ? "var(--g-warn)" : "var(--g-chip)"}"/>
          <text x="${W / 2}" y="${H - 12}" text-anchor="middle" font-size="13.5" font-weight="700" fill="${s.highlight ? "var(--g-on-warn)" : "var(--g-ink)"}" font-variant-numeric="tabular-nums">差 ${diff >= 0 ? "+" : "−"}${Math.abs(diff).toFixed(3)}</text></g>`
       : "";
-  return `<svg viewBox="0 0 ${W} ${H}" class="cam-svg" role="img" aria-label="回復カメラ：見本Aと試料Bのパッドのへこみ">
+  return `<svg viewBox="0 0 ${W} ${H}" class="cam-svg" role="img" aria-label="回復カメラ：見本Aと試料Bのクッションのへこみ">
     ${st(10, "A")}${st(400, "B")}${badge}
   </svg>`;
 }
@@ -226,44 +226,49 @@ export function diffMeterSvg(diff: number, kind: "robot" | "hidden" | "final", p
 export { BASE_MEM };
 
 /**
- * 開幕の場面：医療シミュレーション・センター（仮想）。訓練用の人体模型に取り付ける柔らかい練習用パッドの、
- * 新しく届いた品を、受け入れ検査ロボが決まった手順（押す→20秒待つ→力を読む→見本と比べる）で調べる。
- * アニメーションは CSS（動きを減らす設定では止まる）。人物や実在の機器は描かない（模型は単純な形）。
+ * 開幕の場面：再生医療ラボ（仮想）。3Dプリンタで作った人工の膝クッション（仮想の試作品）を、
+ * 検査ロボが決まった手順（押す→20秒待つ→力を読む→見本と比べる）で調べる。
+ * 膝の図は骨とクッションの単純な形（実在の人工関節・軟骨を描いたものではない）。アニメーションは CSS。
  */
 export function factorySvg(): string {
-  return `<svg viewBox="0 0 760 270" class="factory" role="img" aria-label="医療シミュレーション・センターの受け入れ検査：訓練用の人体模型と、新しく届いた練習用パッドを検査ロボKENSA-07が押して調べる">
-    <!-- 訓練用の人体模型（単純な形） -->
-    <rect x="16" y="176" width="250" height="14" rx="5" fill="var(--g-steel)"/>
-    <rect x="30" y="190" width="10" height="44" fill="var(--g-steel)"/><rect x="242" y="190" width="10" height="44" fill="var(--g-steel)"/>
-    <circle cx="52" cy="150" r="20" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
-    <rect x="72" y="138" width="120" height="38" rx="16" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
-    <rect x="186" y="150" width="70" height="20" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
-    <rect x="118" y="120" width="70" height="16" rx="7" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
-    <rect x="150" y="117" width="34" height="12" rx="5" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="2" class="blink"/>
-    <text x="141" y="252" text-anchor="middle" font-size="12" fill="var(--g-soft)">訓練用の人体模型（腕に練習用パッド）</text>
-    <!-- 研修生のつぶやき -->
-    <g transform="translate(150 22)">
-      <path d="M0 0 h178 a10 10 0 0 1 10 10 v36 a10 10 0 0 1 -10 10 h-120 l-14 16 l2 -16 h-46 a10 10 0 0 1 -10 -10 v-36 a10 10 0 0 1 10 -10 z" fill="var(--g-panel-2)" stroke="var(--g-line-strong)" stroke-width="1.5"/>
-      <text x="10" y="22" font-size="12.5" fill="var(--g-ink)">新しいパッド、押したときの</text>
-      <text x="10" y="42" font-size="12.5" fill="var(--g-ink)">感じが前と違う気がする……</text>
+  return `<svg viewBox="0 0 760 270" class="factory" role="img" aria-label="再生医療ラボの検査：3Dプリンタで作った膝のクッションを、検査ロボKENSA-07が押して調べる。歩くとゆっくり、走るとすばやく押される">
+    <!-- 膝の模式図：骨と骨の間のクッション -->
+    <g transform="translate(20 20)">
+      <rect x="40" y="0" width="44" height="92" rx="20" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+      <rect x="36" y="80" width="52" height="20" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+      <rect x="36" y="104" width="52" height="16" rx="7" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="2.5" class="squash"/>
+      <rect x="36" y="124" width="52" height="20" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+      <rect x="40" y="134" width="44" height="86" rx="20" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+      <path d="M96 112 h22" stroke="var(--g-pad-b-edge)" stroke-width="2"/>
+      <text x="122" y="108" font-size="12.5" font-weight="700" fill="var(--g-ink)">クッション</text>
+      <text x="122" y="125" font-size="11.5" fill="var(--g-soft)">一歩ごとに押す</text>
+      <text x="122" y="160" font-size="11.5" fill="var(--g-soft)">歩く＝ゆっくり</text>
+      <text x="122" y="177" font-size="11.5" font-weight="700" fill="var(--g-warn)">走る＝すばやく</text>
+      <text x="122" y="194" font-size="11.5" fill="var(--g-soft)">足を上げると戻る</text>
     </g>
-    <!-- 新しく届いた箱 -->
-    <rect x="292" y="182" width="70" height="52" rx="4" fill="var(--g-chip)" stroke="var(--g-line-strong)" stroke-width="1.5"/>
-    <text x="327" y="205" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--g-ink)">新しく</text>
-    <text x="327" y="222" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--g-ink)">届いた品</text>
-    <!-- 受け入れ検査の台 -->
-    <rect x="380" y="226" width="200" height="10" rx="3" fill="var(--g-steel-dark)"/>
-    <rect x="392" y="196" width="66" height="30" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
-    <text x="425" y="216" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">見本A</text>
-    <g class="under-test"><rect x="490" y="196" width="66" height="30" rx="9" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="2"/><text x="523" y="216" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">新品B</text></g>
-    <g transform="translate(489 30)">${robotSvg("calm").replace('width="58" height="54"', 'width="68" height="64"')}</g>
-    <rect x="470" y="92" width="106" height="12" rx="4" fill="var(--g-steel-dark)"/>
-    <rect x="478" y="104" width="7" height="122" fill="var(--g-steel)"/><rect x="561" y="104" width="7" height="122" fill="var(--g-steel)"/>
-    <g class="press"><rect x="518" y="104" width="10" height="60" fill="var(--g-steel)"/><rect x="494" y="162" width="58" height="12" rx="3" fill="var(--g-steel-dark)"/></g>
-    <text x="480" y="254" text-anchor="middle" font-size="12" fill="var(--g-soft)">受け入れ検査の台</text>
+    <!-- 3Dプリンタ -->
+    <g transform="translate(262 40)">
+      <rect x="0" y="0" width="110" height="170" rx="8" fill="none" stroke="var(--g-steel-dark)" stroke-width="3"/>
+      <rect x="0" y="20" width="110" height="8" fill="var(--g-steel-dark)"/>
+      <g class="nozzle"><rect x="30" y="28" width="18" height="22" rx="3" fill="var(--g-steel-dark)"/><path d="M34 50 h10 l-5 8 z" fill="var(--g-warn)"/></g>
+      ${[0, 1, 2, 3, 4].map((k) => `<rect x="24" y="${148 - k * 7}" width="62" height="6" rx="2" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="1" class="layer l${k}"/>`).join("")}
+      <rect x="14" y="154" width="82" height="8" rx="2" fill="var(--g-steel)"/>
+      <text x="55" y="194" text-anchor="middle" font-size="12" fill="var(--g-soft)">3Dプリンタ</text>
+      <text x="55" y="210" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--g-ink)">新しい印刷条件</text>
+    </g>
+    <!-- 検査の台 -->
+    <rect x="392" y="226" width="196" height="10" rx="3" fill="var(--g-steel-dark)"/>
+    <rect x="402" y="196" width="66" height="30" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+    <text x="435" y="216" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">見本A</text>
+    <g class="under-test"><rect x="500" y="196" width="66" height="30" rx="9" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="2"/><text x="533" y="216" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">新作B</text></g>
+    <g transform="translate(499 30)">${robotSvg("calm").replace('width="58" height="54"', 'width="68" height="64"')}</g>
+    <rect x="480" y="92" width="106" height="12" rx="4" fill="var(--g-steel-dark)"/>
+    <rect x="488" y="104" width="7" height="122" fill="var(--g-steel)"/><rect x="571" y="104" width="7" height="122" fill="var(--g-steel)"/>
+    <g class="press"><rect x="528" y="104" width="10" height="60" fill="var(--g-steel)"/><rect x="504" y="162" width="58" height="12" rx="3" fill="var(--g-steel-dark)"/></g>
+    <text x="490" y="254" text-anchor="middle" font-size="12" fill="var(--g-soft)">検査の台</text>
     <!-- 表示 -->
-    <g transform="translate(596 40)">
-      <rect width="156" height="132" rx="10" fill="var(--g-screen)"/>
+    <g transform="translate(600 40)">
+      <rect width="152" height="132" rx="10" fill="var(--g-screen)"/>
       <text x="12" y="22" font-size="11.5" fill="var(--g-on-screen)">KENSA-07 の検査</text>
       <text x="12" y="46" font-size="13" font-weight="700" fill="var(--g-accent)" class="step s1">① 押す</text>
       <text x="12" y="68" font-size="13" font-weight="700" fill="var(--g-accent)" class="step s2">② 20秒待つ</text>

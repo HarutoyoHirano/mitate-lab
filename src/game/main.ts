@@ -190,31 +190,31 @@ function curve() {
 // ---------- 画面 ----------
 function renderTitle(): string {
   return `<section class="title">
-    ${kicker("CASE FILE / 受け入れ検査の盲点", "同じに見える。<br>でも、測り方を変えると違う。", "訓練用の人体模型に取り付ける、柔らかい練習用パッドA・B（仮想）。押して20秒後の力は、いつもの検査では区別できない。押している途中も、離したあとの戻り方も同じ？")}
+    ${kicker("CASE FILE / 検査ロボの盲点", "同じに見える。<br>でも、測り方を変えると違う。", "3Dプリンタで作った人工の膝クッションA・B（仮想の試作品）。押して20秒後の力は、いつもの検査では区別できない。走ってすばやく押されたときも、足を上げた後の戻り方も同じ？")}
     <div class="card factory-card">
       ${factorySvg()}
       <div class="story">
-        <p><strong>ここは</strong>医療シミュレーション・センター（仮想）。研修生は、人体模型に取り付けた柔らかい練習用パッドを押して、触って確かめる練習をする。</p>
-        <p><strong>受け入れ検査</strong>新しく届いたパッドは、検査ロボ KENSA-07 が調べる。押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
-        <p><strong>事件</strong>新しい品Bの判定は「見本と区別できません」。でも研修生は「押したときの感じが前と違う」と言う。練習で手に覚える感じが変わるなら、困る。ロボが見ていないところを調べるのが、あなたの仕事。</p>
+        <p><strong>ここは</strong>再生医療ラボ（仮想）。3Dプリンタで、膝の骨と骨の間に入れる人工のクッションを試作している。クッションは一歩ごとに押され、足を上げると元へ戻る。</p>
+        <p><strong>ロボの検査</strong>試作品は、検査ロボ KENSA-07 が調べる。押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
+        <p><strong>事件</strong>新しい印刷条件で作ったクッションB。ロボの判定は「見本と区別できません」。でも、走るときのようにすばやく押されたら？ 次の一歩までに元へ戻る？ ロボが見ていないところを調べるのが、あなたの仕事。</p>
       </div>
     </div>
-    ${robot("私はKENSA-07。受け入れ検査のロボです。決まった手順（押して20秒後の力）で、見本と同じかを判定します。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
+    ${robot("私はKENSA-07。試作品の検査ロボです。決まった手順（押して20秒後の力）で、見本と同じかを判定します。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
     <div class="title-grid">
       <div class="card">
         <h2>あなたの任務</h2>
         <p class="note">できるようになること：一つの値だけを見る検査が何を見落とすかを、時間の記録で確かめ、理由を説明できる。</p>
         <ol class="missions">
           <li><strong>見破れ</strong>：ロボが見落とした瞬間を、時間を止めて証拠に撮る。なぜ違うのかを、力の記録で推理する</li>
-          <li><strong>仕掛けろ</strong>：検査を鍛えるために、ロボの検査をすり抜ける試験用の見本をつくる。ロボは測り方を変えてくる</li>
-          <li><strong>膜の盲点</strong>：センターには、神経の電気を学ぶ膜の模型もある。同じ盲点を見破って、仕掛ける</li>
+          <li><strong>仕掛けろ</strong>：検査を鍛えるために、ロボの検査をすり抜ける試験用のクッションをつくる。ロボは測り方を変えてくる</li>
+          <li><strong>膜の盲点</strong>：膝の動きや押された感じは、神経の膜の電気で脳へ伝わる。膜の模型にも同じ盲点がある。見破って、仕掛ける</li>
         </ol>
         <div class="actions"><button class="btn go big" data-act="start" ${state.busy ? "disabled" : ""}>事件1を始める</button></div>
         ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
       </div>
       <div class="card soft">
         <h2>この実験室について</h2>
-        <p class="note">パッドと膜は、計算で作った仮想の試料です（素材は、見本Aを押して十分に待った力を1とする目盛り）。センターも人体模型も架空です。ここでの「検査」は、ゲームの中の受け入れ検査のルールで、臨床検査・実在の医療機器やシミュレーターの手順ではありません。実在の材料や体の組織とも関係なく、診断や性能の判定はしません。</p>
+        <p class="note">クッションと膜は、計算で作った仮想の試料です（クッションは、見本Aを押して十分に待った力を1とする目盛り）。ラボも試作品も架空で、実在の人工関節・軟骨・医療機器の性能を表すものではありません。ここでの「検査」は、ゲームの中の検査のルールで、臨床検査や実在の機器の手順ではありません。実在の材料や体の組織とも関係なく、診断や性能の判定はしません。</p>
         <table class="roles"><tr><th>検査ロボ KENSA-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）</td></tr><tr><th>相棒 Claude（AI）</th><td>事件1で参加。隠れた答えを知らない</td></tr><tr><th>検算</th><td>教材の計算プログラムが、同じ記録で確かめる</td></tr></table>
         <p class="note">相棒のClaude（AI）は、隠れた答えを知りません。あなたと同じ記録だけで考えます。試す回数で減点はしません。</p>
         <details><summary>先生用の設定</summary>
@@ -235,7 +235,7 @@ function renderTitle(): string {
 function renderVerdict(): string {
   const r = state.view!.intro;
   return `<section>
-    ${kicker("CASE 01 / THE NEW LOT", "受け入れ検査の盲点を、見破れ。", "まず、ロボのいつもの検査。新しい品Bを、ふつう（1秒）に押して、20秒後の力だけを見ます。")}
+    ${kicker("CASE 01 / THE NEW PRINT", "検査ロボの盲点を、見破れ。", "まず、ロボのいつもの検査。新しい印刷条件のクッションBを、ふつう（1秒）に押して、20秒後の力だけを見ます。")}
     ${robot(`20秒後の力：見本A ${r.base.toFixed(3)}（基準）／試料B ${r.force.toFixed(3)}（測定）。差 ${sgn(r.diff)}。許容差 ±${r.tolerance} の内側。<strong>私の検査では、区別できません。</strong>`, "smug")}
     <div class="card">
       <h2>本当に同じ？ 予想してから、押して・保って・離してみよう</h2>
@@ -259,7 +259,7 @@ function renderRun(): string {
   return `<section>
     ${kicker("CASE 01 / THE MISSING MOMENT", "押す → 保つ → 離す", "押し板は同じ深さで止まったまま。力センサの数字を見ていよう。")}
     <div class="card cam">
-      <div class="cam-head"><span>RECOVERY CAMERA / 仮想パッド</span><strong>${esc(state.clock)}</strong></div>
+      <div class="cam-head"><span>RECOVERY CAMERA / 仮想の膝クッション</span><strong>${esc(state.clock)}</strong></div>
       ${padCameraSvg(state.pad)}
     </div>
   </section>`;
@@ -290,7 +290,7 @@ function renderCamera(): string {
           : "見てから考える、でよし。途中に違いがあった。"
       : "";
   return `<section>
-    ${kicker("CASE 01 / THE MISSING MOMENT", found ? "盲点、発見。" : "時間を戻して、違いが見える瞬間を探せ。", found ? "離して40秒後の形だけを見ていたら、見落としていた違いです。" : "最後の形は、よく似ている。時間を戻し、違いが見える瞬間を証拠にしよう。")}
+    ${kicker("CASE 01 / THE MISSING MOMENT", found ? "盲点、発見。" : "時間を戻して、違いが見える瞬間を探せ。", found ? "離して40秒後の形だけを見ていたら、見落としていた違いです。" : "最後の形は、よく似ている。でも、次の一歩（歩けば約1秒後）までに、どれだけ戻っている？ 時間を戻し、違いが見える瞬間を証拠にしよう。")}
     ${robot(found ? "その瞬間は……見ていなかった。私の検査は、20秒後の力だけです。" : "離して40秒後の形も、ほぼ同じに見えます。（私が測るのは、深さを保って20秒後の力だけです）", found ? "shock" : "smug")}
     <div class="card cam">
       <p class="timeband">押す（1秒）→ 保つ（20秒。ロボはこの最後の力を測る）→ <strong>離す（0〜40秒。いま見ているところ）</strong></p>
@@ -421,7 +421,7 @@ function renderReveal(): string {
   const yMax = Math.max(2.4, ...v.curves.flatMap((x) => x.b.map((p) => p.force + 0.2)));
   return `<section>
     ${kicker("CASE 01 / SOLVED", "事件1、解決。", esc(d.explanation))}
-    ${robot("私の検査は、20秒後しか見ていなかった。……では、私の検査を鍛えてください。すり抜ける見本を作れますか？", "shock")}
+    ${robot("私の検査は、20秒後しか見ていなかった。走る人の膝は、20秒も待ってくれないのに。……では、私の検査を鍛えてください。すり抜ける試作品を作れますか？", "shock")}
     <div class="why-grid">
       <div class="card">
         <div class="cam-head"><span>あなたが測った曲線（${SPEED_NAME[key.pushSeconds]}）</span><strong>点の線＝Bの正体の値で計算（答え合わせで開示）</strong></div>
@@ -462,12 +462,12 @@ function renderDuel(): string {
     meterRow(`最後の検査：${FINAL_CHECK.label}`, "事件1のいつもの検査", r.final.a, r.final.b, r.final.diff, r.final.ok, "final", 0.03, 0.3, "差 0.03 以内"),
   ];
   return `<section>
-    ${kicker(`DUEL ${round.id} / ${round.id === 1 ? "THE QUICK CHECK" : "A DIFFERENT VIEW"}`, round.id === 1 ? "検査を鍛える：すり抜ける見本をつくれ。" : "ロボが検査の手順を更新した。次の一手は？", round.id === 1 ? "ロボの検査では見本と同じに見えるのに、別の瞬間には違いが残る試験用の見本をつくる。見逃しを見つけて、検査を強くするためのテストです。" : "前のラウンドの見本は、もう通らない。")}
+    ${kicker(`DUEL ${round.id} / ${round.id === 1 ? "THE QUICK CHECK" : "A DIFFERENT VIEW"}`, round.id === 1 ? "検査を鍛える：すり抜ける試作品をつくれ。" : "ロボが検査の手順を更新した。次の一手は？", round.id === 1 ? "ロボの検査では見本と同じに見えるのに、別の瞬間には違いが残る試験用のクッションをつくる。見逃しを見つけて、検査を強くするためのテストです。" : "前のラウンドの試作品は、もう通らない。")}
     ${robot(scanning ? "設計を固定しました。宣言した測り方で、検査を始めます。" : shown ? (shown.cleared ? "私の検査では、区別できません。……でも、別の測り方なら違う？" : !shown.robot.ok || !shown.final.ok ? "見つけました。その素材は、見本と違います。" : "区別できません。……でも、隠す違いも残っていませんね。見本と同じものを出しても、すり抜けたことにはなりません。") : round.robotLine, scanning ? "scan" : shown ? (shown.cleared ? "shock" : "smug") : "calm")}
     ${prevFails && state.duelPhase === "design" && !judgeDuel(round, duelMaterial(state.duelLog[state.duelLog.length - 1]!.e1, state.duelLog[state.duelLog.length - 1]!.tau)).cleared && state.e1 === state.duelLog[state.duelLog.length - 1]!.e1 && state.tau === state.duelLog[state.duelLog.length - 1]!.tau ? `<p class="bet-line">前のラウンドで通った素材は、この測り方では見つかってしまう。つまみを動かして作り直そう。</p>` : ""}
     <div class="duel-grid">
       <div class="card">
-        <h2>あなたのパッドを調整</h2>
+        <h2>試験用のクッションを調整</h2>
         ${(["e1", "tau"] as const)
           .map((k) => {
             const s = DUEL_SLIDERS[k];
@@ -528,7 +528,7 @@ function renderC3Camera(): string {
   const stopA = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   const stopB = REST_MV + deltaMv(CASE3_B, PULSE_MS);
   return `<section>
-    ${kicker("CASE 03 / MEMBRANE", found ? "膜にも、盲点があった。" : "膜の盲点を、見破れ。", "センターには、神経の電気を学ぶための膜の模型もある。新しく届いた模型Bも、ロボの判定は「区別できません」。神経細胞の膜の一部分を拡大した模型。静止しているとき、細胞の中は外より約70 mV低い（−70 mV）。電極から同じ大きさの電流を膜Aと膜Bに100ミリ秒入れて止め、膜電位（膜の内と外の電位の差）がどう上がり、どう戻るかを見る。")}
+    ${kicker("CASE 03 / MEMBRANE", found ? "膜にも、盲点があった。" : "膜の盲点を、見破れ。", "膝の動きや押された感じは、神経の膜の電気で脳へ伝わる。ラボには、その神経細胞の膜の一部分を拡大した模型がある。新しい模型Bも、ロボの判定は「区別できません」。静止しているとき、細胞の中は外より約70 mV低い（−70 mV）。電極から同じ大きさの電流を膜Aと膜Bに100ミリ秒入れて止め、膜電位（膜の内と外の電位の差）がどう上がり、どう戻るかを見る。")}
     ${robot(found ? "その瞬間は……見ていなかった。私は、長く流した後の電位しか測っていません。" : `長く流した後（止める直前）の電位：膜A ${stopA.toFixed(1)} mV／膜B ${stopB.toFixed(1)} mV。差 ${(stopB - stopA).toFixed(2)} mV（${ROBOT_STEADY_TOL} mV 以内）。<strong>区別できません。</strong>`, found ? "shock" : "smug")}
     <div class="card cam">
       <div class="neuron">${NEURON_SVG}<p class="note">神経細胞の、枠で囲んだ膜の一部分を拡大して見る。左が基準の膜A、右が調べる膜B。</p></div>
@@ -655,7 +655,7 @@ function discovery(): string[] {
 function renderFinale(): string {
   return `<section>
     ${kicker("CASE CLOSED / BLIND SPOTS", "見方が変わると、盲点も変わる。", "三つの事件で見つけた盲点は、同じ形をしていた。")}
-    ${robot("手順を一つに決めると、私には見えないものがある。……次の受け入れ検査は、どう測りますか？", "shock")}
+    ${robot("手順を一つに決めると、私には見えないものがある。……次の試作品は、どう測りますか？", "shock")}
     <div class="blind3">
       <div class="card"><p class="num">1</p><h3>最後の値だけ見ると</h3><p>途中の違い（上乗せの大きさ・やわらぐ速さ・戻る速さ）を見落とす。素材でも、膜でも。</p></div>
       <div class="card"><p class="num">2</p><h3>戻る速さ（時定数）だけ見ると</h3><p>高さの違い（上がり幅）を見落とす。時定数が同じでも、別物のことがある。</p></div>

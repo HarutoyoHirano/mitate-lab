@@ -311,3 +311,8 @@ details summary { cursor: pointer; font-weight: 700; }
 .factory .blink { animation: blink2 2s ease-in-out infinite; }
 @keyframes blink2 { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .factory .blink { animation: none; } }
+.factory .nozzle { animation: nozzle 3s ease-in-out infinite alternate; }
+.factory .squash { transform-box: fill-box; transform-origin: center; animation: squash 1.2s ease-in-out infinite; }
+@keyframes nozzle { from { transform: translateX(0); } to { transform: translateX(40px); } }
+@keyframes squash { 0%, 100% { transform: scaleY(1); } 40% { transform: scaleY(0.62); } }
+@media (prefers-reduced-motion: reduce) { .factory .nozzle, .factory .squash { animation: none; } }
