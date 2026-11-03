@@ -19,7 +19,12 @@ export function specLabel(s: ObservationSpec): string {
 }
 
 /** 試験台。target の素材を押し棒が押す（both は導入の場面で二本同時）。press は 0〜1 */
-export function benchSvg(target: "A" | "B" | "both", press: number, flash = false): string {
+export function benchSvg(
+  target: "A" | "B" | "both",
+  press: number,
+  flash = false,
+  arrows: { a: number; b: number } | null = null,
+): string {
   const squish = 0.24 * press;
   const pressed = (k: "A" | "B") => target === "both" || target === k;
   const block = (cx: number, label: string, active: boolean) => {
@@ -47,13 +52,28 @@ export function benchSvg(target: "A" | "B" | "both", press: number, flash = fals
   };
   const rods = target === "both" ? rod(90, true) + rod(250, true) : rod(target === "A" ? 90 : 250, true);
   return `
-    <svg viewBox="0 0 340 230" role="img" aria-label="試験台：見た目がそっくりな素材AとB">
+    <svg viewBox="0 0 340 230" overflow="visible" role="img" aria-label="試験台：見た目がそっくりな素材AとB">
       <rect x="12" y="178" width="316" height="12" rx="2" fill="var(--steel)"/>
       ${block(90, "A", pressed("A"))}
       ${block(250, "B", pressed("B"))}
       ${rods}
+      ${arrows ? pushBackArrow(90, arrows.a, true) + pushBackArrow(250, arrows.b, false) : ""}
       ${flash ? `<rect class="flash" x="0" y="0" width="340" height="230" fill="#fff"/>` : ""}
     </svg>`;
+}
+
+/** 押し返しの矢印（長さが力に比例）。A は基準カードの値（点線） */
+function pushBackArrow(cx: number, force: number, isA: boolean): string {
+  const x = cx + 72;
+  const base = 176;
+  const len = Math.min(150, force * 52);
+  const top = base - len;
+  const color = isA ? "var(--ink-soft)" : "var(--claude)";
+  return `<g>
+    <line x1="${x}" x2="${x}" y1="${base}" y2="${top + 10}" stroke="${color}" stroke-width="${isA ? 3 : 5}" ${isA ? 'stroke-dasharray="5 4"' : ""}/>
+    <path d="M ${x - 9} ${top + 12} L ${x} ${top - 2} L ${x + 9} ${top + 12} z" fill="${color}"/>
+    <text x="${x}" y="${top - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${color}">${force.toFixed(2)}</text>
+  </g>`;
 }
 
 interface PanelOpts {

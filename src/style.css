@@ -216,3 +216,15 @@ table.vals tr.diff td { font-weight: 700; background: #eaf5ef; }
 .reveal-box p { margin: 4px 0 8px; }
 .go-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .go-row .btn.go { flex: 1; }
+
+/* 目的の表示 */
+.mission { display: grid; gap: 4px; margin: 0 0 14px; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--claude); border-radius: 0 var(--radius-s) var(--radius-s) 0; font-size: 14px; }
+.m-label { display: inline-block; min-width: 7.5em; font-weight: 700; color: var(--claude); }
+.m-label.next { color: var(--ok); }
+.goals { margin: 10px 0 16px; padding-left: 1.4em; max-width: 34em; }
+.goals li { margin: 4px 0; }
+.result .what { font-size: 17px; font-weight: 700; }
+.cand .looks { display: block; font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.bridge { margin-top: 16px; border-left: 5px solid var(--ok); }
+.bridge h2 { margin-top: 0; }
+.intro, .start { min-height: calc(100vh - 160px); }

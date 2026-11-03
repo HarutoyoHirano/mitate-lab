@@ -10,6 +10,14 @@ type Phase = "start" | "intro" | "lab" | "debrief" | "act2" | "reflect" | "done"
 
 const PRED_LABEL: Record<PredictionChoice, string> = { higher: "Aより大きい", same: "Aと同じくらい", lower: "Aより小さい" };
 
+/** この説明が正しければ、何が見えるか */
+const LOOKS: Record<CandidateId, string> = {
+  overall: "待ったあとも、押し返しがAと違う",
+  instant: "押した直後の押し返しだけが違い、待つと同じ",
+  relax: "押し返しが抜けるまでにかかる時間が違い、待つと同じ",
+  same: "どの押し方・どの瞬間でも、Aと同じ",
+};
+
 interface ResultMoment {
   readonly recordId: string;
   readonly predicted: number | null;
@@ -52,6 +60,7 @@ const state = {
   act2Saved: false,
   thoughtGuess: null as ThoughtGuess | null,
   thoughtShown: false,
+  arrows: null as { a: number; b: number } | null,
 };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -94,13 +103,49 @@ function topbar(): string {
   </header>`;
 }
 
+// ---------- いまの目的・次にやること ----------
+function missionBar(): string {
+  const v = state.view;
+  let goal = "";
+  let next = "";
+  if (state.phase === "intro") {
+    goal = "二つの素材が本当に同じか、最初の手がかりを見る";
+    next = state.introDone ? "「違いを探しに行く」を押す" : "AとBを同じように押して、20秒後の力を記録しています";
+  } else if (state.phase === "lab" && v) {
+    goal = "押す速さと記録する瞬間を選んで、AとBの違いを見つけ、なぜ違うのかを候補から絞り込む";
+    const pending = v.pendingPrediction;
+    const ready = !!pending && pending.pushSeconds === state.push && pending.recordAt === state.at;
+    if (v.overall === "narrowed") next = "決着しました。「答え合わせへ」で、Bの正体を確かめる";
+    else if (v.observationCount === 0 && !ready) next = "① 押す速さとシャッターの瞬間を選ぶ → ② グラフの列をクリックして予想のピンを置く → ③ Bを押す";
+    else if (!ready) next = "まだ候補が二つ以上残っています。別の瞬間や押す速さなら分かれるかも。選んでピンを置く";
+    else next = "予想を置きました。Bを押して、シャッターを切る";
+  } else if (state.phase === "debrief") {
+    goal = "Bの正体と、どの観察が決め手になったかを確かめる";
+    next = "読み終えたら「見方を変えてみる」へ";
+  } else if (state.phase === "act2") {
+    goal = "見つけた「押し返しが抜けるまでの時間」が、電気や細胞の中ではどう見えるかを確かめる";
+    next = state.act2Runs.length < 2 ? "予想を保存して、イオンの通りやすさを変えて二回以上試す" : "最後に「もしも」の思考実験へ。終わったら振り返りへ";
+  } else if (state.phase === "reflect" || state.phase === "done") {
+    goal = "一つの性質を、物理・電気・化学・生物の見方でつなげて、自分の言葉にする";
+    next = "四つの問いに答えて保存する";
+  }
+  if (!goal) return "";
+  return `<div class="mission"><div><span class="m-label">いまの目的</span>${goal}</div><div><span class="m-label next">次にやること</span>${next}</div></div>`;
+}
+
 // ---------- 開始画面 ----------
 function renderStart(): string {
   return `${topbar()}<main class="wrap"><section class="start">
     <div class="start-copy">
       <p class="kicker">見方を変える実験室</p>
-      <h1>押して、待つと、同じ。<br>本当に同じ素材だろうか。</h1>
-      <p class="lead">見た目がそっくりな二つの素材。押して20秒待つと、押し返す力はぴったり同じになります。でも、押す速さと、力を記録する一瞬を選べば、見えなかった違いが見えるかもしれません。</p>
+      <h1>同じに見える。<br>でも、測り方を変えると違う。</h1>
+      <p class="lead">体の中の組織や血管は、目で見ることができません。触ったり一回測ったりしただけでは同じに見えても、押す速さや測る瞬間を変えると、隠れていた性質が見えてくることがあります。医療の計測も、この考え方で見えないものを確かめています。</p>
+      <p>ここでは、そっくりな二つの仮想素材AとBを使って、それを自分で確かめます。</p>
+      <ol class="goals">
+        <li><strong>違いを見抜く</strong>：どの押し方・どの瞬間なら違いが見えるかを考えて測る</li>
+        <li><strong>理由を説明する</strong>：何が違うのかを、証拠を添えて言えるようにする</li>
+        <li><strong>見方をつなぐ</strong>：見つけた性質を、電気や細胞の言葉で言い直す</li>
+      </ol>
       <div class="actions"><button class="btn big" data-act="start">実験を始める</button></div>
       <p class="note">素材は計算で作った仮想の素材です（Aが落ち着いた力を1とする）。実在の物質や体の組織、医療機器を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
       <details><summary>先生用の設定</summary>
@@ -124,7 +169,7 @@ function renderIntro(): string {
   const v = state.view!;
   const a = v.measuredA[0]!.force;
   const b = v.records[0]!.force;
-  return `${topbar()}<main class="wrap"><section class="intro">
+  return `${topbar()}<main class="wrap">${missionBar()}<section class="intro">
     <div class="pane bench-pane bench">${benchSvg("both", state.press, state.flash)}</div>
     <div class="intro-side">
       <p class="clock">${state.clock || "ふつう（1秒）に押して、20秒待ってからシャッター"}</p>
@@ -155,9 +200,9 @@ function renderLab(): string {
     `<div class="seg" role="group" aria-label="${name}">${items
       .map((x) => `<button data-set="${name}" data-val="${x}" aria-pressed="${x === cur}" ${lock ? "disabled" : ""}>${label(x)}</button>`)
       .join("")}</div>`;
-  return `${topbar()}<main class="wrap"><section class="lab">
+  return `${topbar()}<main class="wrap">${missionBar()}<section class="lab">
     <div class="pane bench-pane">
-      <div class="bench">${benchSvg(state.benchTarget, state.press, state.flash)}</div>
+      <div class="bench">${benchSvg(state.benchTarget, state.press, state.flash, state.arrows)}</div>
       <div class="recorder ${state.flash ? "lit" : ""}" aria-live="polite">
         <span class="cam" aria-hidden="true"></span>
         <span class="rec-label">${state.clock || "記録計（シャッターは一回に一度だけ）"}</span>
@@ -191,13 +236,13 @@ function renderLab(): string {
       <p class="note">点はどれも、別々に押して一瞬だけ記録した値です。点どうしを線で結んでいません。</p>
     </div>
     <div class="pane board">
-      <h2>説明の候補 <span class="note">（どれもAと一つだけ違う）</span></h2>
+      <h2>なぜ違う？ 説明の候補 <span class="note">（どれもAと一つだけ違う）</span></h2>
       <ul>${v.candidates
         .map((c) => {
           const stamp = c.status === "inconsistent" ? `<span class="hanko no ${state.stampNow.includes(c.id) ? "now" : ""}">合わない</span>` : narrowed && v.narrowedTo === c.id ? `<span class="hanko yes now">決着</span>` : "";
           return `<li class="cand ${c.status} ${narrowed && v.narrowedTo === c.id ? "decided" : ""} ${state.myCandidates.includes(c.id) ? "mine" : ""}">
             <span class="swatch" style="background:${CAND_COLOR[c.id]}"></span>
-            <span class="name">${c.label}${state.myCandidates.includes(c.id) ? `<span class="mine-tag">あなたの説明</span>` : ""}</span>
+            <span class="name">${c.label}<span class="looks">${LOOKS[c.id]}</span>${state.myCandidates.includes(c.id) ? `<span class="mine-tag">あなたの説明</span>` : ""}</span>
             <span class="st">${c.statusLabel}</span>${stamp}</li>`;
         })
         .join("")}</ul>
@@ -223,14 +268,16 @@ function resultBanner(): string {
   const r = state.result;
   if (!r) return `<div class="result idle">予想のピンを置いて押すと、ここに結果が出ます。</div>`;
   const diff = r.actual - r.base;
-  const actualChoice: PredictionChoice = diff > state.view!.error ? "higher" : diff < -state.view!.error ? "lower" : "same";
+  const err = state.view!.error;
+  const actualChoice: PredictionChoice = diff > err ? "higher" : diff < -err ? "lower" : "same";
   const hit = r.choice === actualChoice;
   const head = r.choice ? (hit ? "予想どおり！" : "予想が外れた！ ここが発見のチャンス") : "記録しました";
-  const what = actualChoice === "same" ? "Aとほぼ同じ" : actualChoice === "higher" ? `Aより大きい（＋${diff.toFixed(3)}）` : `Aより小さい（${diff.toFixed(3)}）`;
+  const what = actualChoice === "same" ? "Bは、Aとほぼ同じ強さで押し返した" : actualChoice === "higher" ? "Bは、Aより強く押し返した" : "Bは、Aより弱く押し返した";
   return `<div class="result ${hit ? "hit" : "miss"} fresh">
     <strong>${head}</strong>
-    <span>B ${r.actual.toFixed(3)}：${what}</span>
-    ${r.excluded.length ? `<span class="excl">→ 合わなくなった：${r.excluded.map((c) => CANDIDATES[c].label).join("、")}</span>` : `<span class="note">この観察では、合わなくなった候補はありません。</span>`}
+    <span class="what">${what}</span>
+    <span class="note">B ${r.actual.toFixed(3)}／同じ条件のAの基準値 ${r.base.toFixed(3)}（差 ${diff >= 0 ? "+" : ""}${diff.toFixed(3)}、誤差は ±${err}）</span>
+    ${r.excluded.length ? `<span class="excl">→ この結果と合わなくなった説明：${r.excluded.map((c) => CANDIDATES[c].label).join("、")}</span>` : `<span class="note">この観察では、合わなくなった説明はありません。</span>`}
   </div>`;
 }
 
@@ -274,7 +321,7 @@ function renderDebrief(): string {
       return r ? `<li><strong>${specLabel(r)}</strong><br>→ ${k.excluded.map((c) => CANDIDATES[c].label).join("、")}が合わなくなった</li>` : "";
     })
     .join("");
-  return `${topbar()}<main class="wrap"><section class="page">
+  return `${topbar()}<main class="wrap">${missionBar()}<section class="page">
     <p class="kicker">答え合わせ</p>
     <h1 class="reveal-head">${esc(d.explanation)}</h1>
     <div class="two">
@@ -292,6 +339,17 @@ function renderDebrief(): string {
         <p class="note">ばね二つとダンパ一つの「標準線形固体」という簡単なモデルです。実在の素材の構造を証明したものではありません。</p>
       </div>
     </div>
+    <div class="bridge pane">
+      <h2>つまり</h2>
+      <p>${
+        causeKind(d) === "relax"
+          ? "Bは「押し返しが抜けるのに時間がかかる」素材でした。押して長く待つ測り方では、この違いは見えません。押した直後や、少し待った瞬間を選んだから見えました。"
+          : causeKind(d) === "instant"
+            ? "Bは「押した直後の押し返しの強さ」が違う素材でした。押して長く待つ測り方では、この違いは見えません。押した直後の瞬間を選んだから見えました。"
+            : "押して長く待つ測り方だけでは、違いは見えませんでした。"
+      }</p>
+      <p><strong>この「時間をかけて抜けていく」変化は、素材だけのものではありません。</strong>電気の回路にも、細胞の膜（イオンが動いて電気が生まれる場所）にも、同じ形で現れます。次は、見方を変えてそれを確かめます。</p>
+    </div>
     <div class="actions" style="margin-top:20px"><button class="btn big" data-act="to-act2">見方を変えてみる</button></div>
   </section></main>`;
 }
@@ -307,7 +365,7 @@ function renderAct2(): string {
         ? "あなたが見つけたのは「押した直後の上乗せ」の違い。今度は「やわらぐ速さ」が、細胞の膜では何で決まるかを見てみよう。"
         : "第1幕で見た「時間をかけてやわらぐ変化」が、細胞の膜では何にあたるかを見てみよう。";
   const allRight = runs.length >= 2 && state.act2Guess === "faster";
-  return `${topbar()}<main class="wrap"><section class="page act2">
+  return `${topbar()}<main class="wrap">${missionBar()}<section class="page act2">
     <p class="kicker">見方を変える</p>
     <h1>同じ形の変化は、細胞の中にもある</h1>
     <p class="lead">${bridge}</p>
@@ -390,7 +448,7 @@ function mapSvg(): string {
 function renderReflect(): string {
   const r = state.view?.reflection;
   const f = (id: string, label: string, val = "") => `<label>${label}<textarea id="${id}" maxlength="400">${esc(val)}</textarea></label>`;
-  return `${topbar()}<main class="wrap"><section class="page reflect">
+  return `${topbar()}<main class="wrap">${missionBar()}<section class="page reflect">
     <p class="kicker">振り返り</p>
     <h1>一つの変化を、四つの見方で</h1>
     <div class="map pane">${mapSvg()}</div>
@@ -433,6 +491,7 @@ async function pressAndShoot(target: "A" | "B" | "both", spec: ObservationSpec, 
   state.animating = true;
   state.benchTarget = target;
   state.reading = null;
+  state.arrows = null;
   const pushMs = reduce ? 0 : Math.max(450, spec.pushSeconds * 1000);
   const start = performance.now();
   while (performance.now() - start < pushMs) {
@@ -595,6 +654,7 @@ app.addEventListener("click", async (e) => {
         state.result = null;
         await pressAndShoot("B", spec, () => {
           state.reading = rec.force;
+          state.arrows = { a: rec.baseForce, b: rec.force };
           state.view = res.view;
           state.freshId = rec.id;
           state.stampNow = [...rec.excluded];
