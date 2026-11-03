@@ -1,6 +1,6 @@
 // 実験計画の支援（二段）：残っている候補の組が、どの観察で分かれるかを計算する。
 // 使うのは比較器の結果（公開モデルと証拠から計算したもの）だけ。隠れた原因は使わない。
-import { ALLOWED_OBSERVATIONS, ERROR, WIDEN, type CandidateId, type ObservationSpec } from "./public.js";
+import { ALLOWED_OBSERVATIONS, ERROR, PUSH_SECONDS, WIDEN, type CandidateId, type ObservationSpec, type PushSeconds } from "./public.js";
 import { compare, predict, type ComparisonResult, type Evidence } from "./comparator.js";
 
 export type SeparationLevel = "decisive" | "separating";
@@ -101,4 +101,31 @@ export function recommend(evidence: readonly Evidence[]): ObservationSpec {
   const top = plan(evidence).ranked[0];
   if (!top) throw new Error("許可された観察がない");
   return top.spec;
+}
+
+export interface SpeedAdvice {
+  readonly pushSeconds: PushSeconds;
+  readonly decisivePairs: readonly (readonly [CandidateId, CandidateId])[];
+  readonly separatingPairs: readonly (readonly [CandidateId, CandidateId])[];
+  readonly score: number;
+  readonly spread: number;
+}
+
+/** 曲線を一本測る場合：押す速さごとに、その速さの5時刻のどれかで分かれる組をまとめて、勧める順に並べる */
+export function planBySpeed(evidence: readonly Evidence[], comparison: ComparisonResult = compare(evidence)): SpeedAdvice[] {
+  const p = plan(evidence, comparison);
+  const key = (x: readonly [CandidateId, CandidateId]) => x.join("|");
+  const out = PUSH_SECONDS.map((T, order) => {
+    const rows = p.ranked.filter((a) => a.spec.pushSeconds === T);
+    const decisive = new Map<string, readonly [CandidateId, CandidateId]>();
+    const separating = new Map<string, readonly [CandidateId, CandidateId]>();
+    for (const r of rows) for (const d of r.decisivePairs) decisive.set(key(d), d);
+    for (const r of rows) for (const s of r.separatingPairs) if (!decisive.has(key(s))) separating.set(key(s), s);
+    const repeats = evidence.filter((e) => e.pushSeconds === T && e.recordAt === 0).length;
+    const score = 2 * decisive.size + separating.size - 0.1 * repeats;
+    const spread = Math.max(0, ...rows.map((r) => r.spread));
+    return { advice: { pushSeconds: T, decisivePairs: [...decisive.values()], separatingPairs: [...separating.values()], score, spread }, order };
+  });
+  out.sort((a, b) => b.advice.score - a.advice.score || b.advice.spread - a.advice.spread || a.order - b.order);
+  return out.map((o) => o.advice);
 }

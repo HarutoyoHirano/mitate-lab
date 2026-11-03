@@ -1,7 +1,7 @@
 // セッション：一人の学生の探究の記録。秘密（観測生成器）を持つが、外に出すのは publicView() だけ。
 import { compare, OVERALL_LABELS, STATUS_LABELS, type ComparisonResult, type Evidence } from "../model/comparator.js";
-import { ObservationGenerator } from "../model/generator.js";
-import { plan, type PlanAdvice } from "../model/planner.js";
+import { ObservationGenerator, type CurvePoint } from "../model/generator.js";
+import { plan, planBySpeed, type PlanAdvice, type SpeedAdvice } from "../model/planner.js";
 import {
   BASE,
   CANDIDATE_IDS,
@@ -12,6 +12,7 @@ import {
   isRecordAt,
   type CandidateId,
   type ObservationSpec,
+  type PushSeconds,
 } from "../model/public.js";
 import { forceAfterPush } from "../model/sls.js";
 import type { HiddenCauseId } from "../../scenarios/material1.js";
@@ -37,6 +38,24 @@ export interface ObservationRecord extends Evidence {
   readonly excluded: readonly CandidateId[];
   /** 同じ押し方・時刻の、基準素材Aの予測（公開の値） */
   readonly baseForce: number;
+}
+
+/** 曲線の予想：Bの曲線はAと比べて */
+export interface CurvePrediction {
+  readonly pushSeconds: PushSeconds;
+  readonly choice: PredictionChoice;
+  readonly reason: string;
+}
+
+/** 一回押して測った曲線（Aも並べて測る。比較器の証拠はBの5時刻だけ） */
+export interface CurveRecord {
+  readonly id: string;
+  readonly pushSeconds: PushSeconds;
+  readonly a: readonly CurvePoint[];
+  readonly b: readonly CurvePoint[];
+  readonly prediction: CurvePrediction | null;
+  readonly excluded: readonly CandidateId[];
+  readonly evidenceIds: readonly string[];
 }
 
 export interface MeasuredA extends ObservationSpec {
@@ -76,6 +95,8 @@ export class Session {
   readonly #measuredA: MeasuredA[] = [];
   readonly #usedObservationIds = new Set<string>();
   #pending: SavedPrediction | null = null;
+  #pendingCurve: CurvePrediction | null = null;
+  readonly #curves: CurveRecord[] = [];
   #hintStage: 1 | 2 | 3 | 4 = 1;
   #hintsUsed = 0;
   readonly #maxHints: number;
@@ -106,6 +127,55 @@ export class Session {
     if (this.#hintStage === 1) this.#hintStage = 2;
   }
 
+  /** 曲線の予想を保存する（保存しないと押せない） */
+  saveCurvePrediction(pushSeconds: PushSeconds, choice: PredictionChoice, reason = ""): void {
+    this.#assertOpen();
+    if (!isPushSeconds(pushSeconds)) throw new SessionError("許可されていない押し方です");
+    if (!["higher", "same", "lower"].includes(choice)) throw new SessionError("予想の選び方が正しくない");
+    this.#pendingCurve = { pushSeconds, choice, reason: reason.slice(0, 200) };
+    if (this.#hintStage === 1) this.#hintStage = 2;
+  }
+
+  /** Bを一回押して曲線を測る（Aも並べて測る）。証拠はBの5時刻。観察IDで二重実行を防ぐ */
+  observeCurve(pushSeconds: PushSeconds, observationId: string): CurveRecord {
+    this.#assertOpen();
+    if (!isPushSeconds(pushSeconds)) throw new SessionError("許可されていない押し方です");
+    if (!observationId || observationId.length > 100) throw new SessionError("観察IDが正しくない");
+    const done = this.#curves.find((c) => c.id === observationId);
+    if (done) return done;
+    if (this.#usedObservationIds.has(observationId)) throw new SessionError("この観察IDは使用済み", 409);
+    const p = this.#pendingCurve;
+    if (!p || p.pushSeconds !== pushSeconds) throw new SessionError("先に、この押し方での予想を選んでください", 409);
+    this.#pendingCurve = null;
+    this.#usedObservationIds.add(observationId);
+    const before = this.comparison();
+    const b = this.#generator.observeCurve("B", pushSeconds);
+    const a = this.#generator.observeCurve("A", pushSeconds);
+    const ids: string[] = [];
+    for (const m of b.evidence) {
+      const id = `${observationId}@${m.recordAt}`;
+      ids.push(id);
+      this.#records.push({
+        id,
+        index: this.#records.length,
+        pushSeconds: m.pushSeconds,
+        recordAt: m.recordAt,
+        force: m.force,
+        prediction: null,
+        excluded: [],
+        baseForce: forceAfterPush(BASE, m.pushSeconds, m.recordAt),
+      });
+    }
+    const after = this.comparison();
+    const excluded = CANDIDATE_IDS.filter(
+      (c) => before.candidates[c].status !== "inconsistent" && after.candidates[c].status === "inconsistent",
+    );
+    const rec: CurveRecord = { id: observationId, pushSeconds, a: a.display, b: b.display, prediction: p, excluded, evidenceIds: ids };
+    this.#curves.push(rec);
+    this.#hintStage = 1;
+    return rec;
+  }
+
   /** Bを一回押して、選んだ時刻の一点を記録する。観察IDで二重実行を防ぐ */
   observe(spec: ObservationSpec, observationId: string): ObservationRecord {
     this.#assertOpen();
@@ -134,8 +204,9 @@ export class Session {
   nextTemplateHint(): Hint {
     if (this.#hintsUsed >= this.#maxHints) throw new SessionError("このセッションのヒントの上限に達しました", 429);
     this.#hintsUsed++;
-    const hint = templateHint(this.#hintStage, this.#pending !== null, this.comparison(), this.plan());
-    if (this.#hintStage < 4 && this.#pending !== null) this.#hintStage = (this.#hintStage + 1) as 2 | 3 | 4;
+    const hasPrediction = this.#pending !== null || this.#pendingCurve !== null;
+    const hint = templateHint(this.#hintStage, hasPrediction, this.comparison(), this.planBySpeed());
+    if (this.#hintStage < 4 && hasPrediction) this.#hintStage = (this.#hintStage + 1) as 2 | 3 | 4;
     return hint;
   }
 
@@ -157,6 +228,10 @@ export class Session {
     return plan(this.#records, this.comparison());
   }
 
+  planBySpeed(): SpeedAdvice[] {
+    return planBySpeed(this.#records, this.comparison());
+  }
+
   saveReflection(r: Reflection): void {
     const clip = (s: unknown) => String(s ?? "").slice(0, 400);
     this.#reflection = {
@@ -175,8 +250,9 @@ export class Session {
       explanation: s.explanation,
       truth: s.truth,
       base: BASE,
-      observationCount: this.#records.length - 1,
+      observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       keyObservations: this.#records.filter((r) => r.excluded.length > 0).map((r) => ({ id: r.id, excluded: r.excluded })),
+      keyCurves: this.#curves.filter((c) => c.excluded.length > 0).map((c) => ({ id: c.id, pushSeconds: c.pushSeconds, excluded: c.excluded })),
       allTimes: this.#generator.observeAllTimes("B", 1),
     };
   }
@@ -203,7 +279,9 @@ export class Session {
       records: this.#records.map((r) => ({ ...r })),
       measuredA: this.#measuredA.map((m) => ({ ...m })),
       pendingPrediction: this.#pending,
-      observationCount: this.#records.length - 1,
+      pendingCurve: this.#pendingCurve,
+      curves: this.#curves.map((c) => ({ ...c })),
+      observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       hintStage: this.#hintStage,
       hintsLeft: this.#maxHints - this.#hintsUsed,
       studentWords: [...this.#studentWords],
@@ -215,6 +293,11 @@ export class Session {
         separatingPairs: a.separatingPairs.map((p) => [...p]),
       })),
       anySeparating: this.#hintStage >= 3 || this.teacherMode ? advice.anySeparating : null,
+      planBySpeed: (this.#hintStage >= 3 || this.teacherMode ? this.planBySpeed() : []).map((a) => ({
+        pushSeconds: a.pushSeconds,
+        decisivePairs: a.decisivePairs.map((p) => [...p]),
+        separatingPairs: a.separatingPairs.map((p) => [...p]),
+      })),
       predictionBands: this.#pending ? predictionBands(comparison, this.#pending) : [],
       reflection: this.#reflection,
     };
@@ -290,6 +373,7 @@ export interface Debrief {
   readonly base: { eInf: number; e1: number; tau: number };
   readonly observationCount: number;
   readonly keyObservations: readonly { id: string; excluded: readonly CandidateId[] }[];
+  readonly keyCurves: readonly { id: string; pushSeconds: number; excluded: readonly CandidateId[] }[];
   readonly allTimes: readonly { pushSeconds: number; recordAt: number; force: number }[];
 }
 
@@ -306,6 +390,8 @@ export interface PublicSessionView {
   readonly records: readonly ObservationRecord[];
   readonly measuredA: readonly MeasuredA[];
   readonly pendingPrediction: SavedPrediction | null;
+  readonly pendingCurve: CurvePrediction | null;
+  readonly curves: readonly CurveRecord[];
   readonly observationCount: number;
   readonly hintStage: number;
   readonly hintsLeft: number;
@@ -317,6 +403,7 @@ export interface PublicSessionView {
     separatingPairs: CandidateId[][];
   }[];
   readonly anySeparating: boolean | null;
+  readonly planBySpeed: readonly { pushSeconds: number; decisivePairs: CandidateId[][]; separatingPairs: CandidateId[][] }[];
   readonly predictionBands: readonly { id: CandidateId; low: number; high: number }[];
   readonly reflection: Reflection | null;
 }

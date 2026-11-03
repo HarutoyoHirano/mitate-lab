@@ -87,7 +87,7 @@ describe("テスト12：Claude出力の検証", () => {
     expect(validatePartnerOutput({ ...ok, nextSuggestion: "２秒後を見よう" }, view)).toEqual({ ok: false, reason: "digits" });
     expect(validatePartnerOutput({ ...ok, evidenceIds: ["nope"] }, view).ok).toBe(false);
     expect(validatePartnerOutput({ ...ok, candidateIds: ["magic"] }, view).ok).toBe(false);
-    expect(validatePartnerOutput({ ...ok, proposedObservation: { pushSeconds: 3, recordAt: 0 } }, view).ok).toBe(false);
+    expect(validatePartnerOutput({ ...ok, proposedPush: { pushSeconds: 3 } }, view).ok).toBe(false);
   });
   it("数字が入ったら1回だけ作り直させ、それでもだめなら定型ヒント", async () => {
     let calls = 0;
@@ -116,36 +116,35 @@ describe("テスト12：Claude出力の検証", () => {
   });
 });
 
-describe("許可ツール run_observation：学生が了承した観察だけを実行する", () => {
-  const spec = ALLOWED_OBSERVATIONS[0]!; // すばやく・瞬間
+describe("許可ツール run_observation：学生が了承した押し方だけを実行する（曲線）", () => {
+  const T = 0.2 as const;
   const toolUse = (name: string, input: unknown, id = "tu1") => [{ type: "tool_use", id, name, input }] as never;
+  const respond = (ev: string, text: string, id = "tu2") =>
+    toolUse("respond", { evidenceIds: [ev], interpretation: text, nextSuggestion: "別の押し方ではどうでしょう？", hintStage: 1 }, id);
 
   it("Claudeが了承どおりの引数で呼べば、一回だけ実行し、結果の読みを返す", async () => {
     const calls: string[] = [];
     setAgentCaller(async (_s, _m, _t, toolName) => {
       calls.push(toolName);
-      return toolName === "run_observation"
-        ? toolUse("run_observation", { pushSeconds: spec.pushSeconds, recordAt: spec.recordAt })
-        : toolUse("respond", { evidenceIds: ["c1"], interpretation: "この記録はAより大きく出ました。", nextSuggestion: "別の瞬間ではどうでしょう？", hintStage: 1 }, "tu2");
+      return toolName === "run_observation" ? toolUse("run_observation", { pushSeconds: T }) : respond("c1@0", "押した直後の記録はAより大きく出ました。");
     });
     const s = new Session("t", { seed: 3 });
-    s.savePrediction(spec, "higher");
-    const out = await claudeObserve(s, spec, "c1");
+    s.saveCurvePrediction(T, "higher");
+    const out = await claudeObserve(s, T, "c1");
     expect(out.byClaude).toBe(true);
     expect(out.note.source).toBe("claude");
     expect(calls).toEqual(["run_observation", "respond"]);
-    expect(s.publicView().observationCount).toBe(1);
+    expect(s.publicView().curves).toHaveLength(1);
+    expect(s.publicView().records.filter((r) => r.id.startsWith("c1@"))).toHaveLength(5);
   });
 
-  it("了承と違う引数で呼んだら、Claudeには実行させず、サーバーが了承した観察を実行する", async () => {
-    setAgentCaller(async () => toolUse("run_observation", { pushSeconds: 5, recordAt: 20 }));
+  it("了承と違う引数で呼んだら、Claudeには実行させず、サーバーが了承した押し方を実行する", async () => {
+    setAgentCaller(async () => toolUse("run_observation", { pushSeconds: 5 }));
     const s = new Session("t", { seed: 3 });
-    s.savePrediction(spec, "higher");
-    const out = await claudeObserve(s, spec, "c2");
+    s.saveCurvePrediction(T, "higher");
+    const out = await claudeObserve(s, T, "c2");
     expect(out.byClaude).toBe(false);
-    const rec = s.publicView().records.find((r) => r.id === "c2")!;
-    expect([rec.pushSeconds, rec.recordAt]).toEqual([spec.pushSeconds, spec.recordAt]);
-    expect(s.publicView().observationCount).toBe(1);
+    expect(s.publicView().curves.map((c) => c.pushSeconds)).toEqual([T]);
   });
 
   it("予想が保存されていなければ、どちらも実行しない", async () => {
@@ -155,23 +154,23 @@ describe("許可ツール run_observation：学生が了承した観察だけを
       return null;
     });
     const s = new Session("t", { seed: 3 });
-    await expect(claudeObserve(s, spec, "c3")).rejects.toThrow();
+    await expect(claudeObserve(s, T, "c3")).rejects.toThrow();
     expect(called).toBe(false);
-    expect(s.publicView().observationCount).toBe(0);
+    expect(s.publicView().curves).toHaveLength(0);
   });
 
   it("結果の読みに数字が入ったら1回だけ書き直させ、だめなら定型の言葉で伝える", async () => {
     let responds = 0;
     setAgentCaller(async (_s, _m, _t, toolName) => {
-      if (toolName === "run_observation") return toolUse("run_observation", { pushSeconds: spec.pushSeconds, recordAt: spec.recordAt });
+      if (toolName === "run_observation") return toolUse("run_observation", { pushSeconds: T });
       responds++;
-      return toolUse("respond", { evidenceIds: ["c4"], interpretation: "差は0.3です", nextSuggestion: "次は？", hintStage: 1 }, `r${responds}`);
+      return respond("c4@0", "差は0.3です", `r${responds}`);
     });
     const s = new Session("t", { seed: 3 });
-    s.savePrediction(spec, "higher");
-    const out = await claudeObserve(s, spec, "c4");
+    s.saveCurvePrediction(T, "higher");
+    const out = await claudeObserve(s, T, "c4");
     expect(responds).toBe(2);
     expect(out.note.source).toBe("template");
-    expect(s.publicView().observationCount).toBe(1);
+    expect(s.publicView().curves).toHaveLength(1);
   });
 });

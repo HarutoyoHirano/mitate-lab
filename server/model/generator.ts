@@ -2,7 +2,7 @@
 // 秘密は private フィールドに閉じ込め、JSON化・文字列化しても中身が出ないようにする。
 import { HIDDEN_CAUSES, type HiddenCauseId, type HiddenCauseSpec } from "../../scenarios/material1.js";
 import { BASE, ERROR, isPushSeconds, isRecordAt, RECORD_AT, type MaterialParams, type ObservationSpec, type PushSeconds } from "./public.js";
-import { forceAfterPush } from "./sls.js";
+import { forceAfterPush, forceDuringPush } from "./sls.js";
 
 /** 再現できる乱数（mulberry32） */
 export function createRng(seed: number): () => number {
@@ -32,6 +32,15 @@ export interface MeasuredPoint extends ObservationSpec {
 }
 
 const SECRET = "[秘密]";
+
+/** 曲線の一点（t は押し始めからの秒） */
+export interface CurvePoint {
+  readonly t: number;
+  readonly force: number;
+}
+
+/** 押し終わってからの、画面に描く時刻（比較器に使う5時刻を含む） */
+const HOLD_TIMES = [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12.5, 15, 17.5, 20] as const;
 
 export class ObservationGenerator {
   readonly #rng: () => number;
@@ -64,6 +73,28 @@ export class ObservationGenerator {
     const p = material === "A" ? BASE : this.#truth;
     const noise = (2 * this.#rng() - 1) * ERROR;
     return { material, pushSeconds: spec.pushSeconds, recordAt: spec.recordAt, force: forceAfterPush(p, spec.pushSeconds, spec.recordAt) + noise };
+  }
+
+  /**
+   * 一回押して、押している間と押し終わってから20秒後までの押し返しを測る（各点に独立な誤差）。
+   * evidence は比較器に使う5時刻（押し終わり・0.5・2・5・20秒後）。display は画面に描く細かい点（evidence と同じ値を含む）
+   */
+  observeCurve(material: "A" | "B", pushSeconds: PushSeconds): { display: CurvePoint[]; evidence: MeasuredPoint[] } {
+    if (!isPushSeconds(pushSeconds)) throw new Error("許可されていない押し方");
+    const p = material === "A" ? BASE : this.#truth;
+    const noise = () => (2 * this.#rng() - 1) * ERROR;
+    const display: CurvePoint[] = [];
+    for (let k = 1; k < 10; k++) {
+      const t = (pushSeconds * k) / 10;
+      display.push({ t, force: forceDuringPush(p, pushSeconds, t) + noise() });
+    }
+    const evidence: MeasuredPoint[] = [];
+    for (const h of HOLD_TIMES) {
+      const force = forceAfterPush(p, pushSeconds, h) + noise();
+      display.push({ t: pushSeconds + h, force });
+      if (isRecordAt(h)) evidence.push({ material, pushSeconds, recordAt: h, force });
+    }
+    return { display, evidence };
   }
 
   /** 先生モード・解説用：5時刻まとめて記録する */

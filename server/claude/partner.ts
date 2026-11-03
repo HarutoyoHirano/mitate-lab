@@ -2,7 +2,7 @@
 // 入力は publicView() から許可リストで組み立てる（公開型と証拠型だけ）。
 // 出力は構造化し、数字を含む自由文・存在しないID・範囲外の観察提案は破棄して定型ヒントに戻す。
 import Anthropic from "@anthropic-ai/sdk";
-import { CANDIDATE_IDS, isCandidateId, isPushSeconds, isRecordAt, type CandidateId, type ObservationSpec } from "../model/public.js";
+import { CANDIDATE_IDS, isCandidateId, isPushSeconds, type CandidateId, type PushSeconds } from "../model/public.js";
 import { specText, type Hint } from "../session/hints.js";
 import type { PublicSessionView, Session } from "../session/session.js";
 
@@ -12,7 +12,7 @@ export interface PartnerOutput {
   readonly nextSuggestion: string;
   readonly hintStage: 1 | 2 | 3 | 4;
   readonly candidateIds?: CandidateId[];
-  readonly proposedObservation?: ObservationSpec;
+  readonly proposedPush?: { readonly pushSeconds: PushSeconds };
 }
 
 export interface Translation {
@@ -55,7 +55,7 @@ export function claudeAvailable(): boolean {
 }
 
 const SYSTEM = `あなたは「ミカタ・ラボ」の実験の相棒「Claude（AI）」です。
-学生は、押して待つと同じ力に落ち着く二つの仮想素材AとBの違いを、押す時間と記録する時刻を選んで調べています。
+学生は、見本Aと試料Bを比べています。いつもの検査（ふつうに押して二十秒後の値）ではAとBは同じです。学生は押す速さを選んで、押してからの押し返しの変化（曲線）を測り、違いと、なぜ違うのかを調べています。
 あなたは隠れた正解を知りません。学生と同じ証拠と、プログラムが計算した判定・実験計画の支援だけを見ています。
 
 守ること：
@@ -90,7 +90,9 @@ export function buildPartnerInput(view: PublicSessionView): string {
     })),
     保存中の予想: view.pendingPrediction,
     ヒントの段階: view.hintStage,
-    計画支援: view.hintStage >= 3 ? view.plan : "（段階三以上で表示）",
+    計画支援_押す速さごと: view.hintStage >= 3 ? view.planBySpeed : "（段階三以上で表示）",
+    測った曲線: view.curves.map((c) => ({ 観察ID: c.id, 押す速さ: c.pushSeconds, 証拠ID: c.evidenceIds, 学生の予想: c.prediction?.choice ?? null, 合わなくなった候補: c.excluded })),
+    保存中の曲線の予想: view.pendingCurve,
     学生の言葉: view.studentWords.slice(-3),
   };
   return JSON.stringify(input);
@@ -107,10 +109,10 @@ const RESPOND_TOOL: Anthropic.Tool = {
       nextSuggestion: { type: "string", description: "次に考えてほしい問い（数字を書かない）" },
       hintStage: { type: "integer", enum: [1, 2, 3, 4] },
       candidateIds: { type: "array", items: { type: "string", enum: [...CANDIDATE_IDS] } },
-      proposedObservation: {
+      proposedPush: {
         type: "object",
-        properties: { pushSeconds: { type: "number", enum: [0.2, 1, 5] }, recordAt: { type: "number", enum: [0, 0.5, 2, 5, 20] } },
-        required: ["pushSeconds", "recordAt"],
+        properties: { pushSeconds: { type: "number", enum: [0.2, 1, 5] } },
+        required: ["pushSeconds"],
       },
     },
     required: ["evidenceIds", "interpretation", "nextSuggestion", "hintStage"],
@@ -143,11 +145,11 @@ export function validatePartnerOutput(raw: unknown, view: PublicSessionView): Va
   if (![1, 2, 3, 4].includes(o.hintStage as number)) return { ok: false, reason: "invalid" };
   if (o.candidateIds !== undefined && !(Array.isArray(o.candidateIds) && o.candidateIds.every(isCandidateId)))
     return { ok: false, reason: "invalid" };
-  let proposed: ObservationSpec | undefined;
-  if (o.proposedObservation !== undefined) {
-    const p = o.proposedObservation as Record<string, unknown>;
-    if (!p || !isPushSeconds(p.pushSeconds) || !isRecordAt(p.recordAt)) return { ok: false, reason: "invalid" };
-    proposed = { pushSeconds: p.pushSeconds, recordAt: p.recordAt };
+  let proposed: { pushSeconds: PushSeconds } | undefined;
+  if (o.proposedPush !== undefined) {
+    const p = o.proposedPush as Record<string, unknown>;
+    if (!p || !isPushSeconds(p.pushSeconds)) return { ok: false, reason: "invalid" };
+    proposed = { pushSeconds: p.pushSeconds };
   }
   if (digitsIn(o.interpretation) || digitsIn(o.nextSuggestion)) return { ok: false, reason: "digits" };
   return {
@@ -158,7 +160,7 @@ export function validatePartnerOutput(raw: unknown, view: PublicSessionView): Va
       nextSuggestion: o.nextSuggestion.slice(0, 300),
       hintStage: o.hintStage as 1 | 2 | 3 | 4,
       candidateIds: o.candidateIds as CandidateId[] | undefined,
-      proposedObservation: proposed,
+      proposedPush: proposed,
     },
   };
 }
@@ -213,7 +215,7 @@ export async function claudeHint(session: Session): Promise<Hint> {
     (raw) => validatePartnerOutput(raw, view),
   );
   if (!out) return fallback;
-  const suggestion = fallback.stage >= 4 ? (out.proposedObservation ?? fallback.suggestion) : null;
+  const suggestion = fallback.stage >= 4 ? (out.proposedPush ?? fallback.suggestion) : null;
   return {
     stage: fallback.stage,
     text: `${out.interpretation} ${out.nextSuggestion}`.trim(),
@@ -275,14 +277,11 @@ function defaultAgentCaller(): AgentCaller | null {
 
 const RUN_TOOL: Anthropic.Tool = {
   name: "run_observation",
-  description: "学生が了承した観察を一回だけ実行する。押す時間と記録時刻は、学生が了承したものと同じでなければならない",
+  description: "学生が了承した押し方で一回押し、曲線を測る。押す速さは、学生が了承したものと同じでなければならない",
   input_schema: {
     type: "object",
-    properties: {
-      pushSeconds: { type: "number", enum: [0.2, 1, 5] },
-      recordAt: { type: "number", enum: [0, 0.5, 2, 5, 20] },
-    },
-    required: ["pushSeconds", "recordAt"],
+    properties: { pushSeconds: { type: "number", enum: [0.2, 1, 5] } },
+    required: ["pushSeconds"],
   },
 };
 
@@ -297,17 +296,17 @@ export interface ObserveOutcome {
  * 学生が了承した観察を、Claudeに許可ツール run_observation で実行させ、結果を一緒に読む。
  * Claudeが使えない・違う引数で呼ぶ・ツールを呼ばないときは、サーバーが同じ観察を直接実行する。
  */
-export async function claudeObserve(session: Session, spec: ObservationSpec, observationId: string): Promise<ObserveOutcome> {
+export async function claudeObserve(session: Session, pushSeconds: PushSeconds, observationId: string): Promise<ObserveOutcome> {
   const before = session.publicView();
-  const p = before.pendingPrediction;
-  if (!p || p.pushSeconds !== spec.pushSeconds || p.recordAt !== spec.recordAt) {
-    // 予想がなければ、Claudeにもサーバーにも実行させない（session.observe が拒否する）
-    session.observe(spec, observationId);
+  const p = before.pendingCurve;
+  if (!p || p.pushSeconds !== pushSeconds) {
+    // 予想がなければ、Claudeにもサーバーにも実行させない（session.observeCurve が拒否する）
+    session.observeCurve(pushSeconds, observationId);
   }
   const c = agentCaller ?? defaultAgentCaller();
   const limit = Number(process.env.MAX_CONCURRENT_CLAUDE_CALLS) || 8;
   const direct = (): ObserveOutcome => {
-    const rec = session.observe(spec, observationId);
+    const rec = session.observeCurve(pushSeconds, observationId);
     return { recordId: rec.id, note: resultTemplate(session, rec.id), byClaude: false };
   };
   if (!c || inFlight >= limit) return direct();
@@ -316,7 +315,7 @@ export async function claudeObserve(session: Session, spec: ObservationSpec, obs
     const messages: Anthropic.MessageParam[] = [
       {
         role: "user",
-        content: `学生が次の観察を了承しました。押す時間は${spec.pushSeconds}秒、記録時刻は押し終わってから${spec.recordAt}秒後です。run_observation でこの観察を一回だけ実行してください。\n状態：${buildPartnerInput(before)}`,
+        content: `学生が次の押し方を了承しました。押す速さは${pushSeconds}秒です。run_observation でこの押し方を一回だけ実行してください。\n状態：${buildPartnerInput(before)}`,
       },
     ];
     let first: Anthropic.ContentBlock[] | null;
@@ -327,17 +326,17 @@ export async function claudeObserve(session: Session, spec: ObservationSpec, obs
     }
     const call = first?.find((b) => b.type === "tool_use" && b.name === "run_observation");
     const args = call && call.type === "tool_use" ? (call.input as Record<string, unknown>) : null;
-    if (!call || call.type !== "tool_use" || !args || args.pushSeconds !== spec.pushSeconds || args.recordAt !== spec.recordAt) {
+    if (!call || call.type !== "tool_use" || !args || args.pushSeconds !== pushSeconds) {
       return direct(); // 了承と違う引数・呼ばない：Claudeには実行させない
     }
-    const rec = session.observe(spec, observationId);
+    const rec = session.observeCurve(pushSeconds, observationId);
     const after = session.publicView();
+    const points = after.records.filter((r) => rec.evidenceIds.includes(r.id));
     const toolResult = JSON.stringify({
-      証拠ID: rec.id,
-      Bの力: Math.round(rec.force * 1000) / 1000,
-      同じ押し方でのAの基準値: Math.round(rec.baseForce * 1000) / 1000,
+      観察ID: rec.id,
+      記録: points.map((r) => ({ 証拠ID: r.id, 記録時刻: r.recordAt, Bの力: Math.round(r.force * 1000) / 1000, 同じ時刻のAの基準値: Math.round(r.baseForce * 1000) / 1000 })),
       学生の予想: rec.prediction?.choice ?? null,
-      この観察で合わなくなった候補: rec.excluded.map((id) => after.candidates.find((x) => x.id === id)?.label),
+      この押し方で合わなくなった候補: rec.excluded.map((id) => after.candidates.find((x) => x.id === id)?.label),
       全体の状態: after.overallLabel,
     });
     messages.push({ role: "assistant", content: first! });
@@ -378,14 +377,14 @@ export async function claudeObserve(session: Session, spec: ObservationSpec, obs
   }
 }
 
-function resultTemplate(session: Session, recordId: string): Hint {
+function resultTemplate(session: Session, curveId: string): Hint {
   const v = session.publicView();
-  const rec = v.records.find((r) => r.id === recordId)!;
+  const rec = v.curves.find((c) => c.id === curveId)!;
   const labels = rec.excluded.map((id) => `「${v.candidates.find((c) => c.id === id)?.label}」`).join("と");
   const text = labels
-    ? `この観察で${labels}が合わなくなりました。全体の状態は「${v.overallLabel}」です。`
-    : `この観察では、合わなくなった候補はありませんでした。全体の状態は「${v.overallLabel}」です。`;
-  return { stage: 1, text, suggestion: null, source: "template", evidenceIds: [recordId] };
+    ? `この押し方で${labels}が合わなくなりました。全体の状態は「${v.overallLabel}」です。`
+    : `この押し方では、合わなくなった説明はありませんでした。全体の状態は「${v.overallLabel}」です。`;
+  return { stage: 1, text, suggestion: null, source: "template", evidenceIds: [...rec.evidenceIds] };
 }
 
 export { specText };

@@ -2,7 +2,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HIDDEN_CAUSES, type HiddenCauseId } from "../scenarios/material1.js";
-import { isPushSeconds, isRecordAt, type ObservationSpec } from "./model/public.js";
+import { isPushSeconds, isRecordAt, type ObservationSpec, type PushSeconds } from "./model/public.js";
 import { Session, SessionError, type PredictionChoice, type Reflection } from "./session/session.js";
 import { claudeHint, claudeObserve, claudeTranslate, claudeAvailable } from "./claude/partner.js";
 
@@ -44,6 +44,12 @@ function specFrom(body: Record<string, unknown>): ObservationSpec {
   const recordAt = Number(body.recordAt);
   if (!isPushSeconds(pushSeconds) || !isRecordAt(recordAt)) throw new SessionError("許可されていない押し方・記録時刻です");
   return { pushSeconds, recordAt };
+}
+
+function pushFrom(body: Record<string, unknown>): PushSeconds {
+  const T = Number(body.pushSeconds);
+  if (!isPushSeconds(T)) throw new SessionError("許可されていない押し方です");
+  return T;
 }
 
 function getSession(id: string): Session {
@@ -104,8 +110,18 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
         send(res, 200, { view: s.publicView(), recordId: rec.id });
         return true;
       }
+      case "curve-prediction": {
+        s.saveCurvePrediction(pushFrom(body), body.choice as PredictionChoice, typeof body.reason === "string" ? body.reason : "");
+        send(res, 200, { view: s.publicView() });
+        return true;
+      }
+      case "observe-curve": {
+        const rec = s.observeCurve(pushFrom(body), String(body.observationId ?? ""));
+        send(res, 200, { view: s.publicView(), curveId: rec.id });
+        return true;
+      }
       case "claude-observe": {
-        const out = await claudeObserve(s, specFrom(body), String(body.observationId ?? ""));
+        const out = await claudeObserve(s, pushFrom(body), String(body.observationId ?? ""));
         send(res, 200, { view: s.publicView(), recordId: out.recordId, note: out.note, byClaude: out.byClaude });
         return true;
       }
