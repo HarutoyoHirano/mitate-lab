@@ -329,7 +329,7 @@ export interface TrackState {
  * 走行テストの台：二本の試験脚が、膝のクッションA（見本）とB（新作）を一歩ずつ踏む。
  * クッションの縦のつぶれは、へこみ1（力1を長くかけたときのへこみ）を 52 画素で描く（見やすくするため拡大）。
  */
-export function trackSvg(s: TrackState): string {
+export function trackSvg(s: TrackState, labels: { a: string; aNote: string; b: string; bNote: string } = { a: "見本 A", aNote: "計算", b: "新作 B", bNote: "記録（誤差 ±0.01）" }): string {
   const W = 760;
   const H = 300;
   const BASE_Y = 262;
@@ -350,8 +350,8 @@ export function trackSvg(s: TrackState): string {
     const bone = (x1: number, y1: number, x2: number, y2: number, w: number) =>
       `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--g-bone-edge)" stroke-width="${w + 4}" stroke-linecap="round"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--g-bone)" stroke-width="${w}" stroke-linecap="round"/>`;
     return `<g>
-      <text x="${x0 + 20}" y="24" font-size="16" font-weight="700" fill="var(--g-ink)">${label === "A" ? "見本 A" : "新作 B"}</text>
-      <text x="${x0 + 330}" y="24" font-size="12.5" text-anchor="end" fill="var(--g-soft)">${label === "A" ? "計算" : "記録（誤差 ±0.01）"}</text>
+      <text x="${x0 + 20}" y="24" font-size="16" font-weight="700" fill="var(--g-ink)">${label === "A" ? labels.a : labels.b}</text>
+      <text x="${x0 + 330}" y="24" font-size="12.5" text-anchor="end" fill="var(--g-soft)">${label === "A" ? labels.aNote : labels.bNote}</text>
       <!-- 試験脚 -->
       ${bone(cx - 4, hipY, kneeX, kneeY, 16)}${bone(kneeX, kneeY, cx, footY - 14, 14)}
       <circle cx="${kneeX}" cy="${kneeY}" r="11" fill="var(--g-steel-dark)"/>
@@ -417,5 +417,156 @@ export function stepBarsSvg(
     ${[0, 0.25, 0.5, 0.75, 1].filter((v) => v <= yMax).map((v) => `<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--g-line)"/><text x="${L - 6}" y="${ys(v) + 4}" font-size="11" text-anchor="end" fill="var(--g-soft)">${v}</text>`).join("")}
     <text x="${W - R}" y="${H - 1}" text-anchor="end" font-size="11" fill="var(--g-soft)">何歩目 →</text>
     ${bars.join("")}
+  </svg>`;
+}
+
+// ---------- v12：水槽のたとえ（事件3） ----------
+/**
+ * 水槽のたとえと膜電位のグラフを一枚に。水位＝静止時からの上がり分（グラフの縦軸と同じ目盛り）、
+ * 水槽の広さ＝容量、出口のトビラの開き＝イオンの通りやすさ、床＝静止時の電位（電池）。
+ * 入る流れ（電極の電流）と出る流れ（通りやすさ×上がり分）の太さは計算値に比例させる。しきい値・発火は描かない。
+ */
+export function tankGraphSvg(
+  a: Membrane,
+  b: Membrane,
+  t: number,
+  labels: { a: string; b: string },
+  opts: { until?: number; marks?: readonly number[]; top?: number } = {},
+): string {
+  const W = 760;
+  const H = 300;
+  const T = 34;
+  const B = 66;
+  const floorY = H - B;
+  const top = opts.top ?? Math.max(12, ...[a, b].map((m) => deltaMv(m, PULSE_MS) + 1.5));
+  const ys = (dv: number) => floorY - ((floorY - T) * Math.max(0, Math.min(top, dv))) / top;
+  // グラフ（右）
+  const GL = 392;
+  const GR = W - 12;
+  const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;
+  const until = opts.until ?? RECORD_MS;
+  const line = (m: Membrane) => {
+    const pts: string[] = [];
+    for (let ms = 0; ms <= until + 1e-9; ms += 1) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
+    return pts.join(" ");
+  };
+  const flowing = t <= PULSE_MS;
+  const tank = (cx: number, m: Membrane, label: string, kind: "A" | "B") => {
+    const w = Math.max(24, Math.min(130, 52 * m.c));
+    const L = cx - w / 2;
+    const R = cx + w / 2;
+    const dv = deltaMv(m, t);
+    const wy = ys(dv);
+    const door = Math.max(5, Math.min(34, 14 * m.g));
+    const out = Math.max(0, m.g * dv); // 出る流れ（通りやすさ×上がり分）
+    const outW = Math.min(16, 1.1 * out);
+    const edge = kind === "A" ? "var(--g-soft)" : "var(--g-accent)";
+    return `<g>
+      <text x="${cx}" y="18" text-anchor="middle" font-size="15" font-weight="700" fill="var(--g-ink)">${label}</text>
+      <rect x="${L}" y="${wy}" width="${w}" height="${floorY - wy}" fill="var(--g-water)" opacity="0.85"/>
+      <line x1="${L}" x2="${R}" y1="${wy}" y2="${wy}" stroke="var(--g-water-edge)" stroke-width="2.5"/>
+      <path d="M${L} ${T - 6} V${floorY} H${R} V${floorY - door}" fill="none" stroke="${edge}" stroke-width="3"/>
+      <path d="M${R} ${floorY - door - 4} V${T - 6}" fill="none" stroke="${edge}" stroke-width="3"/>
+      <rect x="${R - 3}" y="${floorY - door - 6}" width="8" height="6" rx="2" fill="var(--g-channel-edge)"/>
+      <text x="${R + 6}" y="${floorY - door - 9}" font-size="12" fill="var(--g-channel-edge)" font-weight="700">出口</text>
+      ${outW > 0.4 ? `<path d="M${R + 2} ${floorY - door / 2} h${14 + outW}" stroke="var(--g-water-edge)" stroke-width="${outW.toFixed(1)}" stroke-linecap="round"/>` : ""}
+      ${flowing ? `<path d="M${cx} ${T - 10} V${Math.max(T, wy - 2)}" stroke="var(--g-warn)" stroke-width="5" stroke-linecap="round" opacity="0.85"/><path d="M${cx - 6} ${T - 14} h12" stroke="var(--g-warn)" stroke-width="4" stroke-linecap="round"/>` : ""}
+      <text x="${cx}" y="${floorY + 28}" text-anchor="middle" font-size="13" fill="var(--g-ink)">広さ ×${m.c.toFixed(2)}</text>
+      <text x="${cx}" y="${floorY + 44}" text-anchor="middle" font-size="13" fill="var(--g-ink)">出口 ×${m.g.toFixed(2)}</text>
+      <path d="M${R + 4} ${wy} L${xs(t)} ${wy}" stroke="${edge}" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrow-${kind})"/>
+    </g>`;
+  };
+  const ticks = [0, 5, 10, 15, 20, 25].filter((v) => v <= top);
+  return `<svg viewBox="0 0 ${W} ${H}" class="graph-svg tank" role="img" aria-label="水槽のたとえと膜電位のグラフ：${labels.a}と${labels.b}">
+    <defs>
+      <marker id="arrow-A" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--g-soft)"/></marker>
+      <marker id="arrow-B" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="var(--g-accent)"/></marker>
+    </defs>
+    <rect x="8" y="${floorY}" width="${GL - 30}" height="8" rx="3" fill="var(--g-steel-dark)"/>
+    <text x="12" y="${H - 4}" font-size="12" fill="var(--g-soft)">床＝静止時の電位 ${REST_MV} mV（電池）　広さ＝容量　出口＝通りやすさ</text>
+    ${tank(110, a, labels.a, "A")}${tank(270, b, labels.b, "B")}
+    <rect x="${xs(0)}" y="${T}" width="${xs(PULSE_MS) - xs(0)}" height="${floorY - T}" fill="var(--g-band)"/>
+    ${ticks.map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--g-line)"/><text x="${GR}" y="${ys(v) - 3}" font-size="12" text-anchor="end" fill="var(--g-soft)">${REST_MV + v} mV</text>`).join("")}
+    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${floorY + 18}" font-size="12.5" text-anchor="middle" fill="var(--g-soft)">${ms}</text>`).join("")}
+    <text x="${GR}" y="${floorY + 36}" font-size="12.5" text-anchor="end" fill="var(--g-soft)">流し始めからのミリ秒 →</text>
+    <text x="${GR}" y="${H - 4}" font-size="12" text-anchor="end" fill="var(--g-soft)">色の帯＝電流を入れている100ミリ秒</text>
+    <polyline points="${line(a)}" fill="none" stroke="var(--g-soft)" stroke-width="2.2" stroke-dasharray="6 4"/>
+    <polyline points="${line(b)}" fill="none" stroke="var(--g-accent)" stroke-width="3"/>
+    ${(opts.marks ?? []).map((ms) => `<path d="M${xs(ms) - 5} ${T - 8} h10 l-5 7 z" fill="var(--g-warn)"/>`).join("")}
+    <line x1="${xs(t)}" x2="${xs(t)}" y1="${T}" y2="${floorY}" stroke="var(--g-warn)" stroke-width="1.8"/>
+    <circle cx="${xs(t)}" cy="${ys(deltaMv(a, t))}" r="5" fill="var(--g-panel)" stroke="var(--g-soft)" stroke-width="2.5"/>
+    <circle cx="${xs(t)}" cy="${ys(deltaMv(b, t))}" r="5.5" fill="var(--g-accent)"/>
+  </svg>`;
+}
+
+// ---------- v12：影武者のクッション（事件1 なぜ？） ----------
+/** 影武者のクッション（その説明が正しいとしたときのB）。色は説明ごと、点線の輪郭で「影」と分かるように描く */
+export function ghostPuckSvg(color: string, smashed: boolean): string {
+  if (smashed)
+    return `<svg viewBox="0 0 120 54" class="ghost-puck smashed" aria-hidden="true">
+      ${[
+        [14, 30, -18],
+        [38, 40, 12],
+        [62, 26, -6],
+        [84, 42, 22],
+        [100, 30, -14],
+      ]
+        .map(([x, y, r]) => `<path class="shard" d="M${x} ${y} l12 -6 l6 10 l-14 4 z" fill="${color}" opacity="0.55" transform="rotate(${r} ${x} ${y})"/>`)
+        .join("")}
+    </svg>`;
+  return `<svg viewBox="0 0 120 54" class="ghost-puck" aria-hidden="true">
+    <path d="M14 18 V38 A46 10 0 0 0 106 38 V18 Z" fill="${color}" opacity="0.22" stroke="${color}" stroke-width="2" stroke-dasharray="5 4"/>
+    <ellipse cx="60" cy="18" rx="46" ry="10" fill="${color}" opacity="0.32" stroke="${color}" stroke-width="2" stroke-dasharray="5 4"/>
+    <circle cx="46" cy="16" r="2.6" fill="${color}"/><circle cx="74" cy="16" r="2.6" fill="${color}"/>
+  </svg>`;
+}
+
+// ---------- v12：橋（回路のスライダー） ----------
+/** 回路図：C∞ と「C1 と R の並列」を直列。C1 の極板の幅と R のぎざぎざの長さをスライダーの値に合わせる */
+export function bridgeCircuitSvg(r: number, c1: number): string {
+  const plate = Math.max(16, Math.min(64, 26 * c1));
+  const zz = Math.max(30, Math.min(120, 26 * r));
+  const n = 6;
+  const zx0 = 250 - zz / 2;
+  const zig = Array.from({ length: n }, (_, i) => `l${zz / n / 2} ${i % 2 ? 8 : -8} l${zz / n / 2} ${i % 2 ? -8 : 8}`).join(" ");
+  return `<svg viewBox="0 0 400 150" class="graph-svg" role="img" aria-label="回路図：コンデンサC∞と、コンデンサC1と抵抗Rの並列を直列につないだ回路">
+    <g stroke="var(--g-ink)" stroke-width="2.5" fill="none">
+      <path d="M20 75 H70"/><path d="M70 55 V95"/><path d="M82 55 V95"/><path d="M82 75 H150"/>
+      <path d="M150 40 V110"/><path d="M150 40 H${250 - plate / 2 - 4}"/><path d="M${250 + plate / 2 + 4} 40 H350"/>
+      <path d="M${250 - 6} ${40 - plate / 2} V${40 + plate / 2}" stroke="var(--relax)" stroke-width="4"/><path d="M${250 + 6} ${40 - plate / 2} V${40 + plate / 2}" stroke="var(--relax)" stroke-width="4"/>
+      <path d="M150 110 H${zx0}"/><path d="M${zx0} 110 ${zig}" stroke="var(--g-warn)" stroke-width="3"/><path d="M${zx0 + zz} 110 H350"/>
+      <path d="M350 40 V110"/><path d="M350 75 H385"/>
+    </g>
+    <text x="76" y="118" text-anchor="middle" font-size="12" fill="var(--g-soft)">C∞（固定）</text>
+    <text x="250" y="${40 - plate / 2 - 6}" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--relax)">C1 ${c1.toFixed(2)}</text>
+    <text x="250" y="138" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--g-warn)">R ${r.toFixed(2)}</text>
+  </svg>`;
+}
+
+/** 橋のグラフ：Bの押し返す力（線）と、あなたの回路の電圧（丸）を同じ目盛りで重ねる（割らずに描く） */
+export function bridgeGraphSvg(pts: readonly { t: number; force: number; volt: number }[], pushSeconds: number, overlap: boolean): string {
+  const W = 760;
+  const H = 280;
+  const L = 48;
+  const R = 12;
+  const T = 14;
+  const B = 34;
+  const tMax = pts[pts.length - 1]!.t;
+  const yMax = Math.max(2.2, ...pts.map((p) => Math.max(p.force, p.volt) + 0.15));
+  // 押している間を横に広げる（全体の 1/5）
+  const xPush = L + (W - L - R) * 0.2;
+  const xs = (t: number) => (t <= pushSeconds ? L + ((xPush - L) * t) / pushSeconds : xPush + ((W - R - xPush) * (t - pushSeconds)) / (tMax - pushSeconds));
+  const ys = (v: number) => T + (H - T - B) * (1 - v / yMax);
+  const poly = (k: "force" | "volt") => pts.map((p) => `${xs(p.t).toFixed(1)},${ys(p[k]).toFixed(1)}`).join(" ");
+  const dots = pts.filter((_, i) => i % 6 === 0).map((p) => `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.volt).toFixed(1)}" r="3.6" fill="var(--g-warn)"/>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="graph-svg" role="img" aria-label="Bの押し返す力と、回路の電圧">
+    <rect x="${L}" y="${T}" width="${xPush - L}" height="${H - T - B}" fill="var(--g-band)"/>
+    <text x="${L + 4}" y="${T + 16}" font-size="13" fill="var(--g-soft)">押す／電流を流す（${pushSeconds}秒・横に拡大）</text>
+    ${[0, 0.5, 1, 1.5, 2, 2.5, 3].filter((v) => v <= yMax).map((v) => `<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--g-line)"/><text x="${L - 6}" y="${ys(v) + 4}" font-size="13" text-anchor="end" fill="var(--g-soft)">${v}</text>`).join("")}
+    ${[0, 5, 10, 15, 20].map((h) => `<text x="${xs(pushSeconds + h)}" y="${H - 16}" font-size="13" text-anchor="middle" fill="var(--g-soft)">${h}</text>`).join("")}
+    <text x="${W - R}" y="${H - 1}" font-size="13" text-anchor="end" fill="var(--g-soft)">押し終わり（電流を止めて）からの秒 →</text>
+    <polyline points="${poly("force")}" fill="none" stroke="var(--g-accent)" stroke-width="${overlap ? 5 : 3}" opacity="${overlap ? 0.55 : 1}"/>
+    <polyline points="${poly("volt")}" fill="none" stroke="var(--g-warn)" stroke-width="1.6" stroke-dasharray="3 4"/>
+    ${dots}
   </svg>`;
 }

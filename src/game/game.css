@@ -39,6 +39,9 @@
   --g-bone-edge: #a8946a;
   --g-skin: rgba(205, 160, 130, 0.16);
   --g-skin-edge: rgba(170, 120, 90, 0.45);
+  --g-water: #a9d3ef;
+  --g-water-edge: #2f74ad;
+  --g-heart: #d2425a;
   /* 本体の図（曲線・回路）が使う色 */
   --claude: #0b7b78;
   --claude-wash: #dff0ee;
@@ -95,6 +98,9 @@
     --g-bone-edge: #e9dcc0;
     --g-skin: rgba(230, 190, 160, 0.10);
     --g-skin-edge: rgba(230, 190, 160, 0.4);
+    --g-water: #234f73;
+    --g-water-edge: #7fc0ef;
+    --g-heart: #ff7a8e;
     --claude: #5ad6c6;
     --claude-wash: #1b3a3b;
     --ink: #e6f0ef;
@@ -344,3 +350,54 @@ details summary { cursor: pointer; font-weight: 700; }
 .bars .hit { cursor: pointer; }
 .bars .hit:hover { filter: brightness(1.15); }
 @media (max-width: 860px) { .tempo-row { grid-template-columns: 1fr; } .tempos { grid-template-columns: repeat(2, 1fr); } }
+
+/* v12：上の段の一行（ミッションとロボの自信ライフ） */
+.mission-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 28px; background: var(--g-panel-2); border-bottom: 1px solid var(--g-line); position: sticky; top: 58px; z-index: 4; }
+.mission-bar .mission { margin: 0; flex: 1 1 320px; font-weight: 700; font-size: 15px; }
+.mission-bar .mission strong { color: var(--g-panel); background: var(--g-warn); border-radius: 6px; padding: 1px 8px; margin-right: 8px; font-size: 12.5px; }
+.hearts { font-size: 13px; color: var(--g-soft); font-weight: 700; white-space: nowrap; }
+.heart { font-size: 19px; margin-left: 1px; display: inline-block; }
+.heart.on { color: var(--g-heart); }
+.heart.off { color: var(--g-line-strong); }
+.heart.lost { animation: heart-lost 0.9s ease-out 1; }
+@keyframes heart-lost { 0% { transform: scale(1.8); color: var(--g-heart); } 60% { transform: scale(0.8) rotate(-20deg); } 100% { transform: none; } }
+
+/* 開いたときだけ出す欄 */
+.panel-back { position: fixed; inset: 0; background: rgba(8, 16, 18, 0.45); z-index: 20; display: grid; place-items: center; padding: 16px; }
+.panel { position: relative; background: var(--g-panel); border: 1px solid var(--g-line-strong); border-radius: 16px; padding: 18px 22px; max-width: 720px; width: 100%; max-height: 86vh; overflow: auto; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3); }
+.panel h2 { margin-top: 0; padding-right: 80px; }
+.panel-close { position: absolute; right: 14px; top: 14px; }
+details.more { margin: 8px 0; }
+details.more summary { font-size: 13px; color: var(--g-soft); }
+
+/* 影武者 */
+.kages { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kage { position: relative; border: 2px dashed var(--c); border-radius: 14px; padding: 8px 10px; background: var(--g-panel); display: grid; gap: 4px; }
+.kage.summoned { border-style: solid; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); }
+.kage.broken { opacity: 0.6; background: var(--g-panel-2); }
+.kage.broken .curve-mini { filter: grayscale(0.7); }
+.kage.restored { opacity: 1; }
+.ghost-top { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: center; }
+.ghost-puck { width: 64px; height: 30px; }
+.kage .stamp { position: static; justify-self: start; display: inline-block; transform: rotate(-3deg); margin-top: 2px; }
+.why-grid.ghost-grid { grid-template-columns: 1fr 1.15fr; }
+.ghost-puck.smashed .shard { transform-box: fill-box; transform-origin: center; animation: shard 0.6s ease-out 1 both; }
+.ghost-puck.smashed .shard:nth-child(2) { animation-delay: 0.04s; }
+.ghost-puck.smashed .shard:nth-child(3) { animation-delay: 0.08s; }
+.ghost-puck.smashed .shard:nth-child(4) { animation-delay: 0.12s; }
+@keyframes shard { from { transform: translateY(-14px) scale(1.4); opacity: 1; } to { transform: none; } }
+.ghost-name { margin: 0; font-weight: 700; font-size: 14px; color: var(--c); }
+.ghost-look { margin: 0; font-size: 12px; color: var(--g-soft); }
+.ghost-tag { margin: 2px 0 0; font-size: 11.5px; font-weight: 700; color: var(--g-accent); }
+.ghost-act { display: flex; gap: 8px; align-items: center; }
+.smash { border: 2px solid var(--g-warn); color: var(--g-warn); background: var(--g-panel); border-radius: 999px; font-weight: 700; font-size: 13px; padding: 3px 14px; cursor: pointer; }
+.smash:not(.on):hover { background: var(--g-warn); color: var(--g-on-warn); }
+.smash.on { border-style: dashed; color: var(--g-soft); border-color: var(--g-soft); }
+.words { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.words input { flex: 1 1 220px; padding: 7px 10px; border-radius: 10px; border: 1.5px solid var(--g-line-strong); background: var(--g-panel); color: var(--g-ink); font: inherit; }
+.br-read { margin-top: 6px; }
+.graph-svg.tank { margin-top: 6px; }
+@media (max-width: 860px) { .kages { grid-template-columns: 1fr; } .mission-bar { position: static; padding: 8px 16px; } }
+@media (prefers-reduced-motion: reduce) { .heart.lost, .ghost-puck.smashed .shard { animation: none; } }
+.why-grid.mem-why-grid { grid-template-columns: 1fr 1.5fr; }
+@media (max-width: 860px) { .why-grid.ghost-grid, .why-grid.mem-why-grid { grid-template-columns: 1fr; } }
