@@ -308,3 +308,6 @@ details summary { cursor: pointer; font-weight: 700; }
   .factory .press, .factory .belt, .factory .step { animation: none; opacity: 1; }
 }
 .factory svg { width: 68px; height: 64px; max-width: none; }
+.factory .blink { animation: blink2 2s ease-in-out infinite; }
+@keyframes blink2 { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .factory .blink { animation: none; } }
