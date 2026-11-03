@@ -33,8 +33,18 @@ export function templateHint(
   hasPrediction: boolean,
   comparison: ComparisonResult,
   bySpeed: readonly SpeedAdvice[],
+  awaitingPick = false,
 ): Hint {
   const base = { source: "template" as const, evidenceIds: [] as string[] };
+  // 本人の判断待ち：候補名や決着は言わず、観測の特徴を指す（テスト20）
+  if (awaitingPick) {
+    return {
+      ...base,
+      stage,
+      suggestion: null,
+      text: "この曲線と点線（見本A）を、押し終わり・2秒後・20秒後の三か所で見比べてみましょう。どこで離れて、どこで重なりますか？ 説明ごとの「この説明で重ねてみる」で、高さを合わせたときに途中も合うかを試せます。",
+    };
+  }
   if (comparison.overall === "narrowed") {
     return {
       ...base,
@@ -64,7 +74,7 @@ export function templateHint(
       ...base,
       stage: 1,
       suggestion: null,
-      text: "まず、押す速さを選んで、Bの曲線がAと比べてどうなるか予想しましょう。予想があると、結果から学べることが増えます。",
+      text: "まず、押す速さを選んで、Bの押し終わりの高さがAと比べてどうなるか予想しましょう。予想があると、結果から学べることが増えます。",
     };
   }
   if (stage === 2) {
@@ -72,7 +82,7 @@ export function templateHint(
       ...base,
       stage: 2,
       suggestion: null,
-      text: "いつもの検査（20秒後）では、AとBは同じでした。でも、いつもの検査は途中を見ていません。押した直後や、押し返しが抜けていく途中に、違いが隠れていないでしょうか。",
+      text: "いつもの検査（20秒後）では、BをAと区別できませんでした。でも、いつもの検査は途中を見ていません。押し終わりの高さや、押し返しがやわらいでいく途中に、違いが隠れていないでしょうか。",
     };
   }
   const top = bySpeed[0];

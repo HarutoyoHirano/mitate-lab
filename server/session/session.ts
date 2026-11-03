@@ -264,14 +264,32 @@ export class Session {
     return this.#measureA(spec, measurementId);
   }
 
+  /** 本人が最新の曲線について「合わなくなった説明」をまだ選んでいない（判断待ち） */
+  get awaitingPick(): boolean {
+    const c = this.#curves[this.#curves.length - 1];
+    return !!c && c.studentPick === null;
+  }
+
+  /** 手がかり・Claudeに渡す判定。判断待ちの間は、その曲線を押す前の判定だけ（テスト20） */
+  guidanceComparison(): ComparisonResult {
+    if (!this.awaitingPick) return this.comparison();
+    const hide = new Set(this.#curves[this.#curves.length - 1]!.evidenceIds);
+    return compare(this.#records.filter((r) => !hide.has(r.id)));
+  }
+
   /** 定型ヒント（Claudeが使えないときも同じ段階で進む） */
   nextTemplateHint(): Hint {
     if (this.#hintsUsed >= this.#maxHints) throw new SessionError("このセッションのヒントの上限に達しました", 429);
     this.#hintsUsed++;
     const hasPrediction = this.#pending !== null || this.#pendingCurve !== null;
-    const hint = templateHint(this.#hintStage, hasPrediction, this.comparison(), this.planBySpeed());
+    const g = this.guidanceComparison();
+    const hint = templateHint(this.#hintStage, hasPrediction, g, planBySpeed(this.#records.filter((r) => !this.#hiddenIds().has(r.id)), g), this.awaitingPick);
     if (this.#hintStage < 4 && hasPrediction) this.#hintStage = (this.#hintStage + 1) as 2 | 3 | 4;
     return hint;
+  }
+
+  #hiddenIds(): Set<string> {
+    return this.awaitingPick ? new Set(this.#curves[this.#curves.length - 1]!.evidenceIds) : new Set();
   }
 
   get hintStage(): 1 | 2 | 3 | 4 {
@@ -319,9 +337,13 @@ export class Session {
   }
 
   /** 画面・API応答・Claude入力の元になる公開ビュー（公開型と証拠型だけ） */
-  publicView(): PublicSessionView {
-    const comparison = this.comparison();
-    const advice = this.plan();
+  publicView(opts: { forGuidance?: boolean } = {}): PublicSessionView {
+    const guide = !!opts.forGuidance && this.awaitingPick;
+    const hidden = guide ? this.#hiddenIds() : new Set<string>();
+    const visibleRecords = this.#records.filter((r) => !hidden.has(r.id));
+    const comparison = guide ? compare(visibleRecords) : this.comparison();
+    const advice = plan(visibleRecords, comparison);
+    const bySpeed = planBySpeed(visibleRecords, comparison);
     return {
       sessionId: this.id,
       teacherMode: this.teacherMode,
@@ -343,7 +365,9 @@ export class Session {
       confirmedCandidates: [...this.#confirmed],
       pendingPrediction: this.#pending,
       pendingCurve: this.#pendingCurve,
-      curves: this.#curves.map((c) => ({ ...c })),
+      // 判断待ちの曲線は、手がかり・Claude向けには比較器の結果を伏せる（測った値そのものは見せてよい）
+      curves: this.#curves.map((c, i) => (guide && i === this.#curves.length - 1 ? { ...c, excluded: [] } : { ...c })),
+      awaitingPick: this.awaitingPick,
       observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       hintStage: this.#hintStage,
       hintsLeft: this.#maxHints - this.#hintsUsed,
@@ -356,7 +380,7 @@ export class Session {
         separatingPairs: a.separatingPairs.map((p) => [...p]),
       })),
       anySeparating: this.#hintStage >= 3 || this.teacherMode ? advice.anySeparating : null,
-      planBySpeed: (this.#hintStage >= 3 || this.teacherMode ? this.planBySpeed() : []).map((a) => ({
+      planBySpeed: (this.#hintStage >= 3 || this.teacherMode ? bySpeed : []).map((a) => ({
         pushSeconds: a.pushSeconds,
         decisivePairs: a.decisivePairs.map((p) => [...p]),
         separatingPairs: a.separatingPairs.map((p) => [...p]),
@@ -456,6 +480,8 @@ export interface PublicSessionView {
   readonly pendingPrediction: SavedPrediction | null;
   readonly pendingCurve: CurvePrediction | null;
   readonly curves: readonly CurveRecord[];
+  /** 本人が最新の曲線について判断する前か */
+  readonly awaitingPick: boolean;
   readonly observationCount: number;
   readonly hintStage: number;
   readonly hintsLeft: number;

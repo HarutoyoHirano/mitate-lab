@@ -266,3 +266,67 @@ describe("回路図の配線が計算と同じ節点構成（C∞ と、C1・R �
     expect(wired(circuitSvg("membrane"), [50, 105], [300, 80])).toBe(true);
   });
 });
+
+// ---------- レビュー18：テスト19・20・22 ----------
+import { decisiveNote } from "../../src/story.js";
+
+describe("テスト19：予想を選んだ時点で、手がかりの段階が「予想済み」へ進む", () => {
+  it("下書きの予想があれば、初期の案内を繰り返さない", () => {
+    const s = new Session("t", { seed: 3, cause: "relaxSlow", value: 2 });
+    const first = s.nextTemplateHint();
+    expect(first.text).toContain("予想しましょう");
+    s.saveCurvePrediction(1, "higher", ""); // 画面で予想を選んだ（下書き）
+    const second = s.nextTemplateHint();
+    expect(second.text).not.toContain("まず、押す速さを選んで");
+    expect(second.stage).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("テスト20：判断待ちの間、手がかりとClaudeへの入力に、その曲線の判定が出ない", () => {
+  it("全隠れ原因・複数の種で", () => {
+    for (const c of HIDDEN_CAUSES) {
+      for (const seed of [1, 9, 42]) {
+        const s = new Session("t", { seed, cause: c.id });
+        s.saveCurvePrediction(1, "same", "");
+        const rec = s.observeCurve(1, "c1");
+        expect(s.awaitingPick).toBe(true);
+        const g = s.publicView({ forGuidance: true });
+        // 判断待ちの曲線の除外結果は伏せ、判定はその曲線の前のもの
+        expect(g.curves[0]!.excluded).toEqual([]);
+        expect(g.overall).not.toBe("narrowed");
+        const input = buildPartnerInput(g);
+        expect(input).toContain("本人の判断待ち");
+        for (const id of rec.excluded) expect(input).not.toContain(`"比較器で合わなくなった候補":["${id}`);
+        for (let k = 0; k < 4; k++) {
+          const h = s.nextTemplateHint();
+          expect(h.text).not.toContain("絞れました");
+          for (const cand of ["上乗せ分がやわらぐ時間が違う", "押した直後だけ上乗せされるかたさが違う"]) expect(h.text).not.toContain(cand);
+        }
+        // 判断した後は、比較器の結果がそのまま渡る
+        s.pickExcluded("c1", "unsure");
+        expect(s.awaitingPick).toBe(false);
+        expect(s.publicView({ forGuidance: true }).curves[0]!.excluded).toEqual(rec.excluded);
+      }
+    }
+  });
+});
+
+describe("テスト22：答え合わせの「今回の決め手」は記録から作られる", () => {
+  const mk = (p: { eInf: number; e1: number; tau: number }, T: 0.2 | 1 | 5, sign = 0) => {
+    const recs = [{ id: "intro-B", pushSeconds: 1 as const, recordAt: 20 as const, force: forceAfterPush(p, 1, 20) }];
+    for (const h of [0, 0.5, 2, 5, 20] as const) recs.push({ id: `c@${h}`, pushSeconds: T as 1, recordAt: h as 20, force: forceAfterPush(p, T, h) + sign * ERROR });
+    return recs;
+  };
+  it("押し終わりの一点だけで決まる素材（E1=2, τ=1）では「分けきれず」と言わない", () => {
+    const note = decisiveNote(mk({ eInf: 1, e1: 2, tau: 1 }, 1), "c", true);
+    expect(note).toContain("押し終わりの高さだけで");
+    expect(note).not.toContain("分けきれず");
+  });
+  it("押し終わりが同じになる素材（H2：E1=1, τ=3）では、途中まで比べたと書く", () => {
+    const note = decisiveNote(mk({ eInf: 1, e1: 1, tau: 3 }, 1), "c", true);
+    expect(note).toContain("分けきれず");
+  });
+  it("一つに絞れていなければ、そう書く", () => {
+    expect(decisiveNote(mk({ eInf: 1, e1: 1, tau: 3 }, 1), "c", false)).toContain("まだ一つに絞りきれていません");
+  });
+});

@@ -102,6 +102,7 @@ export function buildPartnerInput(view: PublicSessionView): string {
       比較器で合わなくなった候補: c.excluded,
     })),
     学生が確認した説明: view.confirmedCandidates,
+    本人の判断待ち: view.awaitingPick ? "最新の曲線について、学生がまだ「合わなくなった説明」を選んでいない。候補名・決着を言わず、観測の特徴を指して問い返す" : false,
     保存中の曲線の予想: view.pendingCurve,
     学生の言葉: view.studentWords.slice(-3),
   };
@@ -218,7 +219,7 @@ async function callWithRetry<T>(
 /** ヒント：Claudeが使えれば問い返し、だめなら定型ヒント */
 export async function claudeHint(session: Session): Promise<Hint> {
   const fallback = session.nextTemplateHint();
-  const view = session.publicView();
+  const view = session.publicView({ forGuidance: true });
   const out = await callWithRetry(
     `次の状態の学生に、ヒントの段階${"一二三四"[fallback.stage - 1]}として応答してください。\n${buildPartnerInput(view)}`,
     RESPOND_TOOL,
@@ -237,7 +238,7 @@ export async function claudeHint(session: Session): Promise<Hint> {
 
 /** 学生の言葉 → 検証できる候補（確認付き） */
 export async function claudeTranslate(session: Session, text: string): Promise<Translation> {
-  const view = session.publicView();
+  const view = session.publicView({ forGuidance: true });
   const out = await callWithRetry(
     `学生の説明を、候補IDのどれ（複数可）に当たるかに翻訳し、学生に確認する問いを一つ返してください。候補の説明：overall＝待ったあとも残るかたさ、instant＝押した直後だけ上乗せされるかたさ、relax＝上乗せ分がやわらぐ時間、same＝違いはない。\n学生の説明：「${text}」\n状態：${buildPartnerInput(view)}`,
     TRANSLATE_TOOL,
@@ -307,7 +308,7 @@ export interface ObserveOutcome {
  * Claudeが使えない・違う引数で呼ぶ・ツールを呼ばないときは、サーバーが同じ観察を直接実行する。
  */
 export async function claudeObserve(session: Session, pushSeconds: PushSeconds, observationId: string): Promise<ObserveOutcome> {
-  const before = session.publicView();
+  const before = session.publicView({ forGuidance: true });
   const p = before.pendingCurve;
   if (!p || p.pushSeconds !== pushSeconds) {
     // 予想がなければ、Claudeにもサーバーにも実行させない（session.observeCurve が拒否する）
@@ -340,14 +341,15 @@ export async function claudeObserve(session: Session, pushSeconds: PushSeconds, 
       return direct(); // 了承と違う引数・呼ばない：Claudeには実行させない
     }
     const rec = session.observeCurve(pushSeconds, observationId);
-    const after = session.publicView();
+    const after = session.publicView({ forGuidance: true });
     const points = after.records.filter((r) => rec.evidenceIds.includes(r.id));
     const toolResult = JSON.stringify({
       観察ID: rec.id,
       記録: points.map((r) => ({ 証拠ID: r.id, 記録時刻: r.recordAt, Bの力: Math.round(r.force * 1000) / 1000, 同じ時刻のAの基準値: Math.round(r.baseForce * 1000) / 1000 })),
       学生の予想: rec.prediction?.choice ?? null,
-      この押し方で合わなくなった候補: rec.excluded.map((id) => after.candidates.find((x) => x.id === id)?.label),
-      全体の状態: after.overallLabel,
+      // 学生が自分で判断するまで、この曲線の判定は伏せる（テスト20）
+      この押し方で合わなくなった候補: "（学生の判断待ちのため伏せる）",
+      全体の状態_この曲線の前まで: after.overallLabel,
     });
     messages.push({ role: "assistant", content: first! });
     messages.push({
@@ -388,8 +390,16 @@ export async function claudeObserve(session: Session, pushSeconds: PushSeconds, 
 }
 
 function resultTemplate(session: Session, curveId: string): Hint {
-  const v = session.publicView();
+  const v = session.publicView({ forGuidance: true });
   const rec = v.curves.find((c) => c.id === curveId)!;
+  if (v.awaitingPick)
+    return {
+      stage: 1,
+      text: "測りました。曲線のどこで見本Aの点線から離れ、どこで重なるかを見て、合わなくなった説明を選んでみましょう。",
+      suggestion: null,
+      source: "template",
+      evidenceIds: [...rec.evidenceIds],
+    };
   const labels = rec.excluded.map((id) => `「${v.candidates.find((c) => c.id === id)?.label}」`).join("と");
   const text = labels
     ? `この押し方で${labels}が合わなくなりました。全体の状態は「${v.overallLabel}」です。`

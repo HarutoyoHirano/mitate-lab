@@ -7,7 +7,7 @@ import { act2Answer, act2GraphSvg, carrySvg, circuitSvg, GUESS_LABEL, PERM_LABEL
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "./api.js";
 import { benchSvg, CAND_COLOR, SPEED_LABEL } from "./draw.js";
 import { curveGraphSvg, HOLD_MAX, makeGraphSvg, makeYMax, shapeThumb } from "./curve.js";
-import { storyFor } from "./story.js";
+import { decisiveNote, storyFor } from "./story.js";
 
 type Phase = "start" | "intro" | "lab" | "debrief" | "make" | "act2" | "reflect" | "done";
 type CurveView = PublicSessionView["curves"][number];
@@ -447,6 +447,7 @@ function renderDebrief(): string {
     <div class="bridge pane">
       <h2>つまり</h2>
       <p>${story.summary}</p>
+      <p>${decisiveNote(v.records, kc?.id ?? null, v.overall === "narrowed")}</p>
       <p><strong>では、あなたは「いつもの検査をすり抜ける素材」を自分でつくれるでしょうか？</strong></p>
     </div>
     <div class="actions" style="margin-top:20px"><button class="btn big" data-act="to-make">素材をつくってみる</button></div>
@@ -640,7 +641,15 @@ function discovery(): { label: string; value: string }[] {
   const picks = v.curves.filter((c) => c.studentPick !== null && c.studentPick !== "unsure");
   return [
     { label: "そろえたこと", value: "押す深さ（どの押し方でも、同じ深さで止めて押し返す力を測った）" },
-    { label: "変えたこと", value: speeds.length ? `押す速さ：${speeds.map(speedName).join("、")}` : "押す速さ（曲線は測らなかった）" },
+    {
+      label: "試した条件",
+      value:
+        speeds.length > 1
+          ? `押す速さを変えて比べた：${speeds.map(speedName).join("、")}`
+          : speeds.length === 1
+            ? `押す速さ：${speedName(speeds[0]!)}だけ（速さを変える比較は未実施）`
+            : "曲線は測らなかった",
+    },
     {
       label: "決め手の記録",
       value: keys.length ? keys.map((c) => `${speedName(c.pushSeconds)}押した曲線 → ${candList(c.excluded)}が合わなくなった`).join("；") : "説明を退けた曲線はなかった",
@@ -839,6 +848,11 @@ async function startSession(body: Record<string, unknown>) {
   if (state.phase === "intro") void playIntro();
 }
 
+/** 予想の下書きの応答：その間に別の記録が増えていたら、古い応答で上書きしない */
+function applyDraft(r: { view: PublicSessionView }): void {
+  if (state.view && r.view.curves.length === state.view.curves.length && !state.busy) state.view = r.view;
+}
+
 function cardText(): string {
   const r1 = document.querySelector<HTMLInputElement>("#r1")?.value ?? "";
   const r2 = document.querySelector<HTMLInputElement>("#r2")?.value ?? "";
@@ -859,10 +873,16 @@ app.addEventListener("click", async (e) => {
   const el = (e.target as Element).closest<HTMLElement>("[data-act],[data-set]");
   if (!el || el.hasAttribute("disabled")) return;
   const set = el.dataset.set;
+  const v0 = state.view;
   if (set) {
     const val = el.dataset.val!;
     if (set === "push") state.push = Number(val) as PushSeconds;
-    if (set === "choice") state.choice = val as PredictionChoice;
+    if (set === "choice") {
+      state.choice = val as PredictionChoice;
+      // 予想の下書きをサーバーへ（手がかりの段階を進めるため。理由は押す時点で確定する）
+      if (v0) void api.curvePredict(v0.sessionId, state.push, state.choice, state.reason).then(applyDraft).catch(() => {});
+    }
+    if (set === "push" && state.choice && v0) void api.curvePredict(v0.sessionId, Number(val), state.choice, state.reason).then(applyDraft).catch(() => {});
     if (set === "act2guess") {
       state.act2Guess = val as Act2Guess;
       state.act2Saved = false;
