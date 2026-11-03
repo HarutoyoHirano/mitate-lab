@@ -279,3 +279,8 @@ details summary { cursor: pointer; font-weight: 700; }
 .neuron { display: flex; gap: 12px; align-items: center; margin: -4px 0 6px; }
 .neuron svg { width: 150px; flex: none; }
 .neuron p { margin: 0; }
+.timeband { margin: 0 0 6px; font-size: 13px; color: var(--g-soft); }
+.timeband strong { color: var(--g-warn); }
+.roles { border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.roles th { text-align: left; padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top; }
+.roles td { padding: 3px 0; color: var(--g-soft); }
