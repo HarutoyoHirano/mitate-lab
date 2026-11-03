@@ -34,7 +34,7 @@ export function benchSvg(
   const pressed = (k: "A" | "B") => target === "both" || target === k;
   const BASE_Y = 210;
   const H0 = 78; // 試験片の元の高さ
-  const DEPTH_PX = 20; // 押し込む深さ（図の上）
+  const DEPTH_PX = 30; // 押し込む深さ（図の上）
   const station = (x0: number, label: "A" | "B", active: boolean, force: number) => {
     const dent = released ? Math.max(0, label === "A" ? released.a : released.b) : null;
     const p = dent !== null ? Math.min(1, dent) : active ? Math.max(0, Math.min(1, press)) : 0;

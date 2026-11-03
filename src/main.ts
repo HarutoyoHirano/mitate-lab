@@ -44,6 +44,10 @@ const state = {
   recH: 2,
   /** 押し板を上げた後か（試験機にへこみを描く） */
   released: false,
+  /** 離して戻る様子を再生している間 */
+  releasing: false,
+  /** 曲線の欄で見ているもの：押し返す力（深さを保つ間）／へこみの戻り（離した後） */
+  graphTab: "force" as "force" | "dent",
   /** 「この説明で重ねてみる」で重ねている候補 */
   overlay: null as CandidateId | null,
   hookArrow: NaN,
@@ -129,8 +133,8 @@ function missionBar(): string {
     const c = latestCurve();
     goal = "押してからの押し返しの変化（曲線）を見て、いつもの検査が見落としていた違いを見つけ、なぜ違うのかを絞り込む";
     if (state.animating) next = "曲線が伸びていくのを見る。Aの線（点線）と、どこでずれて、どこで重なる？";
-    else if (c && c.studentPick === null && !v.photos.some((p) => p.curveId === c.id)) next = "下の「離してから〔 〕秒」のつまみを動かして、AとBのへこみに違いが見える時刻を探し、「この瞬間を撮る」。それから右の候補で、合わなくなった説明を選ぶ";
-    else if (c && c.studentPick === null) next = "右の候補から「この曲線と合わなくなった説明」を選んで、検算する（分からなければ「分からない」）";
+    else if (c && c.studentPick === null && !v.photos.some((p) => p.curveId === c.id)) next = "「② へこみの戻り」で「離してから〔 〕秒」のつまみを動かし、AとBのへこみに違いが見える時刻を探して「この瞬間を撮る」";
+    else if (c && c.studentPick === null) next = state.graphTab === "dent" ? "撮れたら「① 押し返す力」に戻り、右の候補から、この曲線と合わなくなった説明を選んで検算する" : "右の候補から「この曲線と合わなくなった説明」を選んで、検算する（分からなければ「分からない」）";
     else if (v.overall === "narrowed") next = "決着しました。「答え合わせへ」で、Bの正体を確かめる（別の速さで確かめてもよい）";
     else if (!state.choice) next = v.curves.length === 0 ? "① 押す速さを選ぶ → ② 深さを保っている間もAと同じかを予想する → ③ 押して、曲線を見る" : "① 押す速さを選ぶ → ② 押し終わりの力（曲線の高さ）を予想する → ③ 押して、曲線を見る";
     else next = "予想を選びました。押して、曲線が伸びていくのを見る";
@@ -279,6 +283,8 @@ function renderLab(): string {
     <div class="pane graph-pane">
       <div class="graph-head"><h2>${curve ? `${speedName(curve.pushSeconds)}押したときの押し返し` : "押し返しの変化（曲線）"}</h2><span class="count">押した回数 ${v.curves.length}</span></div>
       ${resultBanner(curve)}
+      ${curve && (!state.animating || state.releasing) ? graphTabs() : ""}
+      ${curve && state.graphTab === "dent" && (!state.animating || state.releasing) ? recoveryPanel(curve) : `
       ${curveGraphSvg({ pushSeconds: T, b: curve ? curve.b : null, until, yMax, big: true, error: v.error, highlight: hl, overlay: overlayFor(curve) ?? undefined })}
       ${overlayNote(curve)}
       <div class="legend">
@@ -286,8 +292,7 @@ function renderLab(): string {
         <span><svg width="18" height="16"><circle cx="9" cy="8" r="6" fill="#fff" stroke="var(--claude)" stroke-width="3"/></svg>試料B：判定に使う記録（縦線は誤差 ±${v.error}）</span>
         <span><svg width="12" height="10"><circle cx="6" cy="5" r="2.5" fill="var(--claude)" opacity="0.5"/></svg>Bの細かい記録（表示用）</span>
         <span>右端の「20秒」が、いつもの検査の時刻</span>
-      </div>
-      ${curve && !state.animating ? recoveryPanel(curve) : ""}
+      </div>`}
       ${v.curves.length > 1 ? `<div class="minis">${v.curves.map((c) => `<button class="mini ${curve && c.id === curve.id ? "on" : ""}" data-act="show-curve" data-id="${c.id}" ${state.animating ? "disabled" : ""}>${curveGraphSvg({ pushSeconds: c.pushSeconds, b: c.b, until: 99, yMax, big: false, error: v.error, title: speedName(c.pushSeconds) })}</button>`).join("")}</div>` : ""}
     </div>
     <div class="pane board">
@@ -305,6 +310,13 @@ function renderLab(): string {
       ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
     </div>
   </section></main>`;
+}
+
+/** 曲線の欄の切り替え：押し返す力（深さを保つ間）と、へこみの戻り（離した後） */
+function graphTabs(): string {
+  const tab = (id: "force" | "dent", label: string, sub: string) =>
+    `<button role="tab" class="gtab ${state.graphTab === id ? "on" : ""}" data-act="graph-tab" data-val="${id}" aria-selected="${state.graphTab === id}" ${state.animating ? "disabled" : ""}><strong>${label}</strong><span>${sub}</span></button>`;
+  return `<div class="gtabs" role="tablist">${tab("force", "① 押し返す力", "深さを保っている間")}${tab("dent", "② へこみの戻り", "押し板を離した後")}</div>`;
 }
 
 /** 試験機：保持中は押し板と矢印、離した後は押し板を上げてへこみを描く */
@@ -328,13 +340,13 @@ function recoveryPanel(c: CurveView): string {
   const v = state.view!;
   const mine = v.photos.filter((p) => p.curveId === c.id);
   return `<section class="rec-panel" aria-label="離した後の戻り">
-    <h3>押し板を上げると…へこみはどう戻る？ <span class="note">時間を止めて、違いが見える瞬間を撮ろう</span></h3>
+    <h3>押し板を離すと…へこみはどう戻る？ <span class="note">時間を止めて、違いが見える瞬間を撮ろう</span></h3>
     <p class="note">ここからは押し板を離すので、押し返す力はゼロ。測るのは<strong>へこみの深さ</strong>（押し込んだ深さ＝1 とした割合）。離した瞬間に一部はすぐ戻り、残りがゆっくり戻ります。点線は見本A（基準の線・測らない）、青は試料B（測った記録、誤差 ±0.01）。</p>
     <div id="rec-live">${recLiveHtml(c)}</div>
     <div class="rec-controls">
-      <button class="btn small ghost" data-act="rec-play" ${state.busy ? "disabled" : ""}>▶ 離したところから再生（はじめはゆっくり。つまみで止まる）</button>
-      <label class="rec-slider">離してから <input type="range" id="rec-h" min="0" max="${RECOVERY_MAX}" step="${RECOVERY_STEP}" value="${state.recH}"> <strong id="rec-h-val">${state.recH.toFixed(1)}</strong> 秒</label>
-      <button class="btn small shoot" data-act="photo" data-id="${c.id}" ${state.busy ? "disabled" : ""}>この瞬間を撮る</button>
+      <button class="btn small ghost" data-act="rec-play" ${state.busy || state.releasing ? "disabled" : ""}>▶ 離したところから再生（はじめはゆっくり。つまみで止まる）</button>
+      <label class="rec-slider">離してから <input type="range" id="rec-h" min="0" max="${RECOVERY_MAX}" step="${RECOVERY_STEP}" value="${state.recH}" ${state.releasing ? "disabled" : ""}> <strong id="rec-h-val">${state.recH.toFixed(1)}</strong> 秒</label>
+      <button class="btn small shoot" data-act="photo" data-id="${c.id}" ${state.busy || state.releasing ? "disabled" : ""}>この瞬間を撮る</button>
     </div>
     ${mine.length ? `<div class="photos">${mine.map((p) => `<div class="photo ${p.distinguishable ? "ok" : ""}"><strong>${p.distinguishable ? "★ ここなら違いが見えた" : "この瞬間では区別できない"}</strong><span>離して${p.h.toFixed(1)}秒後のへこみ：A（基準）${p.dentA.toFixed(3)}／B（測定）${p.dentB.toFixed(3)}　差（B−A）${p.diff >= 0 ? "+" : "−"}${Math.abs(p.diff).toFixed(3)}${Math.abs(p.diff) > 0.005 ? (p.diff > 0 ? "：Bのほうが深い＝戻りが遅い" : "：Bのほうが浅い＝戻りが速い") : ""}</span></div>`).join("")}</div>
       ${mine.some((p) => p.distinguishable) ? `<p class="note">最後（40秒後）だけを見たら、見落としていた違いです。${mine.some((p) => !p.distinguishable) ? "区別できなかった写真も、記録として正当です。" : ""}</p>` : `<p class="note">この時刻では区別できませんでした。つまみを動かして、別の時刻でも撮ってみよう。</p>`}` : ""}
@@ -345,9 +357,10 @@ function recoveryPanel(c: CurveView): string {
 function recLiveHtml(c: CurveView): string {
   const d = dentsAt(c, state.recH);
   const photoHs = state.view!.photos.filter((p) => p.curveId === c.id).map((p) => p.h);
+  const rec = state.releasing ? c.recovery.filter((p) => p.h <= state.recH + 1e-9) : c.recovery;
   return `<div class="rec-grid">
-    <div>${recoveryGraphSvg(c.recovery, (h) => dentAfterRelease(BASE, c.pushSeconds, h), state.recH, photoHs)}</div>
-    <div>${dentCloseupSvg(d.a, d.b, state.recH, judgePhoto(d.b, d.a).distinguishable)}</div>
+    <div class="closeup">${dentCloseupSvg(d.a, d.b, state.recH, !state.releasing && judgePhoto(d.b, d.a).distinguishable)}</div>
+    <div>${recoveryGraphSvg(rec, (h) => dentAfterRelease(BASE, c.pushSeconds, h), state.recH, photoHs)}</div>
   </div>`;
 }
 
@@ -1012,19 +1025,22 @@ async function playCurve(c: CurveView): Promise<void> {
   state.clock = "止めたまま20秒（いつもの検査の時刻）";
   render();
   await sleep(reduce ? 0 : 700);
-  // 離す：押し板を上げ、へこみの戻りを早送りで見せる
+  // 離す：押し板を上げ、へこみの戻りを早送りで見せる（曲線の欄を「へこみの戻り」に切り替える）
   state.released = true;
+  state.releasing = true;
+  state.graphTab = "dent";
   const relMs = reduce ? 0 : 4200;
   const s2 = performance.now();
   for (;;) {
     const el = performance.now() - s2;
     if (el >= relMs) break;
     state.recH = Math.round(((el / relMs) ** 2 * RECOVERY_MAX) / RECOVERY_STEP) * RECOVERY_STEP; // 最初の数秒（違いが見えやすい区間）をゆっくり
-    state.clock = `押し板を上げた。離してから ${state.recH.toFixed(1)}秒（早送り）`;
+    state.clock = `押し板を離した。離してから ${state.recH.toFixed(1)}秒（早送り）`;
     render();
     await sleep(45);
   }
   state.recH = RECOVERY_MAX;
+  state.releasing = false;
   state.clock = "離してから40秒：どちらも押す前の表面に近い。その途中はどうだった？";
   state.animating = false;
   state.press = 1;
@@ -1159,6 +1175,7 @@ app.addEventListener("click", async (e) => {
         state.highlight = null;
         state.overlay = null;
         state.released = false;
+        state.graphTab = "force";
         state.press = 0;
         await playCurve(c);
         state.reason = "";
@@ -1218,7 +1235,12 @@ app.addEventListener("click", async (e) => {
       });
       break;
     }
+    case "graph-tab":
+      state.graphTab = el.dataset.val === "dent" ? "dent" : "force";
+      render();
+      break;
     case "overlay":
+      state.graphTab = "force";
       state.overlay = (el.dataset.id || null) as CandidateId | null;
       render();
       break;
