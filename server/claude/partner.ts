@@ -395,7 +395,7 @@ function resultTemplate(session: Session, curveId: string): Hint {
   if (v.awaitingPick)
     return {
       stage: 1,
-      text: "測りました。曲線のどこで見本Aの点線から離れ、どこで重なるかを見て、合わなくなった説明を選んでみましょう。",
+      text: "測りました。曲線のどこで見本Aの点線から離れ、どこで重なるかを見て、右の候補から合わなくなった説明を選び、検算しましょう。",
       suggestion: null,
       source: "template",
       evidenceIds: [...rec.evidenceIds],

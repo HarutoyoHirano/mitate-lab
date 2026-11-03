@@ -7,7 +7,8 @@ import { act2Answer, act2GraphSvg, carrySvg, circuitSvg, membraneSvg, GUESS_LABE
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "./api.js";
 import { benchSvg, CAND_COLOR, SPEED_LABEL } from "./draw.js";
 import { curveGraphSvg, HOLD_MAX, makeGraphSvg, makeYMax, shapeThumb } from "./curve.js";
-import { fitToEnd, predictedCurve } from "../server/model/fit.js";
+import { fitCandidate, predictedCurve } from "../server/model/fit.js";
+import { compare } from "../server/model/comparator.js";
 import { decisiveNote, storyFor } from "./story.js";
 
 type Phase = "start" | "intro" | "lab" | "debrief" | "make" | "act2" | "reflect" | "done";
@@ -151,10 +152,10 @@ function renderStart(): string {
       <p class="kicker">見方を変える実験室</p>
       <h1>同じに見える。<br>でも、測り方を変えると違う。</h1>
       <div class="body-hook">
-        <p class="hook-q">ゲルのような軟らかい試験片を、試験機で押し込み、その深さで止めます。押し返す力も同じままでしょうか？</p>
+        <p class="hook-q">ゲルのような軟らかい試験片（見本A）を、試験機で押し込み、その深さで止めます。押し返す力も同じままでしょうか？</p>
         ${
           state.hookDone
-            ? `<p><strong>棒は同じ深さで止まったまま。なのに、押し返す力は ${a0.toFixed(2)} から ${forceAfterPush(BASE, 1, 20).toFixed(2)} へ下がりました。</strong></p>
+            ? `<p><strong>押し板は同じ深さで止まったまま。なのに、押し返す力は ${a0.toFixed(2)} から ${forceAfterPush(BASE, 1, 20).toFixed(2)} へ下がりました。</strong></p>
                <p class="note">深さは固定、測っているのは押し返す力。この素材には「時間とともに押し返しがやわらぐ」性質があります。医療の計測でも、いつ・どう測るかで見える性質が変わることがあります。</p>`
             : `<div class="actions"><button class="btn" data-act="hook" ${state.animating ? "disabled" : ""}>Aを押し込んで、深さを保つ</button></div>`
         }
@@ -167,7 +168,7 @@ function renderStart(): string {
         <li><strong>見方をつなぐ</strong>：調べたBを電気回路に置きかえ、細胞の膜の言葉で言い直す</li>
       </ol>
       <div class="actions"><button class="btn big" data-act="start">実験を始める</button></div>
-      <p class="note">試験片は計算で作った仮想の素材です（Aが落ち着いた力を1とする）。実在の材料や体の組織、試験機を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
+      <p class="note">試験片は計算で作った仮想の素材です（Aを押して十分に待ったあとの力を1とする目盛り）。実在の材料や体の組織、試験機を再現したものではありません。画面の「Claude（AI）」はAIで、隠れた答えを知りません。</p>
       <details><summary>先生用の設定</summary>
         <div class="teacher">
           <label>合言葉<input type="password" id="t-pass" autocomplete="off"></label>
@@ -181,7 +182,7 @@ function renderStart(): string {
       ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
     </div>
     <div class="pane bench-pane bench hero-bench">${benchSvg("A", state.press, false, Number.isFinite(state.hookArrow) ? { a: state.hookArrow, b: NaN } : null)}
-      <p class="bench-cap">${state.clock || "試験機：押し板で試験片を押し込み、力センサで押し返す力を測る。<br><strong>A＝見本</strong>（性質が分かっている）　<strong>B＝試料</strong>（調べたい）。見た目はそっくり"}</p></div>
+      <p class="bench-cap">${state.clock || "試験機：押し板で試験片を押し込み、力センサで押し返す力を測る（右の矢印の長さ＝押し返す力）。<br><strong>A＝見本</strong>（性質が分かっている）　<strong>B＝試料</strong>（調べたい）。見た目はそっくり"}</p></div>
   </section></main>`;
 }
 
@@ -301,7 +302,9 @@ function overlayFit(c: CurveView | null) {
   if (!c || !state.overlay || state.animating) return null;
   const end = state.view!.records.find((r) => r.id === `${c.id}@0`);
   if (!end) return null;
-  return fitToEnd(state.overlay, c.pushSeconds, end.force);
+  // 押し終わりの高さに合わせた値を、これまでの記録全体と矛盾しない区間に収める（区間がなければ押し終わりに合わせたまま）
+  const iv = compare(state.view!.records).candidates[state.overlay].interval;
+  return fitCandidate(state.overlay, c.pushSeconds, end.force, iv);
 }
 
 function overlayFor(c: CurveView | null) {
@@ -316,16 +319,22 @@ function overlayNote(c: CurveView | null): string {
   const v = state.view!;
   const at = (h: number) => v.records.find((r) => r.id === `${c.id}@${h}`)!;
   const pred = (h: number) => forceAfterPush(fit.params, c.pushSeconds, h);
-  const rows = [0, 2, 20].map((h) => `<tr><td>${h === 0 ? "押し終わり" : `${h}秒後`}</td><td>${pred(h).toFixed(2)}</td><td>${at(h).force.toFixed(2)}</td></tr>`).join("");
+  const rows = [0, 2, 20]
+    .map((h) => {
+      const dv = at(h).force - pred(h);
+      return `<tr><td>${h === 0 ? "押し終わり" : `${h}秒後`}</td><td>${pred(h).toFixed(2)}</td><td>${at(h).force.toFixed(2)}</td><td>${dv >= 0 ? "+" : "−"}${Math.abs(dv).toFixed(2)}</td></tr>`;
+    })
+    .join("");
   const head =
     fit.candidate === "same"
       ? "「違いはない」なら、Bは見本Aの線（点線）と重なるはず。"
       : fit.matched
-        ? `「${CANDIDATES[fit.candidate].label}」で、押し終わりの高さを合わせた線です。高さは合った。でも途中は？`
-        : `「${CANDIDATES[fit.candidate].label}」では、決められた範囲の中で動かしても、押し終わりの高さに届きません（いちばん近い線を表示）。`;
+        ? `「${CANDIDATES[fit.candidate].label}」で、押し終わりの高さを測った値に合わせた線です（これまでの記録と矛盾しない範囲で）。途中（2秒後・20秒後）も、測ったBと重なっていますか？`
+        : `「${CANDIDATES[fit.candidate].label}」では、この説明で変えてよい値を決められた範囲の中でどう変えても、押し終わりの高さに届きません（いちばん近い線を表示）。`;
   return `<div class="overlay-note" style="border-color:${CAND_COLOR[fit.candidate]}">
     <p>${head}</p>
-    <table><tr><th></th><th>この説明の線</th><th>測ったB</th></tr>${rows}</table>
+    <table><tr><th></th><th>この説明の線</th><th>測ったB</th><th>ずれ</th></tr>${rows}</table>
+    <p class="note">押し終わりの値にも誤差（±${v.error}）があるので、正しい説明でも線全体が少しずれることがあります。小さなずれだけで「合わない」と決めず、検算で確かめましょう。</p>
     <button class="btn ghost small" data-act="overlay" data-id="">重ねた線を消す</button>
   </div>`;
 }
@@ -339,7 +348,7 @@ function overlayButton(id: CandidateId): string {
 /** 曲線を見たあと：本人が「合わなくなった説明」を選ぶ（比較器の判定はまだ開かない） */
 function pickBoard(bv: PublicSessionView, c: CurveView): string {
   return `<h2>この曲線で、合わなくなった説明はどれ？</h2>
-    <p class="note">「この説明で重ねてみる」で、その説明の線を重ねて試せます。合わないと思う説明を押して選び（いくつでも）、プログラムの判定で検算します。</p>
+    <p class="note">「この説明で重ねてみる」で、その説明の線を重ねて試せます。合わないと思う説明の名前を押すと「合わない」の印が付きます（もう一度押すと外れます。いくつでも）。選んだら、プログラムの判定で検算します。</p>
     <ul>${bv.candidates
       .filter((x) => x.status !== "inconsistent")
       .map((x) => {
@@ -607,16 +616,16 @@ function renderAct2(): string {
     <div class="mem-grid">
       <div class="pane mem-main">${membraneSvg(state.memRun ?? state.perm, state.memT)}</div>
       <div class="pane mem-side"><p class="field-label">同じことを回路で書くと</p>${circuitSvg("membrane")}
-        <p class="note">膜（黄）＝電荷をためるコンデンサ、イオンの通り道（緑）＝抵抗、イオンの濃さの差がつくる基準の電位＝電池。イオンの移動（化学）が電流（電気）になり、膜の電位（生物の信号のもと）を変えます。値は計算値です（誤差は付けていません）。</p></div>
+        <p class="note">膜（黄）＝電荷をためるコンデンサ、イオンの通り道（緑）の通りにくさ＝抵抗（通り道が多いほど抵抗は小さい）、イオンの濃さの差がつくる基準の電位＝電池。イオンの移動（化学）が電流（電気）になり、膜の電位（生物の信号のもと）を変えます。値は計算値です（誤差は付けていません）。</p></div>
     </div>
     <p class="lead">${story ? story.membrane : ""}</p>
-    <h2 class="q">イオンが通りやすくなると、電流を止めた後（第1幕の押し終わりにあたる）、基準の電位（静止電位にあたる）へ戻るのは速くなる？ 遅くなる？</h2>
+    <h2 class="q">イオンが通りやすくなると、電流を止めた後（第1幕の押し終わりにあたる）、基準の電位（何も入れていないときの膜電位。生物では「静止電位」と呼ぶ）へ戻るのは速くなる？ 遅くなる？</h2>
     <div class="two">
       <div>
         <div class="field-label">まず予想</div>
         <div class="seg">${(["faster", "same", "slower"] as Act2Guess[]).map((g) => `<button data-set="act2guess" data-val="${g}" aria-pressed="${state.act2Guess === g}">${GUESS_LABEL[g]}</button>`).join("")}</div>
         <div class="actions" style="margin:8px 0"><button class="btn ghost small" data-act="act2-save" ${!state.act2Guess ? "disabled" : ""}>予想を保存</button>${state.act2Saved ? `<span class="note">保存：「${GUESS_LABEL[state.act2Guess!]}」</span>` : ""}</div>
-        <div class="field-label">イオンの通りやすさ <span class="note">（通りやすい＝抵抗が小さい。膜が電荷をためる量（容量）はそのまま）</span></div>
+        <div class="field-label">イオンの通りやすさ <span class="note">（通りやすい＝抵抗が小さい。膜の電荷のためやすさ（容量）はそのまま）</span></div>
         <div class="seg">${(["easier", "same", "harder"] as Permeability[]).map((p) => `<button data-set="perm" data-val="${p}" aria-pressed="${state.perm === p}">${PERM_LABEL[p]}</button>`).join("")}</div>
         <div class="actions" style="margin-top:8px"><button class="btn go" data-act="act2-run" ${!state.act2Saved ? "disabled" : ""}>電流を入れて、止める</button></div>
         <ul class="runs">${runs.map((r) => `<li style="border-color:${RUN_COLORS[r.perm]}">${PERM_LABEL[r.perm]}<br><strong>半分に戻るまで ${(r.half ?? 0).toFixed(2)}</strong>（止めた時の差 ${r.deltaAtStop.toFixed(2)}）</li>`).join("")}</ul>

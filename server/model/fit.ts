@@ -53,3 +53,16 @@ export function predictedCurve(params: MaterialParams, pushSeconds: number): { t
   }
   return pts;
 }
+
+/**
+ * 候補の線を決める：押し終わりの高さに合わせた値を、取得済みの証拠全体と矛盾しない区間（比較器の区間）に収める。
+ * 区間が空（その候補は記録と合わない）なら、押し終わりに合わせた線のまま（途中で外れることが見える）。
+ * 押し終わりの力が未知数にほとんど依存しない押し方（すばやく押してやわらぐ時間を変える等）でも、正しい説明の線が暴れない。
+ */
+export function fitCandidate(candidate: CandidateId, pushSeconds: PushSeconds, yEnd: number, interval: readonly [number, number] | null): FitResult {
+  const fit = fitToEnd(candidate, pushSeconds, yEnd);
+  const info = CANDIDATES[candidate];
+  if (!interval || fit.value === null || !info.param) return fit;
+  const value = Math.min(interval[1], Math.max(interval[0], fit.value));
+  return { ...fit, value, params: { ...BASE, [info.param]: value } };
+}

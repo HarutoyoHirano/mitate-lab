@@ -12,7 +12,7 @@ import { forceAfterPush, forceDuringPush } from "../../server/model/sls.js";
 import { Session } from "../../server/session/session.js";
 import { act2Answer, circuitSvg, runAct2, type Act2Run } from "../../src/act2.js";
 import { STORY, directionOfTruth, storyFor } from "../../src/story.js";
-import { representativeTruths } from "./helpers.js";
+import { allSignCombos, representativeTruths } from "./helpers.js";
 
 describe("テスト15：いつもの検査の判定は嘘にならない", () => {
   it("隠れた範囲の全代表値で、誤差を最悪ケース（±100%・0）に置いても許容差の内側", () => {
@@ -320,7 +320,7 @@ describe("テスト22：答え合わせの「今回の決め手」は記録か�
   };
   it("押し終わりの一点だけで決まる素材（E1=2, τ=1）では「分けきれず」と言わない", () => {
     const note = decisiveNote(mk({ eInf: 1, e1: 2, tau: 1 }, 1), "c", true);
-    expect(note).toContain("押し終わりの高さだけで");
+    expect(note).toContain("一つに絞れました");
     expect(note).not.toContain("分けきれず");
   });
   it("押し終わりが同じになる素材（H2：E1=1, τ=3）では、途中まで比べたと書く", () => {
@@ -368,5 +368,23 @@ describe("テスト21：候補の予測線は公開範囲の中で押し終わ�
     // fit.ts は秘密のモジュールを読み込まない
     const src = readFileSync("server/model/fit.ts", "utf8");
     expect(src).not.toMatch(/generator|scenarios|session/);
+  });
+});
+
+describe("テスト21の補足：正しい説明の線は、最悪ケースの誤差でも測った記録から大きく外れない", () => {
+  it("隠れた範囲の代表値・3つの押し方・誤差の端で、正しい候補の線と真の値の差が 2×誤差 以内", async () => {
+    const { fitCandidate } = await import("../../server/model/fit.js");
+    const { compare } = await import("../../server/model/comparator.js");
+    for (const t of representativeTruths()) {
+      for (const T of [0.2, 1, 5] as const) {
+        for (const signs of allSignCombos(3)) {
+          const recs = [{ id: "intro-B", pushSeconds: 1 as const, recordAt: 20 as const, force: forceAfterPush(t.params, 1, 20) + signs[0]! * ERROR }];
+          ([0, 0.5, 2, 5, 20] as const).forEach((h, i) => recs.push({ id: `c@${h}`, pushSeconds: T as 1, recordAt: h as 20, force: forceAfterPush(t.params, T, h) + signs[1 + (i % 2)]! * ERROR }));
+          const iv = compare(recs).candidates[t.correct].interval;
+          const fit = fitCandidate(t.correct, T, recs[1]!.force, iv);
+          for (const h of [0, 0.5, 2, 5, 20]) expect(Math.abs(forceAfterPush(fit.params, T, h) - forceAfterPush(t.params, T, h))).toBeLessThanOrEqual(2 * ERROR + 1e-6);
+        }
+      }
+    }
   });
 });

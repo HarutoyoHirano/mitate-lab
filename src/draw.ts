@@ -91,7 +91,7 @@ export function benchSvg(
   const fa = arrows ? arrows.a : NaN;
   const fb = arrows ? arrows.b : NaN;
   return `
-    <svg viewBox="0 0 360 250" overflow="visible" role="img" aria-label="試験機：ゲルのような軟らかい試験片AとBを押し板で押し込み、深さを保って押し返す力を力センサで測る">
+    <svg viewBox="0 0 360 250" overflow="visible" role="img" aria-label="試験機：ゲルのような軟らかい試験片AとBを押し板で押し込み、深さを保って押し返す力を力センサで測る。右の矢印の長さが押し返す力">
       ${station(0, "A", pressed("A"), fa)}
       ${station(180, "B", pressed("B"), fb)}
       ${flash ? `<rect class="flash" x="0" y="0" width="360" height="250" fill="#fff"/>` : ""}
