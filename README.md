@@ -18,10 +18,12 @@
 個人（1名）での制作と期間を踏まえ、今回はモデルの整合性、操作の成立、臨床の現場経験がある同僚1名による使用後の感想と説明内容の確認を優先しました。学生を対象とした試用は行っていません。初学者の理解や興味への効果は設計上の狙いであり、検証済みの成果ではありません。
 
 ## 起動方法
-【作成予定】
-1. `cp .env.example .env` を実行し、`ANTHROPIC_API_KEY` と `CLAUDE_MODEL` を設定
-2. `npm install`
-3. `npm run dev`
+Node.js 22 以上が必要です。
+1. `npm install`
+2. （任意）`cp .env.example .env` を実行し、`ANTHROPIC_API_KEY` と `CLAUDE_MODEL` を設定。設定しなくても、定型のヒントで最後まで動きます
+3. 開発用：`npm run dev`（http://localhost:5173）
+4. 本番用：`npm run build` のあと `npm start`（http://localhost:8787）
+5. テスト：`npm test`
 
 ## このハッカソン期間中に作ったもの／既存の知見
 | 期間中（2026-11-02〜）に新規に作ったもの | 既存の知見として使ったもの |

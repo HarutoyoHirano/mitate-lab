@@ -1,0 +1,162 @@
+/* ミカタ・ラボ：試験台と方眼の実験ノート。
+   色は「素材のゲル」「製図インク」「候補ごとの色」「Claude（AI）の書き込み」を分ける。
+   色だけに頼らず、形・文字・線種でも区別する。 */
+:root {
+  --paper: #eef2f5;
+  --grid: #d3dce4;
+  --ink: #1f2a36;
+  --ink-soft: #4a5866;
+  --steel: #9aa8b5;
+  --gel: #9fd3c7;
+  --gel-edge: #5fa898;
+  --panel: #ffffff;
+  --line: #c4ced8;
+  --overall: #2e6f95;
+  --instant: #8e3b8e;
+  --relax: #2b8a6b;
+  --same: #6b7280;
+  --claude: #3b3f9e;
+  --claude-wash: #e6e7f8;
+  --ok: #24704f;
+  --wait: #9a6412;
+  --focus: #1d6fd6;
+  --radius-s: 4px;
+  --radius-l: 10px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- 共通 ---------- */
+.wrap { max-width: 1320px; margin: 0 auto; padding: 16px 20px 40px; }
+.topbar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 700; font-size: 18px; letter-spacing: 0.04em; }
+.brand small { font-weight: 400; color: var(--ink-soft); margin-left: 8px; font-size: 13px; letter-spacing: 0; }
+.question { flex: 1 1 360px; color: var(--ink-soft); font-size: 14px; }
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px;
+  background: var(--claude-wash); color: var(--claude); font-weight: 700; font-size: 13px;
+}
+.ai-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--claude); }
+.ai-badge.off { background: #eceff2; color: var(--ink-soft); }
+.ai-badge.off::before { background: var(--steel); }
+
+.btn {
+  border: 1.5px solid var(--ink); background: var(--ink); color: #fff; border-radius: var(--radius-s);
+  padding: 8px 16px; font-weight: 700; cursor: pointer;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.claude { background: var(--claude); border-color: var(--claude); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.note { color: var(--ink-soft); font-size: 13px; }
+.err { color: #9b1c1c; font-weight: 700; }
+
+/* ---------- 開始画面 ---------- */
+.start { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: center; min-height: calc(100vh - 60px); }
+.start h1 { font-size: clamp(28px, 4vw, 44px); line-height: 1.3; margin: 0 0 16px; font-weight: 700; }
+.start p { max-width: 36em; margin: 0 0 12px; }
+.start .lead { font-size: 17px; }
+.start details { margin-top: 24px; max-width: 32em; }
+.start details summary { cursor: pointer; color: var(--ink-soft); }
+.teacher { display: grid; gap: 8px; margin-top: 8px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s); }
+.teacher label { display: grid; gap: 2px; font-size: 13px; }
+.teacher input, .teacher select { padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-s); background: #fff; }
+
+/* ---------- 実験室 ---------- */
+.lab { display: grid; grid-template-columns: 320px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.pane { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 14px 16px; }
+.pane h2 { font-size: 15px; margin: 0 0 8px; }
+.bench-pane {
+  background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.bench svg { width: 100%; height: auto; display: block; }
+.readout { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 10px; margin: 6px 0 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s); }
+.readout span:first-child { font-size: 13px; }
+.readout strong { font-size: 22px; margin-left: 8px; }
+.readout .ff { color: var(--wait); font-weight: 700; font-size: 13px; }
+
+.choose { display: grid; gap: 10px; }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.seg button {
+  border: 1.5px solid var(--line); background: #fff; border-radius: var(--radius-s); padding: 4px 10px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #fff; font-weight: 700; }
+.field-label { font-size: 13px; font-weight: 700; }
+.reason { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.graph-pane .panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.graph-pane .panels svg { width: 100%; height: auto; display: block; }
+.legend svg { width: auto; height: auto; display: inline-block; flex: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+.log { margin-top: 12px; }
+.log ol { margin: 0; padding-left: 1.6em; font-size: 13px; }
+.log li { padding: 2px 0; }
+.log .excluded { color: var(--ok); font-weight: 700; }
+
+/* 仮説ボード */
+.board ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cand { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--radius-s); border: 1px solid var(--line); }
+.cand .swatch { width: 10px; align-self: stretch; border-radius: 2px; }
+.cand .st { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.cand.consistent .st { color: var(--ok); }
+.cand.undetermined .st { color: var(--wait); }
+.cand.inconsistent { opacity: 0.55; }
+.cand.inconsistent .name { text-decoration: line-through; }
+.cand.mine { box-shadow: inset 0 0 0 2px var(--claude); }
+.overall { margin: 10px 0 0; padding: 8px 10px; border-left: 4px solid var(--ink); background: var(--paper); font-weight: 700; }
+.overall.narrowed { border-color: var(--ok); }
+.rule { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+
+/* Claude（AI）の書き込み */
+.claude-note { margin-top: 12px; padding: 10px 12px; border: 1.5px solid var(--claude); border-radius: var(--radius-l); background: var(--claude-wash); }
+.claude-note .who { color: var(--claude); font-weight: 700; font-size: 13px; }
+.claude-note p { margin: 4px 0 8px; }
+.claude-note .src { font-size: 12px; color: var(--ink-soft); }
+.words { display: flex; gap: 6px; margin-top: 10px; }
+.words input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.chip { border: 1.5px solid currentColor; background: #fff; border-radius: 999px; padding: 2px 10px; cursor: pointer; font-size: 13px; }
+
+/* 解説・第2幕・振り返り */
+.page { max-width: 980px; margin: 0 auto; }
+.page h1 { font-size: 26px; margin: 8px 0 12px; }
+.page h2 { font-size: 18px; margin: 20px 0 8px; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.reveal { font-size: 18px; font-weight: 700; padding: 12px 14px; border-left: 4px solid var(--ok); background: var(--panel); }
+table.vals { border-collapse: collapse; font-size: 14px; }
+table.vals td, table.vals th { border-bottom: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+.act2 svg { width: 100%; max-width: 680px; height: auto; display: block; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l); }
+.caution { font-size: 13px; color: var(--ink-soft); border: 1px dashed var(--steel); padding: 8px 10px; border-radius: var(--radius-s); background: var(--panel); }
+.tag-swap { transition: opacity 0.35s ease; }
+.reflect label { display: grid; gap: 4px; margin-bottom: 12px; font-weight: 700; }
+.reflect textarea { min-height: 64px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-s); font-weight: 400; }
+.map svg { width: 100%; height: auto; display: block; }
+
+@media (max-width: 1100px) {
+  .lab { grid-template-columns: minmax(0, 1fr); }
+  .start, .two { grid-template-columns: minmax(0, 1fr); }
+  .graph-pane .panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
