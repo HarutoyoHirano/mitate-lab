@@ -2,6 +2,7 @@
 // 秘密は終了後（答え合わせ）にだけ届く。この関数はその開示済みの値だけを使う。
 import { compare, type Evidence } from "../server/model/comparator.js";
 import type { MaterialParams } from "../server/model/public.js";
+import { forceAfterPush } from "../server/model/sls.js";
 
 export type Direction = "instantUp" | "instantDown" | "relaxSlow" | "relaxFast";
 
@@ -81,4 +82,11 @@ export function decisiveNote(records: readonly Evidence[], keyCurveId: string | 
 export function storyFor(truth: MaterialParams, base: MaterialParams): StoryText {
   const d = directionOfTruth(truth, base);
   return d ? STORY[d] : STORY_NONE;
+}
+
+/** 押し方ごとの押し終わりの差（開示した値で計算。答え合わせの「二つ目の驚き」、テスト27） */
+export function pushSpeedTable(truth: MaterialParams, base: MaterialParams): { rows: { pushSeconds: 0.2 | 1 | 5; diff: number }[]; best: 0.2 | 1 | 5 } {
+  const rows = ([0.2, 1, 5] as const).map((T) => ({ pushSeconds: T, diff: forceAfterPush(truth, T, 0) - forceAfterPush(base, T, 0) }));
+  const best = rows.reduce((a, b) => (Math.abs(b.diff) > Math.abs(a.diff) ? b : a)).pushSeconds;
+  return { rows, best };
 }

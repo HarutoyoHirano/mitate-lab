@@ -388,3 +388,107 @@ describe("テスト21の補足：正しい説明の線は、最悪ケースの�
     }
   });
 });
+
+// ---------- テスト23〜27：離した後の戻り・写真・初回の予想・押し方ごとの差 ----------
+import { dentAfterRelease, judgePhoto, recoveryParams, RECOVERY_TIMES, SHAPE_ERROR, SHAPE_TOLERANCE } from "../../server/model/recovery.js";
+import { midDiffers } from "../../server/session/session.js";
+import { pushSpeedTable } from "../../src/story.js";
+
+describe("テスト23：離した後の戻りの解析解が、微分方程式の数値積分と一致する", () => {
+  it("代表値・3つの押し方", () => {
+    for (const t of representativeTruths()) {
+      for (const T of [0.2, 1, 5]) {
+        const p = t.params;
+        // 押す→保つ（変形を指定）→離す（外力ゼロ）を、上乗せ分 σ1 と変形 x の微分方程式で数値積分する
+        const dt = 1e-4;
+        let x = 0;
+        let s1 = 0;
+        for (let time = 0; time < T + 20 - 1e-12; time += dt) {
+          const v = time < T ? 1 / T : 0;
+          x += v * dt;
+          s1 += (p.e1 * v - s1 / p.tau) * dt;
+        }
+        // 離した瞬間：外力ゼロになるよう瞬時に変形が戻る（σ1 も E1 倍だけ変わる）
+        const F = p.eInf * x + s1;
+        const jump = F / (p.eInf + p.e1);
+        x -= jump;
+        s1 -= p.e1 * jump;
+        const checks = new Map<number, number>();
+        for (let h = 0; h <= 6 + 1e-9; h += dt) {
+          for (const want of [0, 1, 3, 6]) if (Math.abs(h - want) < dt / 2) checks.set(want, x);
+          // 外力ゼロ：E∞x + σ1 = 0 を保ちながら σ1 が緩和する
+          const xdot = s1 / (p.tau * (p.eInf + p.e1)); // E∞ẋ + σ̇1 = 0, σ̇1 = E1ẋ − σ1/τ → ẋ = σ1/(τ(E∞+E1))
+          x += xdot * dt;
+          s1 = -p.eInf * x;
+        }
+        for (const [h, num] of checks) expect(dentAfterRelease(p, T as 1, h)).toBeCloseTo(num, 2);
+      }
+    }
+  });
+});
+
+describe("テスト24：形の戻りだけでは区別できない候補の組がある（力は違う）", () => {
+  it("E∞=2,E1=1 と E∞=1,E1=0.5", () => {
+    const H1 = { eInf: 2, e1: 1, tau: 1 };
+    const H2 = { eInf: 1, e1: 0.5, tau: 1 };
+    for (const h of [0, 0.5, 2, 5, 20]) expect(dentAfterRelease(H1, 1, h)).toBeCloseTo(dentAfterRelease(H2, 1, h), 9);
+    expect(recoveryParams(H1, 1).forceBefore - recoveryParams(H2, 1).forceBefore).toBeGreaterThan(0.9);
+  });
+});
+
+describe("テスト25：写真で違いが見える時刻があり、最後は区別できない（最悪の誤差でも）", () => {
+  it("隠れた範囲の全代表値・3つの押し方", () => {
+    for (const t of representativeTruths()) {
+      for (const T of [0.2, 1, 5] as const) {
+        const early = RECOVERY_TIMES.filter((h) => h >= 0.5 && h <= 6);
+        // 誤差を差が縮む側に最大まで置いても、どこかで判定幅を超える
+        const seen = early.some((h) => {
+          const d = dentAfterRelease(t.params, T, h) - dentAfterRelease(BASE, T, h);
+          const worst = d - Math.sign(d) * SHAPE_ERROR;
+          return judgePhoto(dentAfterRelease(BASE, T, h) + worst, dentAfterRelease(BASE, T, h)).distinguishable;
+        });
+        expect(seen).toBe(true);
+        // 40秒後は、誤差を差が広がる側に置いても判定幅の内側
+        const d40 = dentAfterRelease(t.params, T, 40) - dentAfterRelease(BASE, T, 40);
+        expect(Math.abs(d40) + SHAPE_ERROR).toBeLessThanOrEqual(SHAPE_TOLERANCE);
+      }
+    }
+  });
+  it("写真の判定はセッションの記録から計算される（新しい誤差を引かない）", () => {
+    const s = new Session("t", { seed: 4, cause: "relaxSlow", value: 3 });
+    s.saveCurvePrediction(1, "midDiffer", "");
+    const c = s.observeCurve(1, "c");
+    const p1 = s.takePhoto("c", 2);
+    const p2 = s.takePhoto("c", 2);
+    expect(p1.dentB).toBe(p2.dentB);
+    expect(p1.dentB).toBe(c.recovery.find((r) => r.h === 2)!.dent);
+    expect(() => s.takePhoto("c", 2.25)).toThrow();
+    expect(buildPartnerInput(s.publicView({ forGuidance: true }))).toContain("証拠写真");
+  });
+});
+
+describe("テスト26：初回の三択予想の正誤は、0.5・2・5秒後のどれかが許容差を超えたかで決まる", () => {
+  it("例", () => {
+    const pts = (d: number[]) => [0, 0.5, 2, 5, 20].map((recordAt, i) => ({ recordAt, force: 1 + (d[i] ?? 0), baseForce: 1 }));
+    expect(midDiffers(pts([0.5, 0, 0, 0, 0]))).toBe(false); // 押し終わりだけ違うのは「途中」ではない
+    expect(midDiffers(pts([0, 0, 0.04, 0, 0]))).toBe(true);
+    expect(midDiffers(pts([0, 0.02, -0.03, 0.01, 0.5]))).toBe(false); // 20秒後は含めない
+    const s = new Session("t", { seed: 11, cause: "relaxSlow", value: 3 });
+    s.saveCurvePrediction(1, "midDiffer", "");
+    expect(s.observeCurve(1, "c").predictionHit).toBe(true);
+  });
+});
+
+describe("テスト27：押し方ごとの差の表で、最も差が大きい押し方が計算と一致する", () => {
+  it("四つの原因の代表値", () => {
+    // 上乗せのかたさの違いは、すばやく押すと最も見えやすい。やわらぐ時間の違いは、すばやく押すとかえって見えにくい
+    const expectBest: Record<string, 0.2 | 1 | 5> = { instantUp: 0.2, instantDown: 0.2 };
+    for (const t of representativeTruths()) {
+      const tb = pushSpeedTable(t.params, BASE);
+      const manual = ([0.2, 1, 5] as const).reduce((a, b) => (Math.abs(forceAfterPush(t.params, b, 0) - forceAfterPush(BASE, b, 0)) > Math.abs(forceAfterPush(t.params, a, 0) - forceAfterPush(BASE, a, 0)) ? b : a));
+      expect(tb.best).toBe(manual);
+      if (expectBest[t.cause]) expect(tb.best).toBe(expectBest[t.cause]);
+      else expect(tb.best).not.toBe(0.2);
+    }
+  });
+});

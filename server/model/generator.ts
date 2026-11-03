@@ -3,6 +3,7 @@
 import { HIDDEN_CAUSES, type HiddenCauseId, type HiddenCauseSpec } from "../../scenarios/material1.js";
 import { BASE, ERROR, isPushSeconds, isRecordAt, RECORD_AT, type MaterialParams, type ObservationSpec, type PushSeconds } from "./public.js";
 import { forceAfterPush, forceDuringPush } from "./sls.js";
+import { dentAfterRelease, RECOVERY_TIMES, SHAPE_ERROR, type RecoveryPoint } from "./recovery.js";
 
 /** 再現できる乱数（mulberry32） */
 export function createRng(seed: number): () => number {
@@ -44,6 +45,8 @@ const HOLD_TIMES = [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12.5, 15, 
 
 export class ObservationGenerator {
   readonly #rng: () => number;
+  /** 形の記録用の乱数列（力の記録の乱数列を変えないよう別にする） */
+  readonly #shapeRng: () => number;
   readonly #cause: HiddenCauseSpec | null;
   readonly #truth: MaterialParams;
   readonly #seed: number;
@@ -51,6 +54,7 @@ export class ObservationGenerator {
   constructor(opts: GeneratorOptions) {
     this.#seed = opts.seed;
     this.#rng = createRng(opts.seed);
+    this.#shapeRng = createRng((opts.seed ^ 0x5eed5) >>> 0);
     if (opts.overrideParams) {
       this.#cause = null;
       this.#truth = { ...opts.overrideParams };
@@ -65,6 +69,13 @@ export class ObservationGenerator {
     if (value < lo || value > hi) throw new Error("真の値が原因の範囲外");
     this.#cause = cause;
     this.#truth = { ...BASE, [cause.param]: value };
+  }
+
+  /** 保持の後に離し、形の戻り（へこみ）を 0〜40 秒、0.5 秒ごとに記録する（各点に独立な有界一様誤差 ±SHAPE_ERROR） */
+  observeRecovery(material: "A" | "B", pushSeconds: PushSeconds): RecoveryPoint[] {
+    if (!isPushSeconds(pushSeconds)) throw new Error("許可されていない押し方");
+    const p = material === "A" ? BASE : this.#truth;
+    return RECOVERY_TIMES.map((h) => ({ h, dent: dentAfterRelease(p, pushSeconds, h) + (2 * this.#shapeRng() - 1) * SHAPE_ERROR }));
   }
 
   /** 一回押して、選んだ時刻の一点を記録する（有界一様誤差つき） */

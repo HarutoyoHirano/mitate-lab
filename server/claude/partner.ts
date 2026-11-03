@@ -102,6 +102,7 @@ export function buildPartnerInput(view: PublicSessionView): string {
       比較器で合わなくなった候補: c.excluded,
     })),
     学生が確認した説明: view.confirmedCandidates,
+    証拠写真_離した後のへこみ: view.photos.map((x) => ({ 観察ID: x.curveId, 離してからの秒数: x.h, Aのへこみ: Math.round(x.dentA * 1000) / 1000, Bのへこみ: Math.round(x.dentB * 1000) / 1000, 区別できる差: x.distinguishable })),
     本人の判断待ち: view.awaitingPick ? "最新の曲線について、学生がまだ「合わなくなった説明」を選んでいない。候補名・決着を言わず、観測の特徴を指して問い返す" : false,
     保存中の曲線の予想: view.pendingCurve,
     学生の言葉: view.studentWords.slice(-3),

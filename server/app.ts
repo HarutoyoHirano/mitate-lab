@@ -135,6 +135,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
         send(res, 200, { view: s.publicView() });
         return true;
       }
+      case "photo": {
+        s.takePhoto(String(body.curveId ?? ""), Number(body.h));
+        send(res, 200, { view: s.publicView() });
+        return true;
+      }
       case "confirm": {
         if (!isCandidateId(body.candidateId)) throw new SessionError("候補が正しくない");
         s.confirmCandidate(body.candidateId);

@@ -18,21 +18,39 @@ import {
   type PushSeconds,
 } from "../model/public.js";
 import { forceAfterPush } from "../model/sls.js";
+import { dentAfterRelease, judgePhoto, RECOVERY_TIMES, type RecoveryPoint } from "../model/recovery.js";
 import type { HiddenCauseId } from "../../scenarios/material1.js";
 import { templateHint, type Hint } from "./hints.js";
 
 /** 学生の予想：同じ押し方・時刻で、BはAと比べてどうなるか（「まだ分からない」も選べる） */
-export type PredictionChoice = "higher" | "same" | "lower" | "unknown";
-export const PREDICTION_CHOICES: readonly PredictionChoice[] = ["same", "higher", "lower", "unknown"];
+export type PredictionChoice = "higher" | "same" | "lower" | "unknown" | "midSame" | "midDiffer";
+export const PREDICTION_CHOICES: readonly PredictionChoice[] = ["same", "higher", "lower", "unknown", "midSame", "midDiffer"];
 export const PREDICTION_LABELS: Readonly<Record<PredictionChoice, string>> = {
   higher: "Aより大きい",
   same: "Aと同じくらい",
   lower: "Aより小さい",
   unknown: "まだ分からない",
+  midSame: "途中も同じ",
+  midDiffer: "途中は違うかも",
 };
 
+/** 初回の三択の正誤：0.5・2・5秒後のどれかで、差が許容差を超えたか（テスト26） */
+export function midDiffers(points: readonly { recordAt: number; force: number; baseForce: number }[]): boolean {
+  return points.filter((r) => r.recordAt > 0 && r.recordAt < 20).some((r) => !judgeAgainstBase(r.force, r.baseForce).indistinguishable);
+}
+
+/** 証拠写真：形の戻りの、選んだ時刻のAとBのへこみ */
+export interface Photo {
+  readonly curveId: string;
+  readonly h: number;
+  readonly dentA: number;
+  readonly dentB: number;
+  readonly diff: number;
+  readonly distinguishable: boolean;
+}
+
 /** 測った値と基準値の差を、予想と同じ言葉にする（許容差以内なら same） */
-export function directionOf(measured: number, base: number): Exclude<PredictionChoice, "unknown"> {
+export function directionOf(measured: number, base: number): "higher" | "same" | "lower" {
   const { diff, indistinguishable } = judgeAgainstBase(measured, base);
   return indistinguishable ? "same" : diff > 0 ? "higher" : "lower";
 }
@@ -68,7 +86,9 @@ export interface CurveRecord {
   readonly excluded: readonly CandidateId[];
   readonly evidenceIds: readonly string[];
   /** 押し終わり（h=0）の測定値と基準Aの差から決めた向き。予想の正誤はこれと比べる */
-  readonly endDirection: Exclude<PredictionChoice, "unknown">;
+  readonly endDirection: "higher" | "same" | "lower";
+  /** 離した後の形の戻り（Bの測定。比較器の証拠には使わない） */
+  readonly recovery: readonly RecoveryPoint[];
   /** 予想が当たったか（「まだ分からない」や予想なしは null） */
   readonly predictionHit: boolean | null;
   /** 本人が「この曲線で合わなくなった」と選んだ説明（"unsure"＝分からない、null＝まだ選んでいない） */
@@ -123,6 +143,7 @@ export class Session {
   #pendingCurve: CurvePrediction | null = null;
   readonly #curves: CurveRecord[] = [];
   readonly #confirmed: CandidateId[] = [];
+  readonly #photos: Photo[] = [];
   #hintStage: 1 | 2 | 3 | 4 = 1;
   #hintsUsed = 0;
   readonly #maxHints: number;
@@ -197,6 +218,16 @@ export class Session {
     );
     const end = b.evidence.find((m) => m.recordAt === 0)!;
     const endDirection = directionOf(end.force, forceAfterPush(BASE, pushSeconds, 0));
+    const recovery = this.#generator.observeRecovery("B", pushSeconds);
+    const mid = midDiffers(b.evidence.map((m) => ({ recordAt: m.recordAt, force: m.force, baseForce: forceAfterPush(BASE, pushSeconds, m.recordAt) })));
+    const hit =
+      p.choice === "unknown"
+        ? null
+        : p.choice === "midSame"
+          ? !mid
+          : p.choice === "midDiffer"
+            ? mid
+            : p.choice === endDirection;
     const rec: CurveRecord = {
       id: observationId,
       pushSeconds,
@@ -206,7 +237,8 @@ export class Session {
       excluded,
       evidenceIds: ids,
       endDirection,
-      predictionHit: p.choice === "unknown" ? null : p.choice === endDirection,
+      recovery,
+      predictionHit: hit,
       studentPick: null,
     };
     this.#curves.push(rec);
@@ -223,6 +255,21 @@ export class Session {
     const rec = { ...this.#curves[i]!, studentPick: pick === "unsure" ? "unsure" : [...new Set(pick)] } as CurveRecord;
     this.#curves[i] = rec;
     return rec;
+  }
+
+  /** 証拠写真を撮る：形の戻りの記録から、選んだ時刻のAとBのへこみを残す（記録した値から判定。新しい誤差は引かない） */
+  takePhoto(curveId: string, h: number): Photo {
+    this.#assertOpen();
+    const c = this.#curves.find((x) => x.id === curveId);
+    if (!c) throw new SessionError("その曲線は見つかりません", 404);
+    const idx = RECOVERY_TIMES.findIndex((t) => Math.abs(t - h) < 1e-9);
+    if (idx < 0) throw new SessionError("その時刻は記録にありません");
+    const dentB = c.recovery[idx]!.dent;
+    const dentA = dentAfterRelease(BASE, c.pushSeconds, h);
+    const j = judgePhoto(dentB, dentA);
+    const photo: Photo = { curveId, h, dentA, dentB, diff: j.diff, distinguishable: j.distinguishable };
+    this.#photos.push(photo);
+    return photo;
   }
 
   /** 本人が確認した候補（言葉→候補の翻訳を確かめたもの）。Claudeへの入力に含める */
@@ -368,6 +415,7 @@ export class Session {
       // 判断待ちの曲線は、手がかり・Claude向けには比較器の結果を伏せる（測った値そのものは見せてよい）
       curves: this.#curves.map((c, i) => (guide && i === this.#curves.length - 1 ? { ...c, excluded: [] } : { ...c })),
       awaitingPick: this.awaitingPick,
+      photos: this.#photos.map((x) => ({ ...x })),
       observationCount: this.#curves.length + this.#records.filter((r) => !r.id.includes("@")).length - 1,
       hintStage: this.#hintStage,
       hintsLeft: this.#maxHints - this.#hintsUsed,
@@ -482,6 +530,7 @@ export interface PublicSessionView {
   readonly curves: readonly CurveRecord[];
   /** 本人が最新の曲線について判断する前か */
   readonly awaitingPick: boolean;
+  readonly photos: readonly Photo[];
   readonly observationCount: number;
   readonly hintStage: number;
   readonly hintsLeft: number;
