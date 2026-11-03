@@ -50,8 +50,14 @@ export function circuitSvg(lens: Lens): string {
     <path d="M300 80 H330 M410 80 H440" stroke="var(--ink)" stroke-width="2"/>
     <path d="M330 68 V92 M340 68 V92" stroke="var(--ink)" stroke-width="3"/>
     <path d="M340 80 H410" stroke="var(--ink)" stroke-width="2"/>
-    <path d="M300 80 V160 H330 l5 -8 l10 16 l10 -16 l10 16 l10 -16 l10 16 l5 -8 H440 V80" stroke="var(--ink)" stroke-width="2" fill="none"/>
-    ${m ? `<path d="M440 160 V210" stroke="var(--ink)" stroke-width="2"/><path d="M455 176 H475 M460 186 H470" stroke="var(--ink)" stroke-width="3"/><text x="452" y="206" font-size="12" fill="var(--ink)">電池</text>` : ""}
+    ${
+      m
+        ? `<path d="M300 80 V160 H330 l5 -8 l10 16 l10 -16 l10 16 l10 -16 l10 16 l5 -8 H400" stroke="var(--ink)" stroke-width="2" fill="none"/>
+    <path d="M404 146 V174" stroke="var(--ink)" stroke-width="3"/><path d="M412 152 V168" stroke="var(--ink)" stroke-width="3"/>
+    <path d="M412 160 H440 V80" stroke="var(--ink)" stroke-width="2" fill="none"/>
+    <text x="398" y="140" font-size="12" fill="var(--ink)" class="tag-swap">電池</text>`
+        : `<path d="M300 80 V160 H330 l5 -8 l10 16 l10 -16 l10 16 l10 -16 l10 16 l5 -8 H440 V80" stroke="var(--ink)" stroke-width="2" fill="none"/>`
+    }
     ${lab(310, 110, "コンデンサ C1（上乗せのかたさ）", "膜（電荷をためる）")}
     ${lab(306, 182, "抵抗 R（ねばり）", "イオンの通りにくさ")}
     ${m ? `<text x="60" y="238" font-size="12" fill="var(--ink-soft)">電池＝イオンの濃さの差がつくる基準の電位</text>` : `<text x="60" y="238" font-size="12" fill="var(--ink-soft)">点線の中＝上乗せ分（時定数＝R×C1）</text>`}

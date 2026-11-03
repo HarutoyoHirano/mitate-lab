@@ -1,5 +1,5 @@
 // 試験台（素材と押し棒）と、記録のグラフを描く。真のモデルの曲線は描かない。
-import { BASE, CANDIDATES, PUSH_SECONDS, RECORD_AT, type CandidateId, type ObservationSpec } from "../server/model/public.js";
+import { BASE, PUSH_SECONDS, RECORD_AT, type CandidateId, type ObservationSpec } from "../server/model/public.js";
 import { forceAfterPush } from "../server/model/sls.js";
 import type { PublicSessionView } from "./api.js";
 
@@ -10,38 +10,49 @@ export const CAND_COLOR: Record<CandidateId, string> = {
   same: "var(--same)",
 };
 
-export const TIME_LABEL: Record<number, string> = { 0: "直後", 0.5: "0.5秒後", 2: "2秒後", 5: "5秒後", 20: "20秒後" };
+export const TIME_LABEL: Record<number, string> = { 0: "押し終わった瞬間", 0.5: "0.5秒後", 2: "2秒後", 5: "5秒後", 20: "20秒後" };
+export const TIME_SHORT: Record<number, string> = { 0: "瞬間", 0.5: "0.5秒後", 2: "2秒後", 5: "5秒後", 20: "20秒後" };
+export const SPEED_LABEL: Record<number, string> = { 0.2: "すばやく", 1: "ふつう", 5: "ゆっくり" };
 
-/** 試験台：同じ見た目の二つの素材と押し棒。press は 0（上）〜1（押し込み） */
-export function benchSvg(target: "A" | "B", press: number): string {
-  const squish = 0.22 * press;
-  const block = (x: number, label: string, active: boolean) => {
-    const h = 70 * (1 - squish * (active ? 1 : 0));
-    const w = 96 * (1 + squish * 0.35 * (active ? 1 : 0));
-    const y = 150 - h;
-    const cx = x + 48;
+export function specLabel(s: ObservationSpec): string {
+  return `${SPEED_LABEL[s.pushSeconds]}（${s.pushSeconds}秒）押して、${TIME_LABEL[s.recordAt]}`;
+}
+
+/** 試験台。target の素材を押し棒が押す（both は導入の場面で二本同時）。press は 0〜1 */
+export function benchSvg(target: "A" | "B" | "both", press: number, flash = false): string {
+  const squish = 0.24 * press;
+  const pressed = (k: "A" | "B") => target === "both" || target === k;
+  const block = (cx: number, label: string, active: boolean) => {
+    const s = active ? squish : 0;
+    const h = 84 * (1 - s);
+    const w = 118 * (1 + s * 0.4);
+    const y = 178 - h;
     return `
       <g>
-        <rect x="${cx - w / 2}" y="${y}" width="${w}" height="${h}" rx="14" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2"/>
-        <path d="M ${cx - w / 2 + 12} ${y + 12} q ${w * 0.25} -6 ${w * 0.45} 0" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.7"/>
-        <text x="${cx}" y="176" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">${label}</text>
+        <ellipse cx="${cx}" cy="180" rx="${w / 2 + 6}" ry="5" fill="#000" opacity="0.08"/>
+        <rect x="${cx - w / 2}" y="${y}" width="${w}" height="${h}" rx="18" fill="var(--gel)" stroke="var(--gel-edge)" stroke-width="2.5"/>
+        <path d="M ${cx - w / 2 + 16} ${y + 15} q ${w * 0.22} -7 ${w * 0.42} 0" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.75"/>
+        <circle cx="${cx + w / 2 - 22}" cy="${y + h - 20}" r="4" fill="#fff" opacity="0.5"/>
+        <g transform="translate(${cx - 16}, 196)">
+          <rect width="32" height="24" rx="5" fill="var(--ink)"/>
+          <text x="16" y="17" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">${label}</text>
+        </g>
       </g>`;
   };
-  const ax = target === "A" ? 40 : 184;
-  const rodTop = 10;
-  // 押し棒の先：押す前は素材の少し上、押し込むと素材の上面と一緒に下がる
-  const blockTop = 150 - 70 * (1 - squish);
-  const tipBottom = press <= 0 ? 66 : 66 + (blockTop - 66) * Math.min(1, press * 4);
-  const y = tipBottom - 8;
+  const rod = (cx: number, active: boolean) => {
+    const top = 178 - 84 * (1 - (active ? squish : 0));
+    const tip = active && press > 0 ? 70 + (top - 70) * Math.min(1, press * 3) : 70;
+    return `<g><rect x="${cx - 5}" y="8" width="10" height="${tip - 16}" fill="var(--ink-soft)"/>
+      <rect x="${cx - 26}" y="${tip - 10}" width="52" height="10" rx="3" fill="var(--ink)"/></g>`;
+  };
+  const rods = target === "both" ? rod(90, true) + rod(250, true) : rod(target === "A" ? 90 : 250, true);
   return `
-    <svg viewBox="0 0 320 190" role="img" aria-label="試験台：素材Aと素材Bと押し棒">
-      <rect x="10" y="150" width="300" height="10" fill="var(--steel)"/>
-      ${block(40, "A", target === "A")}
-      ${block(184, "B", target === "B")}
-      <g>
-        <rect x="${ax + 44}" y="${rodTop}" width="8" height="${y - rodTop}" fill="var(--ink-soft)"/>
-        <rect x="${ax + 28}" y="${y}" width="40" height="8" rx="2" fill="var(--ink)"/>
-      </g>
+    <svg viewBox="0 0 340 230" role="img" aria-label="試験台：見た目がそっくりな素材AとB">
+      <rect x="12" y="178" width="316" height="12" rx="2" fill="var(--steel)"/>
+      ${block(90, "A", pressed("A"))}
+      ${block(250, "B", pressed("B"))}
+      ${rods}
+      ${flash ? `<rect class="flash" x="0" y="0" width="340" height="230" fill="#fff"/>` : ""}
     </svg>`;
 }
 
@@ -49,95 +60,142 @@ interface PanelOpts {
   view: PublicSessionView;
   pushSeconds: number;
   selected: ObservationSpec | null;
+  pin: number | null;
   yMin: number;
   yMax: number;
+  big: boolean;
+  freshId: string | null;
 }
 
 function panelSvg(o: PanelOpts): string {
-  const W = 200;
-  const H = 230;
-  const L = 32;
-  const R = 6;
-  const T = 26;
-  const B = 30;
-  const xs = (i: number) => L + ((W - L - R) * (i + 0.5)) / RECORD_AT.length;
-  const half = (W - L - R) / RECORD_AT.length / 2;
+  const W = o.big ? 560 : 200;
+  const H = o.big ? 300 : 150;
+  const L = o.big ? 46 : 28;
+  const R = 8;
+  const T = o.big ? 14 : 22;
+  const B = o.big ? 34 : 22;
+  const n = RECORD_AT.length;
+  const colW = (W - L - R) / n;
+  const xs = (i: number) => L + colW * (i + 0.5);
   const ys = (v: number) => T + (H - T - B) * (1 - (v - o.yMin) / (o.yMax - o.yMin));
   const idx = (t: number) => (RECORD_AT as readonly number[]).indexOf(t);
-  const ticks: string[] = [];
+  const fs = o.big ? 12 : 9;
   const step = o.yMax - o.yMin > 1.5 ? 0.5 : 0.25;
+  const ticks: string[] = [];
   for (let v = Math.ceil(o.yMin / step) * step; v <= o.yMax + 1e-9; v += step) {
-    ticks.push(`<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/>
-      <text x="${L - 4}" y="${ys(v) + 4}" font-size="10" text-anchor="end" fill="var(--ink-soft)">${v.toFixed(step < 0.5 ? 2 : 1)}</text>`);
+    ticks.push(`<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/>`);
+    if (o.big) ticks.push(`<text x="${L - 6}" y="${ys(v) + 4}" font-size="${fs}" text-anchor="end" fill="var(--ink-soft)">${v.toFixed(2)}</text>`);
   }
+  // 列（クリックすると、その時刻を選んで予想ピンを置ける）
+  const cols = RECORD_AT.map((t, i) => {
+    const isSel = o.selected && o.selected.pushSeconds === o.pushSeconds && o.selected.recordAt === t;
+    return `<rect class="col${isSel ? " sel" : ""}" data-col="${t}" x="${L + colW * i + 1}" y="${T}" width="${colW - 2}" height="${H - T - B}" rx="6"/>`;
+  }).join("");
   const xlabels = RECORD_AT.map(
-    (t, i) => `<text x="${xs(i)}" y="${H - 12}" font-size="9.5" text-anchor="middle" fill="var(--ink-soft)">${t === 0 ? "直後" : t + "秒"}</text>`,
+    (t, i) => `<text x="${xs(i)}" y="${H - (o.big ? 12 : 7)}" font-size="${fs}" text-anchor="middle" fill="var(--ink-soft)">${o.big ? TIME_SHORT[t] : t === 0 ? "瞬間" : `${t}`}</text>`,
   ).join("");
-  // 基準カードの値（Aの公開値）：短い横線
+  const half = colW / 2;
+  // Aの基準カードの値（公開）：点線
   const baseMarks = RECORD_AT.map((t, i) => {
     const v = forceAfterPush(BASE, o.pushSeconds, t);
-    return `<line x1="${xs(i) - half + 3}" x2="${xs(i) + half - 3}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="3 2"/>`;
+    return `<line x1="${xs(i) - half + 6}" x2="${xs(i) + half - 6}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="4 3"/>`;
   }).join("");
-  // 選んだ観察の位置
-  let sel = "";
-  if (o.selected && o.selected.pushSeconds === o.pushSeconds) {
-    const i = idx(o.selected.recordAt);
-    sel = `<rect x="${xs(i) - half}" y="${T}" width="${2 * half}" height="${H - T - B}" fill="var(--claude-wash)" opacity="0.8"/>`;
-  }
-  // 予測の帯（保存した予想の押し方・時刻について）
+  // 予測の帯（保存した予想について、候補ごと）
   let bands = "";
   const pend = o.view.pendingPrediction;
-  if (pend && pend.pushSeconds === o.pushSeconds) {
+  if (o.big && pend && pend.pushSeconds === o.pushSeconds) {
     const i = idx(pend.recordAt);
-    const n = o.view.predictionBands.length;
+    const nb = o.view.predictionBands.length;
     bands = o.view.predictionBands
       .map((b, k) => {
-        const x = xs(i) - half + 2 + ((2 * half - 4) * (k + 0.5)) / Math.max(n, 1) - 3;
+        const x = xs(i) + half - 10 - (nb - k) * 8;
         const y1 = ys(Math.min(b.high, o.yMax));
         const y2 = ys(Math.max(b.low, o.yMin));
-        return `<rect x="${x}" y="${y1}" width="6" height="${Math.max(2, y2 - y1)}" fill="${CAND_COLOR[b.id]}" opacity="0.55"><title>${CANDIDATES[b.id].label}なら、この範囲</title></rect>`;
+        return `<rect x="${x}" y="${y1}" width="6" height="${Math.max(2, y2 - y1)}" rx="2" fill="${CAND_COLOR[b.id]}" opacity="0.6"/>`;
       })
       .join("");
   }
-  // Aの測定：白抜きの丸
+  // 予想ピン
+  let pin = "";
+  if (o.big && o.pin !== null && o.selected && o.selected.pushSeconds === o.pushSeconds) {
+    const x = xs(idx(o.selected.recordAt)) - 18;
+    const y = ys(Math.max(o.yMin, Math.min(o.yMax, o.pin)));
+    pin = `<g class="pin"><line x1="${x - 14}" x2="${x + 14}" y1="${y}" y2="${y}" stroke="var(--claude)" stroke-width="2.5"/>
+      <path d="M ${x} ${y} l -7 -16 a 8 8 0 1 1 14 0 z" fill="var(--claude)"/><circle cx="${x}" cy="${y - 19}" r="3" fill="#fff"/>
+      <text x="${x + 18}" y="${y - 6}" font-size="12" fill="var(--claude)" font-weight="700">予想</text></g>`;
+  }
   const aPts = o.view.measuredA
     .filter((m) => m.pushSeconds === o.pushSeconds)
-    .map((m) => `<circle cx="${xs(idx(m.recordAt)) - 6}" cy="${ys(m.force)}" r="4" fill="#fff" stroke="var(--ink)" stroke-width="2"><title>Aの記録</title></circle>`)
+    .map((m) => `<circle cx="${xs(idx(m.recordAt)) - (o.big ? 10 : 6)}" cy="${ys(m.force)}" r="${o.big ? 5 : 3.5}" fill="#fff" stroke="var(--ink)" stroke-width="2"/>`)
     .join("");
-  // Bの記録：塗りつぶした四角＋誤差のひげ
   const bPts = o.view.records
     .filter((r) => r.pushSeconds === o.pushSeconds)
     .map((r) => {
-      const x = xs(idx(r.recordAt)) + 6;
+      const x = xs(idx(r.recordAt)) + (o.big ? 10 : 6);
       const e = o.view.error;
-      return `<g><line x1="${x}" x2="${x}" y1="${ys(r.force + e)}" y2="${ys(r.force - e)}" stroke="var(--ink)" stroke-width="1.5"/>
-        <rect x="${x - 4}" y="${ys(r.force) - 4}" width="8" height="8" fill="var(--ink)"><title>Bの記録 ${r.id}</title></rect></g>`;
+      const s = o.big ? 10 : 7;
+      return `<g class="${r.id === o.freshId ? "pop" : ""}" style="transform-origin:${x}px ${ys(r.force)}px">
+        <line x1="${x}" x2="${x}" y1="${ys(r.force + e)}" y2="${ys(r.force - e)}" stroke="var(--ink)" stroke-width="2"/>
+        <rect x="${x - s / 2}" y="${ys(r.force) - s / 2}" width="${s}" height="${s}" fill="var(--ink)"/></g>`;
     })
     .join("");
+  const title = o.big ? "" : `<text x="${L}" y="14" font-size="11" font-weight="700" fill="var(--ink)">${SPEED_LABEL[o.pushSeconds]}（${o.pushSeconds}秒）</text>`;
   return `
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.pushSeconds}秒かけて押したときの記録">
-      <text x="${L}" y="16" font-size="12" font-weight="700" fill="var(--ink)">${o.pushSeconds}秒かけて押す</text>
-      ${ticks.join("")}
+    <svg viewBox="0 0 ${W} ${H}" class="${o.big ? "big-graph" : "mini-graph"}" data-push="${o.pushSeconds}"
+      data-ymin="${o.yMin}" data-ymax="${o.yMax}" data-top="${T}" data-bottom="${H - B}" data-h="${H}"
+      role="img" aria-label="${SPEED_LABEL[o.pushSeconds]}押したときの記録">
+      ${title}${ticks.join("")}${o.big ? cols : ""}
       <line x1="${L}" x2="${L}" y1="${T}" y2="${H - B}" stroke="var(--ink-soft)"/>
-      ${sel}${baseMarks}${bands}${aPts}${bPts}${xlabels}
+      ${baseMarks}${bands}${aPts}${bPts}${pin}${xlabels}
     </svg>`;
 }
 
-export function graphHtml(view: PublicSessionView, selected: ObservationSpec | null): string {
+export function yRange(view: PublicSessionView): { yMin: number; yMax: number } {
   const values: number[] = [];
   for (const T of PUSH_SECONDS) for (const t of RECORD_AT) values.push(forceAfterPush(BASE, T, t));
   for (const r of view.records) values.push(r.force + view.error);
   for (const m of view.measuredA) values.push(m.force);
-  for (const b of view.predictionBands) values.push(Math.min(b.high, 4));
-  const yMax = Math.ceil((Math.max(...values) + 0.1) * 4) / 4;
-  const yMin = 0.75;
+  const yMax = Math.min(3.5, Math.ceil((Math.max(...values) + 0.25) * 4) / 4);
+  return { yMin: 0.75, yMax };
+}
+
+export function graphHtml(view: PublicSessionView, selected: ObservationSpec, pin: number | null, freshId: string | null): string {
+  const { yMin, yMax } = yRange(view);
+  const big = panelSvg({ view, pushSeconds: selected.pushSeconds, selected, pin, yMin, yMax, big: true, freshId });
+  const minis = PUSH_SECONDS.map((T) => `<button class="mini ${T === selected.pushSeconds ? "on" : ""}" data-set="push" data-val="${T}" aria-label="${SPEED_LABEL[T]}押した記録を大きく見る">${panelSvg({ view, pushSeconds: T, selected, pin: null, yMin, yMax, big: false, freshId })}</button>`).join("");
   return `
-    <div class="panels">${PUSH_SECONDS.map((T) => panelSvg({ view, pushSeconds: T, selected, yMin, yMax })).join("")}</div>
+    <div class="big-wrap">${big}</div>
     <div class="legend">
-      <span><svg width="22" height="10"><line x1="0" x2="22" y1="5" y2="5" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="3 2"/></svg>Aの基準カードの値</span>
+      <span><svg width="22" height="10"><line x1="0" x2="22" y1="5" y2="5" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="4 3"/></svg>Aの基準カードの値</span>
       <span><svg width="12" height="12"><circle cx="6" cy="6" r="4.5" fill="#fff" stroke="var(--ink)" stroke-width="2"/></svg>Aの記録</span>
-      <span><svg width="12" height="12"><rect x="1.5" y="1.5" width="9" height="9" fill="var(--ink)"/></svg>Bの記録（縦線は誤差の範囲 ±${view.error}）</span>
-      <span>縦の色帯：予想を保存した観察で、候補ごとに予測される範囲</span>
+      <span><svg width="12" height="14"><line x1="6" x2="6" y1="0" y2="14" stroke="var(--ink)" stroke-width="2"/><rect x="1.5" y="2.5" width="9" height="9" fill="var(--ink)"/></svg>Bの記録（縦線は誤差 ±${view.error}）</span>
+      <span><svg width="10" height="14"><rect x="2" y="0" width="6" height="14" rx="2" fill="var(--relax)" opacity="0.6"/></svg>候補ごとの予測の範囲</span>
     </div>
-    <p class="note">点はどれも、別々に押して記録した一点です。点どうしを線で結んでいません。横軸は押し終わってからの時間です。</p>`;
+    <div class="minis">${minis}</div>`;
+}
+
+/** 解説：Bの5時刻（1秒で押したとき）とAの基準値 */
+export function revealSvg(points: readonly { recordAt: number; force: number }[]): string {
+  const W = 520;
+  const H = 240;
+  const L = 46;
+  const R = 10;
+  const T = 16;
+  const B = 34;
+  const vals = [...points.map((p) => p.force), ...RECORD_AT.map((t) => forceAfterPush(BASE, 1, t))];
+  const yMin = 0.75;
+  const yMax = Math.ceil((Math.max(...vals) + 0.2) * 4) / 4;
+  const colW = (W - L - R) / RECORD_AT.length;
+  const xs = (t: number) => L + colW * ((RECORD_AT as readonly number[]).indexOf(t) + 0.5);
+  const ys = (v: number) => T + (H - T - B) * (1 - (v - yMin) / (yMax - yMin));
+  const a = RECORD_AT.map((t) => `${xs(t)},${ys(forceAfterPush(BASE, 1, t))}`).join(" ");
+  const b = points.map((p) => `${xs(p.recordAt)},${ys(p.force)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="答え合わせ：ふつうに押したときのAとB">
+    ${[1, 1.5, 2, 2.5, 3].filter((v) => v <= yMax).map((v) => `<line x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/><text x="${L - 6}" y="${ys(v) + 4}" font-size="11" text-anchor="end" fill="var(--ink-soft)">${v.toFixed(1)}</text>`).join("")}
+    <polyline points="${a}" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="5 4"/>
+    <polyline points="${b}" fill="none" stroke="var(--ink)" stroke-width="2.5"/>
+    ${points.map((p) => `<rect x="${xs(p.recordAt) - 5}" y="${ys(p.force) - 5}" width="10" height="10" fill="var(--ink)"/>`).join("")}
+    ${RECORD_AT.map((t) => `<text x="${xs(t)}" y="${H - 12}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">${TIME_SHORT[t]}</text>`).join("")}
+    <text x="${W - R}" y="${T + 10}" font-size="12" text-anchor="end" fill="var(--ink-soft)">点線：A　実線：B（終了後にだけ見せる、5時刻まとめた記録）</text>
+  </svg>`;
 }
