@@ -324,14 +324,14 @@ export function membraneSvg(perm: Permeability, t: number | null): string {
   const pot = s.potential;
   const meter = `<g>
       <line x1="${R0 - 40}" x2="${R0 - 40}" y1="20" y2="${MY - 40}" stroke="var(--ink)" stroke-width="2"/>
-      <text x="${R0 - 36}" y="${MY - 44}" font-size="10" fill="var(--ink)">測る電極（外）</text>
+      <text x="${R0 - 44}" y="${MY - 44}" font-size="10" fill="var(--ink)" text-anchor="end">測る電極（外）</text>
       <text x="${R0 - 66}" y="${MY + 76}" font-size="10" fill="var(--ink)">測る電極（中）</text>
       <line x1="${R0 - 70}" x2="${R0 - 70}" y1="20" y2="${MY + 58}" stroke="var(--ink)" stroke-width="2"/>
       <circle cx="${R0 - 70}" cy="${MY + 60}" r="3.5" fill="var(--ink)"/>
       <rect x="${R0 - 150}" y="2" width="146" height="22" rx="4" fill="var(--ink)"/>
       <text x="${R0 - 77}" y="17" font-size="11.5" font-weight="700" text-anchor="middle" fill="#fff" font-variant-numeric="tabular-nums">膜電位 ${pot.toFixed(2)}（基準 −1）</text>
       <line x1="${L0 + 40}" x2="${L0 + 40}" y1="20" y2="${MY + 58}" stroke="${s.injecting && t !== null ? "var(--hanko)" : "var(--ink-soft)"}" stroke-width="2"/>
-      <text x="${L0 + 46}" y="16" font-size="11.5" fill="${s.injecting && t !== null ? "var(--hanko)" : "var(--ink-soft)"}">${s.injecting && t !== null ? "中へ＋の電荷を送り込んでいる（電流を入れている）" : "電流を入れる電極（中へ＋の電荷を送り込む）"}</text>
+      <text x="${L0 + 46}" y="16" font-size="11.5" fill="${s.injecting && t !== null ? "var(--hanko)" : "var(--ink-soft)"}">${s.injecting && t !== null ? "中へ＋を送り込み中（電流）" : "電流を入れる電極"}</text>
     </g>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="神経細胞の膜の一部分を拡大した図：膜の内外の電荷、イオンの通り道、膜電位を測る電極">
     <rect x="${L0}" y="40" width="${R0 - L0}" height="${MY - 40 - 24}" fill="#eaf4fb"/>
@@ -339,8 +339,8 @@ export function membraneSvg(perm: Permeability, t: number | null): string {
     <text x="${L0 + 6}" y="56" font-size="12" fill="var(--ink-soft)">細胞の外</text>
     <text x="${L0 + 6}" y="${H - 66}" font-size="12" fill="var(--ink-soft)">細胞の中</text>
     ${lipids.join("")}${channels}${charges.join("")}${arrows}${meter}${neuron}
-    <text x="14" y="${H - 44}" font-size="12" fill="var(--ink)"><tspan fill="#c99643" font-weight="700">黄：膜（脂質の二重の層）</tspan>　<tspan fill="var(--relax)" font-weight="700">緑：イオンの通り道（${n}本）</tspan>　<tspan fill="#1f78b4" font-weight="700">青の矢印：膜を通る電流の合計（＋の電荷が中から外へ）</tspan></text>
-    <text x="14" y="${H - 26}" font-size="11.5" fill="var(--ink-soft)">＋と−：膜をはさんで向かい合う電荷（ふだんは中が−）。電流を入れると中の−が打ち消され、組が減って膜電位が上がる</text>
-    <text x="14" y="${H - 9}" font-size="11.5" fill="var(--ink-soft)">電位は目盛りだけの値（基準の電位を−1とした）。受け身の膜の模型：通りやすさは一定、イオンの種類は区別しない</text>
+    <text x="14" y="${H - 44}" font-size="12" fill="var(--ink)"><tspan fill="#c99643" font-weight="700">黄：膜</tspan>　<tspan fill="var(--relax)" font-weight="700">緑：イオンの通り道（${n}本）</tspan>　<tspan fill="#1f78b4" font-weight="700">青の矢印：膜を通る電流の合計（＋が中→外）</tspan></text>
+    <text x="14" y="${H - 26}" font-size="11.5" fill="var(--ink-soft)">＋と−：膜をはさんで向かい合う電荷。電流を入れると中の−が打ち消され、組が減る</text>
+    <text x="14" y="${H - 9}" font-size="11.5" fill="var(--ink-soft)">電位は目盛りだけの値（基準−1）。受け身の膜の模型（通りやすさ一定、イオンの種類は区別しない）</text>
   </svg>`;
 }
