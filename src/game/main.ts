@@ -31,7 +31,7 @@ import { curveGraphSvg, HOLD_MAX } from "../curve.js";
 import { CAND_COLOR } from "../draw.js";
 import { carrySvg, thoughtSvg } from "../act2.js";
 import { pushSpeedTable, storyFor } from "../story.js";
-import { diffMeterSvg, memGraphSvg, membraneCameraSvg, padCameraSvg, recoveryMiniSvg, robotSvg, type Mood, type PadState } from "./draw.js";
+import { diffMeterSvg, factorySvg, memGraphSvg, membraneCameraSvg, padCameraSvg, recoveryMiniSvg, robotSvg, type Mood, type PadState } from "./draw.js";
 
 type Screen = "title" | "c1-verdict" | "c1-run" | "c1-camera" | "c1-why" | "c1-reveal" | "c2" | "bridge" | "c3-camera" | "c3-why" | "c3-duel" | "finale";
 type Push = 0.2 | 1 | 5;
@@ -190,8 +190,16 @@ function curve() {
 // ---------- 画面 ----------
 function renderTitle(): string {
   return `<section class="title">
-    ${kicker("CASE FILE / 検査ロボの盲点", "同じに見える。<br>でも、測り方を変えると違う。", "体に触れる柔らかい仮想のパッドA・B。押して20秒後の力は、いつもの検査では区別できない。押している途中も、離したあとの戻り方も同じ？")}
-    ${robot("私はKENSA-07。押して20秒後の力で、パッドを見分けます。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
+    ${kicker("CASE FILE / 検査ロボの盲点", "同じに見える。<br>でも、測り方を変えると違う。", "体に触れる柔らかいパッドA・B（仮想の素材）。押して20秒後の力は、いつもの検査では区別できない。押している途中も、離したあとの戻り方も同じ？")}
+    <div class="card factory-card">
+      ${factorySvg()}
+      <div class="story">
+        <p><strong>ここは</strong>柔らかいパッドを作る工場（仮想）。できたパッドは、検査ロボ KENSA-07 が一つずつ調べる。</p>
+        <p><strong>ロボの検査</strong>パッドを押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
+        <p><strong>事件</strong>新しい作り方のパッドBが届いた。ロボの判定は「見本と区別できません」。……本当に同じ？ ロボが見ていないところを調べるのが、あなたの仕事。</p>
+      </div>
+    </div>
+    ${robot("私はKENSA-07。決まった手順（押して20秒後の力）でパッドを見分ける検査ロボです。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
     <div class="title-grid">
       <div class="card">
         <h2>あなたの任務</h2>

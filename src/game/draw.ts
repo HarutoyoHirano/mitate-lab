@@ -224,3 +224,41 @@ export function diffMeterSvg(diff: number, kind: "robot" | "hidden" | "final", p
 }
 
 export { BASE_MEM };
+
+/**
+ * 開幕の場面：柔らかいパッドの工場の検査台。ベルトで運ばれてくるパッドを、検査ロボが一つずつ押して、
+ * 20秒後の力を見本と比べる（アニメーションは CSS。動きを減らす設定では止まる）。
+ */
+export function factorySvg(): string {
+  const pad = (x: number, label: string, cls = "") =>
+    `<g class="${cls}" transform="translate(${x} 0)"><rect x="0" y="176" width="74" height="30" rx="9" fill="var(--g-pad-b)" stroke="var(--g-pad-b-edge)" stroke-width="2"/><text x="37" y="196" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">${label}</text></g>`;
+  return `<svg viewBox="0 0 760 250" class="factory" role="img" aria-label="パッド工場の検査台：ベルトで運ばれてくるパッドを、検査ロボKENSA-07が押して、20秒後の力を見本と比べる">
+    <!-- 見本の台 -->
+    <rect x="18" y="206" width="110" height="10" rx="3" fill="var(--g-steel)"/>
+    <rect x="36" y="176" width="74" height="30" rx="9" fill="var(--g-pad-a)" stroke="var(--g-pad-a-edge)" stroke-width="2"/>
+    <text x="73" y="196" text-anchor="middle" font-size="12" font-weight="700" fill="var(--g-ink)">見本A</text>
+    <text x="73" y="234" text-anchor="middle" font-size="12" fill="var(--g-soft)">基準の値 1.00</text>
+    <!-- ベルト -->
+    <rect x="160" y="206" width="580" height="12" rx="6" fill="var(--g-steel-dark)"/>
+    ${[176, 260, 344, 428, 512, 596, 680, 724].map((x) => `<circle cx="${x}" cy="212" r="4" fill="var(--g-steel)"/>`).join("")}
+    <g class="belt">${pad(180, "パッド")}${pad(560, "パッド")}${pad(660, "パッド")}</g>
+    <!-- 検査の位置のパッド（いま押されている） -->
+    <g class="under-test">${pad(398, "試料B")}</g>
+    <!-- 検査ロボ -->
+    <g transform="translate(402 4)">${robotSvg("calm").replace('width="58" height="54"', 'width="68" height="64"')}</g>
+    <rect x="356" y="66" width="160" height="12" rx="4" fill="var(--g-steel-dark)"/>
+    <rect x="368" y="78" width="8" height="128" fill="var(--g-steel)"/>
+    <rect x="496" y="78" width="8" height="128" fill="var(--g-steel)"/>
+    <g class="press"><rect x="431" y="78" width="10" height="70" fill="var(--g-steel)"/><rect x="402" y="146" width="68" height="12" rx="3" fill="var(--g-steel-dark)"/></g>
+    <!-- 表示 -->
+    <g transform="translate(530 40)">
+      <rect width="210" height="96" rx="10" fill="var(--g-screen)"/>
+      <text x="14" y="24" font-size="12" fill="var(--g-on-screen)">KENSA-07 の検査</text>
+      <text x="14" y="46" font-size="13" font-weight="700" fill="var(--g-accent)" class="step s1">① 押す</text>
+      <text x="80" y="46" font-size="13" font-weight="700" fill="var(--g-accent)" class="step s2">② 20秒待つ</text>
+      <text x="14" y="66" font-size="13" font-weight="700" fill="var(--g-accent)" class="step s3">③ 力を読む 1.00</text>
+      <text x="14" y="86" font-size="13" font-weight="700" fill="var(--g-warn)" class="step s4">④ 見本と区別できません</text>
+    </g>
+    <text x="436" y="240" text-anchor="middle" font-size="12" fill="var(--g-soft)">検査の位置</text>
+  </svg>`;
+}
