@@ -5,18 +5,21 @@ import { defineConfig, type Plugin } from "vite";
 function apiPlugin(): Plugin {
   return {
     name: "mikata-api",
-    async configureServer(server) {
+    configureServer(server) {
       if (existsSync(".env")) process.loadEnvFile(".env");
-      const { handleApi } = await server.ssrLoadModule("/server/app.ts");
+      // APIのモジュールは最初の要求のときに読み込む（起動直後はまだ解決の準備ができていないため）
+      let handleApi: ((req: unknown, res: unknown) => Promise<boolean>) | null = null;
       server.middlewares.use(async (req, res, next) => {
-        if (!(await handleApi(req, res))) next();
+        if (!req.url?.startsWith("/api/")) return next();
+        handleApi ??= (await server.ssrLoadModule("/server/app.ts")).handleApi;
+        if (!(await handleApi!(req, res))) next();
       });
     },
   };
 }
 
 export default defineConfig({
-  plugins: [apiPlugin()],
+  plugins: process.env.VITEST ? [] : [apiPlugin()],
   server: { port: 5173 },
   build: { outDir: "dist" },
   test: { include: ["tests/**/*.test.ts"] },
