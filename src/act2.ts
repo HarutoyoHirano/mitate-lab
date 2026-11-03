@@ -83,8 +83,7 @@ export function circuitSvg(lens: Lens): string {
  * 調べたBを回路へ持ち越す：Bの力（開示した値で計算）と、対応表で変換した回路の電圧を重ねる。
  * ふつう（1秒）に押したとき。並列部分の電圧（上乗せ分）も示す。
  */
-export function carrySvg(truth: MaterialParams): string {
-  const T = 1;
+export function carrySvg(truth: MaterialParams, T: number = 1): string {
   const tMax = T + 8;
   const W = 600;
   const H = 260;
@@ -154,7 +153,7 @@ export function runAct2(perm: Permeability): Act2Run {
 }
 
 /** 実際の電位と、止めた時の差で割った表示を並べる */
-export function act2GraphSvg(runs: readonly Act2Run[]): string {
+export function act2GraphSvg(runs: readonly Act2Run[], cursor: { perm: Permeability; t: number } | null = null): string {
   const W = 480;
   const H = 210;
   const L = 44;
@@ -183,9 +182,17 @@ export function act2GraphSvg(runs: readonly Act2Run[]): string {
       <text x="${offset + L}" y="16" font-size="13" font-weight="700" fill="var(--ink)">${title}</text>
       <line x1="${offset + L}" x2="${offset + L}" y1="${T}" y2="${H - B}" stroke="var(--ink-soft)"/>
       <line x1="${offset + L}" x2="${offset + W / 2 - R}" y1="${H - B}" y2="${H - B}" stroke="var(--ink-soft)"/>
-      ${half}${lines}
+      ${half}${lines}${cur(unit, offset, ys, f)}
       <text x="${offset + W / 4 + L / 2}" y="${H - 12}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">止めてからの時間</text>`;
   };
+  /** 膜の図と同じ時刻の印（止めた後だけ） */
+  function cur(unit: string, offset: number, ys: (v: number) => number, f: (perm: Permeability, h: number) => number): string {
+    if (!cursor || cursor.t < SECONDS) return "";
+    const h = Math.min(tMax, cursor.t - SECONDS);
+    const x = offset + xs(h);
+    return `<line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" stroke="var(--claude)" stroke-width="1.5"/>
+      <circle cx="${x}" cy="${ys(f(cursor.perm, h))}" r="5" fill="var(--claude)"/>${unit === "actual" ? `<text x="${x + 6}" y="${T + 10}" font-size="11" fill="var(--claude)">いま</text>` : ""}`;
+  }
   const actual = (perm: Permeability, h: number) => membranePotentialAfterStop(withPermeability(BASE_MEMBRANE, perm), CURRENT, SECONDS, h);
   const ratio = (perm: Permeability, h: number) => membraneNormalizedAfterStop(withPermeability(BASE_MEMBRANE, perm), h);
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="止めた後の電位の戻り方">
@@ -242,5 +249,95 @@ export function thoughtSvg(showNegative: boolean): string {
     ${line("easier", RUN_COLOR.easier, 2)}${line("same", RUN_COLOR.same, 2)}${line("harder", RUN_COLOR.harder, 2)}
     ${showNegative ? line("negative", "var(--hanko)", 3.5) : ""}
     <text x="${(L + W - R) / 2}" y="${H - 10}" font-size="11" text-anchor="middle" fill="var(--ink-soft)">止めてからの時間（止めた時の差で割った表示）</text>
+  </svg>`;
+}
+
+// ---------- 細胞の膜の図（主役）：神経細胞の全体像 → 膜の一部分の拡大 → 電極と電位 ----------
+// 模型は正味の電流を一つだけ扱う（受け身の膜）。イオンを一粒ずつ動かしたり、種類別に描いたりはしない。
+
+/** 膜の状態（時刻 t は電流を入れ始めてから。0〜SECONDS は入れている間） */
+export function membraneState(perm: Permeability, t: number): { delta: number; leak: number; injecting: boolean; potential: number } {
+  const m = withPermeability(BASE_MEMBRANE, perm);
+  const tau = m.resistance * m.capacitance;
+  const injecting = t < SECONDS;
+  const delta = injecting ? CURRENT * m.resistance * (1 - Math.exp(-Math.max(0, t) / tau)) : membraneDeltaAtStop(m, CURRENT, SECONDS) * Math.exp(-(t - SECONDS) / tau);
+  return { delta, leak: delta / m.resistance, injecting, potential: m.restPotential + delta };
+}
+
+const CHANNELS: Record<Permeability, number> = { harder: 1, same: 2, easier: 4 };
+
+export function membraneSvg(perm: Permeability, t: number | null): string {
+  const W = 620;
+  const H = 330;
+  const s = t === null ? { delta: 0, leak: 0, injecting: false, potential: BASE_MEMBRANE.restPotential } : membraneState(perm, t);
+  // 膜の帯（拡大図）
+  const MY = 168; // 膜の中心
+  const L0 = 170;
+  const R0 = 600;
+  const n = CHANNELS[perm];
+  const chX = Array.from({ length: n }, (_, i) => L0 + 40 + ((R0 - L0 - 80) * (i + 0.5)) / n);
+  const lipids: string[] = [];
+  for (let x = L0; x <= R0; x += 11) {
+    if (chX.some((c) => Math.abs(c - x) < 16)) continue;
+    lipids.push(`<circle cx="${x}" cy="${MY - 15}" r="4.5" fill="#f2c27b" stroke="#c99643"/><circle cx="${x}" cy="${MY + 15}" r="4.5" fill="#f2c27b" stroke="#c99643"/>
+      <path d="M ${x - 1.5} ${MY - 11} v 9 M ${x + 1.5} ${MY - 11} v 9 M ${x - 1.5} ${MY + 11} v -9 M ${x + 1.5} ${MY + 11} v -9" stroke="#c99643" stroke-width="1"/>`);
+  }
+  const channels = chX
+    .map(
+      (x) => `<rect x="${x - 15}" y="${MY - 24}" width="9" height="48" rx="4" fill="var(--relax)" opacity="0.85"/>
+      <rect x="${x + 6}" y="${MY - 24}" width="9" height="48" rx="4" fill="var(--relax)" opacity="0.85"/>`,
+    )
+    .join("");
+  // 正味の電流（イオンの移動）：内→外。太さは通り道一本あたりの電流
+  const per = s.leak / n;
+  const arrows =
+    s.leak > 0.01
+      ? chX
+          .map((x) => {
+            const w = 2 + 14 * per;
+            return `<line x1="${x}" x2="${x}" y1="${MY + 34}" y2="${MY - 30}" stroke="var(--claude)" stroke-width="${w.toFixed(1)}" stroke-linecap="round" opacity="0.85"/>
+              <path d="M ${x - 4 - w / 2} ${MY - 28} L ${x} ${MY - 42} L ${x + 4 + w / 2} ${MY - 28} z" fill="var(--claude)"/>`;
+          })
+          .join("")
+      : "";
+  // 電荷：膜の外側に＋、内側に−（基準の電位）。入れた電流で内側に＋がたまる
+  const charges: string[] = [];
+  for (let i = 0; i < 9; i++) {
+    const x = L0 + 30 + i * 46;
+    charges.push(`<text x="${x}" y="${MY - 34}" font-size="15" font-weight="700" fill="var(--hanko)" text-anchor="middle">＋</text>`);
+    charges.push(`<text x="${x}" y="${MY + 46}" font-size="17" font-weight="700" fill="var(--instant)" text-anchor="middle">−</text>`);
+  }
+  const extra = Math.round(s.delta * 10);
+  for (let i = 0; i < extra; i++) charges.push(`<text x="${L0 + 52 + i * 46}" y="${MY + 64}" font-size="15" font-weight="700" fill="var(--claude)" text-anchor="middle">＋</text>`);
+  // 細胞の全体像（左上の小図）と拡大枠
+  const neuron = `<g>
+      <path d="M 52 70 L 18 40 M 52 70 L 30 104 M 64 62 L 70 24 M 80 76 L 150 88" stroke="var(--ink-soft)" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <circle cx="58" cy="74" r="20" fill="#f7e3c4" stroke="#c99643" stroke-width="2.5"/>
+      <circle cx="58" cy="74" r="7" fill="#c9a3d6"/>
+      <rect x="66" y="80" width="16" height="12" fill="none" stroke="var(--claude)" stroke-width="2.5"/>
+      <path d="M 82 80 L ${L0} ${MY - 60} M 82 92 L ${L0} ${MY + 80}" stroke="var(--claude)" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="14" y="134" font-size="12" fill="var(--ink-soft)">神経細胞（全体像）</text>
+      <text x="14" y="150" font-size="12" fill="var(--claude)">枠の中を拡大</text>
+    </g>`;
+  // 電極と電位計
+  const pot = s.potential;
+  const meter = `<g>
+      <line x1="${R0 - 40}" x2="${R0 - 40}" y1="20" y2="${MY - 40}" stroke="var(--ink)" stroke-width="2"/>
+      <line x1="${R0 - 70}" x2="${R0 - 70}" y1="20" y2="${MY + 58}" stroke="var(--ink)" stroke-width="2"/>
+      <circle cx="${R0 - 70}" cy="${MY + 60}" r="3.5" fill="var(--ink)"/>
+      <rect x="${R0 - 112}" y="2" width="96" height="22" rx="4" fill="var(--ink)"/>
+      <text x="${R0 - 64}" y="17" font-size="11.5" font-weight="700" text-anchor="middle" fill="#fff" font-variant-numeric="tabular-nums">膜電位 ${pot.toFixed(2)}</text>
+      <line x1="${L0 + 40}" x2="${L0 + 40}" y1="20" y2="${MY + 58}" stroke="${s.injecting && t !== null ? "var(--hanko)" : "var(--ink-soft)"}" stroke-width="2"/>
+      <text x="${L0 + 46}" y="16" font-size="11.5" fill="${s.injecting && t !== null ? "var(--hanko)" : "var(--ink-soft)"}">${s.injecting && t !== null ? "電流を入れている" : "電流を入れる電極"}</text>
+    </g>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="神経細胞の膜の一部分を拡大した図：膜の内外の電荷、イオンの通り道、膜電位を測る電極">
+    <rect x="${L0}" y="40" width="${R0 - L0}" height="${MY - 40 - 24}" fill="#eaf4fb"/>
+    <rect x="${L0}" y="${MY + 24}" width="${R0 - L0}" height="${H - 60 - MY - 24}" fill="#f6eefa"/>
+    <text x="${L0 + 6}" y="56" font-size="12" fill="var(--ink-soft)">細胞の外</text>
+    <text x="${L0 + 6}" y="${H - 66}" font-size="12" fill="var(--ink-soft)">細胞の中</text>
+    ${lipids.join("")}${channels}${charges.join("")}${arrows}${meter}${neuron}
+    <text x="14" y="${H - 44}" font-size="12" fill="var(--ink)"><tspan fill="#c99643" font-weight="700">黄：膜（脂質の二重の層）</tspan>　<tspan fill="var(--relax)" font-weight="700">緑：イオンの通り道（${n}本）</tspan>　<tspan fill="var(--claude)" font-weight="700">紫の矢印：膜を通る正味の電流</tspan></text>
+    <text x="14" y="${H - 26}" font-size="11.5" fill="var(--ink-soft)">＋と−：膜の両側にたまった電荷。紫の＋：入れた電流で中にたまった電荷</text>
+    <text x="14" y="${H - 9}" font-size="11.5" fill="var(--ink-soft)">受け身の膜の模型：通りやすさは一定、イオンの種類は区別しない。通り道の本数は模式的な表示</text>
   </svg>`;
 }

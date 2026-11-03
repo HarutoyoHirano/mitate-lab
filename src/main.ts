@@ -3,7 +3,7 @@ import { BASE, CANDIDATE_IDS, CANDIDATES, PUSH_SECONDS, TEST_TOLERANCE, judgeAga
 import { forceAfterPush, forceDuringPush } from "../server/model/sls.js";
 import type { Permeability } from "../server/model/circuit.js";
 import { MISSIONS, missionResult, SLIDERS, testDiffs, type MissionId } from "../server/model/make.js";
-import { act2Answer, act2GraphSvg, carrySvg, circuitSvg, GUESS_LABEL, PERM_LABEL, RUN_COLORS, runAct2, thoughtSvg, THOUGHT_GUESS_LABEL, type Act2Guess, type Act2Run, type Lens, type ThoughtGuess } from "./act2.js";
+import { act2Answer, act2GraphSvg, carrySvg, circuitSvg, membraneSvg, GUESS_LABEL, PERM_LABEL, RUN_COLORS, runAct2, thoughtSvg, THOUGHT_GUESS_LABEL, type Act2Guess, type Act2Run, type Lens, type ThoughtGuess } from "./act2.js";
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "./api.js";
 import { benchSvg, CAND_COLOR, SPEED_LABEL } from "./draw.js";
 import { curveGraphSvg, HOLD_MAX, makeGraphSvg, makeYMax, shapeThumb } from "./curve.js";
@@ -71,6 +71,9 @@ const state = {
   thoughtShown: false,
   thoughtOpen: false,
   freshBanner: false,
+  /** 膜の図のアニメーション（電流を入れ始めてからの時刻） */
+  memRun: null as Permeability | null,
+  memT: null as number | null,
   copied: false,
 };
 
@@ -190,7 +193,8 @@ function renderIntro(): string {
     <div class="pane bench-pane bench">${benchSvg("B", state.press, state.flash, { a: NaN, b: state.introDone ? r.force : NaN })}</div>
     <div class="intro-side">
       <p class="clock">${state.clock || "いつもの検査：ふつう（1秒）に押して、20秒後の値を測る"}</p>
-      <p class="note">いつもの検査は、Bの20秒後の値を、見本Aの<strong>あらかじめ分かっている値</strong>（基準カードの値。Aは測らない）と比べます。差が ±${r.tolerance} 以内なら「見本と区別できない」とする――これが<strong>検査の決まり（判定の許容差）</strong>です。それとは別に、測るたびに値は最大 ±${v.error} ぶれます（<strong>測定の誤差</strong>）。</p>
+      <p class="note">いつもの検査は、Bの20秒後の値を、見本Aの<strong>あらかじめ分かっている値</strong>と比べます。</p>
+      <details class="rule-detail"><summary>「区別できない」の決まり</summary><p class="note">差が ±${r.tolerance} 以内なら「見本と区別できない」とする――これが<strong>検査の決まり（判定の許容差）</strong>です。Aは基準カードの値で、測りません。それとは別に、測るたびに値は最大 ±${v.error} ぶれます（<strong>測定の誤差</strong>）。</p></details>
       <div class="twin">
         <div class="meter ghost"><span class="tag">見本 A（基準カードの値）</span><strong>${r.base.toFixed(3)}</strong></div>
         <div class="meter"><span class="tag">試料 B（測定）</span><strong>${state.introDone ? r.force.toFixed(3) : "—"}</strong></div>
@@ -379,7 +383,7 @@ function judgedBoard(bv: PublicSessionView): string {
         return `<li class="cand ${x.status} ${narrowed && bv.narrowedTo === x.id ? "decided" : ""} ${mine ? "mine" : ""}">
           <span class="swatch" style="background:${CAND_COLOR[x.id]}"></span>
           <span class="name">${x.label}<span class="looks">${LOOKS[x.id]}</span>${mine ? `<span class="mine-tag">あなたの説明</span>` : ""}</span>
-          <span class="st">${x.statusLabel}${x.status === "inconsistent" ? "（＝合わない）" : ""}</span>${stamp}${overlayButton(x.id)}</li>`;
+          <span class="st">${x.statusLabel}</span>${stamp}${overlayButton(x.id)}</li>`;
       })
       .join("")}</ul>
     <p class="overall ${bv.overall}">${narrowed ? "決着！ " : ""}${bv.overallLabel}</p>
@@ -572,16 +576,18 @@ function renderAct2(): string {
   const story = d ? storyFor(d.truth, d.base) : null;
   const answer = act2Answer(runs);
   const hit = answer !== null && state.act2Guess === answer;
+  const kc = state.view ? keyCurve(state.view) : null;
+  const carryT = kc?.pushSeconds ?? 1;
   return `${topbar()}<main class="wrap">${missionBar()}<section class="page act2">
     <p class="kicker">見方を変える</p>
     <h1>調べたBを、電気回路に置きかえる</h1>
     ${
       d && story
         ? `<div class="two carry">
-        <div class="pane">${carrySvg(d.truth)}
+        <div class="pane">${carrySvg(d.truth, carryT)}
           <div class="legend">
-            <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--claude)" stroke-width="4"/></svg>Bの押し返す力（ふつうに押す。開示した値で計算、誤差なし）</span>
-            <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="#fff" stroke="var(--ink)" stroke-width="2"/></svg>回路の電圧（一定の電流を1秒流して止める）</span>
+            <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--claude)" stroke-width="4"/></svg>Bの押し返す力（あなたの決め手の押し方：${speedName(carryT)}。開示した値で計算、誤差なし）</span>
+            <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="#fff" stroke="var(--ink)" stroke-width="2"/></svg>回路の電圧（同じ時間だけ一定の電流を流して止める）</span>
             <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--relax)" stroke-width="2"/></svg>点線の中（C1とR）の電圧＝上乗せ分</span>
             <span><svg width="26" height="10"><line x1="0" x2="26" y1="5" y2="5" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="6 4"/></svg>見本A</span>
           </div>
@@ -592,15 +598,17 @@ function renderAct2(): string {
           <p class="note"><strong>時定数</strong>（じていすう）＝変化が元の約37%まで戻るのにかかる時間の目安。第1幕の「上乗せ分がやわらぐ時間 τ」と同じもので、回路では R×C1 で決まります。</p>
           <p class="caution">素材の中に回路があるわけではありません（式の形が同じだけ）。値は答え合わせで開示したBの値から計算しています。</p>
         </div>
-      </div>`
+      </div>
+      <div class="circ-wrap"><p class="field-label">Bを表す回路</p>${circuitSvg("circuit")}</div>`
         : ""
     }
-    <div class="lens-switch" role="group" aria-label="見方">
-      <button class="${state.lens === "circuit" ? "on" : ""}" data-act="lens" data-val="circuit">電気の見方<small>素材と同じ形の式</small></button>
-      <button class="${state.lens === "membrane" ? "on" : ""}" data-act="lens" data-val="membrane">細胞の膜の見方<small>点線の中だけを取り出す</small></button>
+    <h2 class="sec">細胞の膜では：別の対象に、同じ形の部分がある</h2>
+    <p class="note">ここから別の対象（神経細胞の膜の模型）に移ります。同じなのは、上の回路の点線の中と式の形です。膜では、電荷がたまりイオンが動くという電気の現象が実際に起きています。</p>
+    <div class="mem-grid">
+      <div class="pane mem-main">${membraneSvg(state.memRun ?? state.perm, state.memT)}</div>
+      <div class="pane mem-side"><p class="field-label">同じことを回路で書くと</p>${circuitSvg("membrane")}
+        <p class="note">膜（黄）＝電荷をためるコンデンサ、イオンの通り道（緑）＝抵抗、イオンの濃さの差がつくる基準の電位＝電池。イオンの移動（化学）が電流（電気）になり、膜の電位（生物の信号のもと）を変えます。値は計算値です（誤差は付けていません）。</p></div>
     </div>
-    <div class="${state.lensFlip ? "flip" : ""}">${circuitSvg(state.lens)}</div>
-    <p class="caution">細胞の膜では、電荷がたまりイオンが動くという電気の現象が実際に起きていて、その性質を回路で表します。イオンの移動（化学）が電流（電気）になり、膜の電位を変えます。ここではイオンの通りやすさが一定の「受け身の膜」だけを扱います。値は計算値です（誤差は付けていません）。</p>
     <p class="lead">${story ? story.membrane : ""}</p>
     <h2 class="q">イオンが通りやすくなると、電流を止めた後（第1幕の押し終わりにあたる）、基準の電位（静止電位にあたる）へ戻るのは速くなる？ 遅くなる？</h2>
     <div class="two">
@@ -620,7 +628,7 @@ function renderAct2(): string {
               : ""
         }
       </div>
-      <div class="pane">${act2GraphSvg(runs)}
+      <div class="pane">${act2GraphSvg(runs, state.memRun && state.memT !== null ? { perm: state.memRun, t: state.memT } : null)}
         <p class="note">止めた時の高さは、通りやすさでも変わります。戻る速さは、右の「割った表示」と「半分に戻るまで」で比べます。時間の目盛りは素材と同じに伸ばしています（実際の膜はずっと速い）。</p>
       </div>
     </div>
@@ -827,6 +835,24 @@ async function playIntro() {
   render();
 }
 
+/** 膜の図：電流を入れて止め、膜電位が基準へ戻るまで。図とグラフの「いま」を同じ時刻で動かす */
+async function playMembrane(perm: Permeability): Promise<void> {
+  const reduce = reduceMotion();
+  const total = 7; // 入れる1秒＋止めてから6秒
+  const ms = reduce ? 0 : 4200;
+  state.memRun = perm;
+  const s = performance.now();
+  for (;;) {
+    const el = performance.now() - s;
+    if (el >= ms) break;
+    state.memT = (el / ms) * total;
+    render();
+    await sleep(50);
+  }
+  state.memT = total;
+  render();
+}
+
 /** 押して、曲線が時間とともに伸びていく。押し返しの矢印も測った値で伸び縮みする。終わっても棒は止めたまま */
 async function playCurve(c: CurveView): Promise<void> {
   const reduce = reduceMotion();
@@ -843,7 +869,7 @@ async function playCurve(c: CurveView): Promise<void> {
     if (el < pushMs) {
       t = (el / pushMs) * T;
       state.press = el / pushMs;
-      state.clock = `押しています… ${t.toFixed(1)}秒`;
+      state.clock = T < 1 ? `押しています… ${t.toFixed(2)}秒（すばやい押し込みを、見やすくゆっくり再生中）` : `押しています… ${t.toFixed(1)}秒`;
     } else if (el < pushMs + holdMs) {
       const h = ((el - pushMs) / holdMs) * HOLD_MAX;
       t = T + h;
@@ -920,7 +946,14 @@ app.addEventListener("click", async (e) => {
   const v0 = state.view;
   if (set) {
     const val = el.dataset.val!;
-    if (set === "push") state.push = Number(val) as PushSeconds;
+    if (set === "push") {
+      state.push = Number(val) as PushSeconds;
+      // 次の条件を選んだら、前の曲線は小さな履歴に下げ、次の押し方での見本Aの線を見せる
+      if (state.phase === "lab" && v0 && v0.curves.length && !awaitingPick()) {
+        state.shownCurveId = "__next__";
+        state.overlay = null;
+      }
+    }
     if (set === "choice") {
       state.choice = val as PredictionChoice;
       // 予想の下書きをサーバーへ（手がかりの段階を進めるため。理由は押す時点で確定する）
@@ -1105,7 +1138,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "act2-run":
       state.act2Runs = [...state.act2Runs.filter((r) => r.perm !== state.perm), runAct2(state.perm)];
-      render();
+      await playMembrane(state.perm);
       break;
     case "thought-open":
       state.thoughtOpen = !state.thoughtOpen;

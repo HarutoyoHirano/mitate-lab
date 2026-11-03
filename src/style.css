@@ -302,3 +302,10 @@ details.more > summary { cursor: pointer; font-weight: 700; padding: 12px 16px; 
 .overlay-note p { margin: 0 0 6px; font-weight: 700; }
 .overlay-note table { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
 .overlay-note th, .overlay-note td { padding: 2px 10px 2px 0; text-align: left; }
+
+/* 細胞の膜の段 */
+.act2 h2.sec { margin: 28px 0 4px; }
+.mem-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.mem-grid svg, .circ-wrap svg { width: 100%; height: auto; display: block; }
+.circ-wrap { max-width: 640px; margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 10px 14px; }
+@media (max-width: 900px) { .mem-grid { grid-template-columns: 1fr; } }
