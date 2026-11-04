@@ -1,6 +1,6 @@
 // 見立てラボ ゲーム版「検査ロボの盲点」（入口）。
-// 事件1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
-// 事件2・3は公開の式だけの計算（誤差なし）。検査ロボは定型ルールで動き、AIではない。
+// 謎1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
+// 謎2・3は公開の式だけの計算（誤差なし）。検査ロボは定型ルールで動き、AIではない。
 import "./game.css";
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView } from "../api.js";
 import { BASE, CANDIDATES, type CandidateId } from "../../server/model/public.js";
@@ -75,7 +75,7 @@ const state = {
   busy: false,
   error: "",
   mood: "calm" as Mood,
-  // 事件1
+  // 謎1
   bet: null as PredictionChoice | null,
   pad: { phase: "idle", press: 0, dentA: 0, dentB: 0, forceA: null, forceB: null, highlight: false } as PadState,
   clock: "",
@@ -97,7 +97,7 @@ const state = {
   track: { k: null, u: 0, dentA: 0, dentB: 0, contact: false, highlight: false } as TrackState,
   shownSteps: 0,
   running: false,
-  // 事件2
+  // 謎2
   duelRound: 0,
   e1: 1,
   tau: 1,
@@ -107,7 +107,7 @@ const state = {
   duelCleared: [false, false],
   duelHint: 0,
   duelLog: [] as { round: number; e1: number; tau: number }[],
-  // 事件3
+  // 謎3
   memT: RECORD_MS,
   memRan: false,
   memPhotos: [] as MemPhoto[],
@@ -125,15 +125,15 @@ const state = {
   // v12：上の段・開く欄
   panel: null as null | "about" | "card",
   heartsSeen: 3,
-  // 事件1 影武者
+  // 謎1 影武者
   translation: null as Translation | null,
   summoned: null as CandidateId | null,
-  // 事件2 走行の対決の再生
+  // 謎2 走行の対決の再生
   duelTrack: { k: null, u: 0, dentA: 0, dentB: 0, contact: false, highlight: false } as TrackState,
   // 橋
   br: { r: 1, c1: 1 },
   brHint: 0,
-  // 事件3 試す膜
+  // 謎3 試す膜
   tg: 1,
   tc: 1,
 };
@@ -183,7 +183,7 @@ const STEPS: { id: string; label: string; screens: Screen[] }[] = [
   { id: "05", label: "まとめ", screens: ["finale"] },
 ];
 
-/** ロボの自信ライフ：事件1・2・3を解くたびに一つ減る（プレイヤーの減点ではない） */
+/** ロボの自信ライフ：謎1・2・3を解くたびに一つ減る（プレイヤーの減点ではない） */
 function hearts(): number {
   return 3 - [state.debrief !== null, state.duelCleared[1], state.memCleared[1]].filter(Boolean).length;
 }
@@ -193,7 +193,7 @@ function missionLine(): string {
   const v = state.view;
   switch (state.screen) {
     case "title":
-      return "ラボの場面を見て、事件1を始めよう";
+      return "ラボの場面を見て、謎1を始めよう";
     case "c1-verdict":
       return "ロボの検査では区別できない。走らせたらどうなるか、予想しよう";
     case "c1-track":
@@ -231,7 +231,7 @@ function header(): string {
     <div class="brand"><span class="slash">//</span> MIKATA LAB <span class="sub">BLIND SPOT</span></div>
     <ol class="steps">${STEPS.map((s, i) => `<li class="${i === cur ? "on" : i < cur ? "done" : ""}"><span>${s.id}</span>${s.label}</li>`).join("")}</ol>
     <div class="head-right">
-      <span class="ai-chip ${state.claude ? "on" : ""}" title="画面の相棒はAI（Claude）です">${state.claude ? "相棒 Claude（AI）：事件1で参加" : "相棒 Claude（AI）：休止中・定型の手がかり"}</span>
+      <span class="ai-chip ${state.claude ? "on" : ""}" title="画面の相棒はAI（Claude）です">${state.claude ? "相棒 Claude（AI）：謎1で参加" : "相棒 Claude（AI）：休止中・定型の手がかり"}</span>
       <button class="link" data-act="sound" aria-pressed="${state.sound}">効果音 ${state.sound ? "ON" : "OFF"}</button>
       <a class="link" href="lab.html">詳しい実験室</a>
     </div>
@@ -249,9 +249,9 @@ function panelHtml(): string {
   const body =
     state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <table class="roles"><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ライフは、あなたが事件を解くたびに減る（あなたの減点ではない）</td></tr><tr><th>相棒 Claude（AI）</th><td>事件1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr><tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
+      <table class="roles"><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ライフは、あなたが謎を解くたびに減る（あなたの減点ではない）</td></tr><tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr><tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
       <p class="note">クッションと膜は、計算で作った仮想の試料です（クッションは、見本Aを押して十分に待った力を1とする目盛り）。ラボも試作品も架空で、実在の人工関節・軟骨・医療機器の性能を表すものではありません。ここでの「検査」はゲームの中のルールで、臨床検査や実在の機器の手順ではありません。診断や性能の判定はしません。</p>
-      <p class="note">事件1の記録には測定誤差があり、事件2・3と橋は誤差なしの計算です。試す回数で減点はしません。氏名などは集めていません。</p>`
+      <p class="note">謎1の記録には測定誤差があり、謎2・3と橋は誤差なしの計算です。試す回数で減点はしません。氏名などは集めていません。</p>`
       : `<h2>発見カード（記録から）</h2>
       <ul class="disc">${discovery().map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
       <div class="actions"><button class="btn ghost" data-act="copy">${state.copied ? "コピーしました" : "文字でコピー"}</button></div>`;
@@ -283,7 +283,7 @@ function renderTitle(): string {
       <div class="story">
         <p><strong>ここは</strong>再生医療ラボ（仮想）。3Dプリンタで、膝の骨と骨の間に入れる人工のクッションを試作している。クッションは一歩ごとに押され、足を上げると元へ戻る。</p>
         <p><strong>ロボの検査</strong>試作品は、検査ロボ TEJUN-07 が調べる。押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
-        <p><strong>事件</strong>新しい印刷条件で作ったクッションB。ロボの判定は「見本と区別できません」。でも、走るときのようにすばやく押されたら？ 次の一歩までに元へ戻る？ ロボが見ていないところを調べるのが、あなたの仕事。</p>
+        <p><strong>謎</strong>新しい印刷条件で作ったクッションB。ロボの判定は「見本と区別できません」。でも、走るときのようにすばやく押されたら？ 次の一歩までに元へ戻る？ ロボが見ていないところを調べるのが、あなたの仕事。</p>
       </div>
     </div>
     ${robot("私はTEJUN-07。試作品の検査ロボです。決まった手順（押して20秒後の力）で、見本と同じかを判定します。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
@@ -296,7 +296,7 @@ function renderTitle(): string {
           <li><strong>仕掛けろ</strong>：検査を鍛えるために、ロボの検査をすり抜ける試験用のクッションをつくる。ロボは測り方を変えてくる</li>
           <li><strong>膜の盲点</strong>：膝の動きや押された感じは、神経の膜の電気で脳へ伝わる。膜の模型にも同じ盲点がある。見破って、仕掛ける</li>
         </ol>
-        <div class="actions"><button class="btn go big" data-act="start" ${state.busy ? "disabled" : ""}>事件1を始める</button></div>
+        <div class="actions"><button class="btn go big" data-act="start" ${state.busy ? "disabled" : ""}>謎1を始める</button></div>
         ${state.error ? `<p class="err">${esc(state.error)}</p>` : ""}
       </div>
       <div class="card soft">
@@ -614,7 +614,7 @@ function renderReveal(): string {
   const max = Math.max(...t.rows.map((r) => Math.abs(r.diff)));
   const yMax = Math.max(2.4, ...v.curves.flatMap((x) => x.b.map((p) => p.force + 0.2)));
   return `<section>
-    ${kicker("CASE 01 / SOLVED", "事件1、解決。", esc(d.explanation))}
+    ${kicker("CASE 01 / SOLVED", "謎1、解決。", esc(d.explanation))}
     ${robot("私の検査は、20秒後しか見ていなかった。走る人の膝は、20秒も待ってくれないのに。……では、私の検査を鍛えてください。すり抜ける試作品を作れますか？", "shock")}
     <div class="why-grid">
       <div class="card">
@@ -629,7 +629,7 @@ function renderReveal(): string {
           .join("")}</table>
         <p class="note">押し終わりの力の差（B−A。開示した値で計算、誤差なし）。</p>
         <p><strong>どの違いを調べたいかで、よい測り方が変わる。速く押せばよいとは限らない。</strong></p>
-        <div class="actions"><button class="btn go big" data-act="to-c2">事件2：今度は、あなたが仕掛ける</button></div>
+        <div class="actions"><button class="btn go big" data-act="to-c2">謎2：今度は、あなたが仕掛ける</button></div>
       </div>
     </div>
   </section>`;
@@ -656,7 +656,7 @@ function renderDuel(): string {
   const lines = [
     meterRow(`ロボが見るところ：${round.robot.label}`, "目標：ここは小さく（ロボに同じと見せる）", r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "robot", ROBOT_PASS, 0.3, `差の大きさ ${ROBOT_PASS} 以下`),
     meterRow(`あなたが隠す違い：${round.hidden.label}`, "目標：ここは大きく（違いを残す）", r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hidden", HIDDEN_NEED, 0.3, `差の大きさ ${HIDDEN_NEED} 以上`),
-    meterRow(`最後の検査：${FINAL_CHECK.label}`, "事件1のいつもの検査", r.final.a, r.final.b, r.final.diff, r.final.ok, "final", 0.03, 0.3, "差 0.03 以内"),
+    meterRow(`最後の検査：${FINAL_CHECK.label}`, "謎1のいつもの検査", r.final.a, r.final.b, r.final.diff, r.final.ok, "final", 0.03, 0.3, "差 0.03 以内"),
   ];
   const hint1 =
     round.id === 1
@@ -681,7 +681,7 @@ function renderDuel(): string {
             <input type="range" id="k-${k}" data-knob="${k}" min="${sl.min}" max="${sl.max}" step="${sl.step}" value="${state[k]}" ${scanning ? "disabled" : ""}></label>`;
           })
           .join("")}
-        <details class="more"><summary>くわしく</summary><p class="note">待ったあとも残るかたさは、見本と同じ 1 に固定。見本Aは、二つとも 1.00。沈み込みは、体重にあたる力をかけたときのへこみ（深さ1に対する割合）。最後の検査（事件1のいつもの検査）は、20秒たつと上乗せ分がほとんど消えるので、このつまみの範囲ではいつも通る。</p></details>
+        <details class="more"><summary>くわしく</summary><p class="note">待ったあとも残るかたさは、見本と同じ 1 に固定。見本Aは、二つとも 1.00。沈み込みは、体重にあたる力をかけたときのへこみ（深さ1に対する割合）。最後の検査（謎1のいつもの検査）は、20秒たつと上乗せ分がほとんど消えるので、このつまみの範囲ではいつも通る。</p></details>
         <button class="btn ghost small" data-act="duel-hint">${state.duelHint === 0 ? "調整のヒント" : state.duelHint === 1 ? "もう少しヒント" : "ヒント（最後）"}</button>
         ${state.duelHint >= 1 ? `<p class="hint-text">${hint1}</p>` : ""}
         ${state.duelHint >= 2 ? `<p class="hint-text">${hint2}</p>` : ""}
@@ -736,7 +736,7 @@ function renderBridge(): string {
   const story = storyFor(d.truth, d.base);
   const j = judgeBridge(d.truth, bridgeKey(), state.br.r, state.br.c1);
   return `<section>
-    ${kicker("BRIDGE / SAME SHAPE", "同じ式は、電気回路でも書ける。", `事件1のBを${SPEED_NAME[bridgeKey()]}押したときの「押し返す力」（線）に、回路の電圧（橙の丸）を重ねる。抵抗Rとコンデンサ C1 を動かして、一本に重ねよう。`)}
+    ${kicker("BRIDGE / SAME SHAPE", "同じ式は、電気回路でも書ける。", `謎1のBを${SPEED_NAME[bridgeKey()]}押したときの「押し返す力」（線）に、回路の電圧（橙の丸）を重ねる。抵抗Rとコンデンサ C1 を動かして、一本に重ねよう。`)}
     <div class="why-grid">
       <div class="card">
         <div class="cam-head"><span>CIRCUIT / Bの力（線）とあなたの回路の電圧（橙の丸）</span><strong>開示した値で計算・誤差なし</strong></div>
@@ -759,8 +759,8 @@ function renderBridge(): string {
             ? `<div class="result win"><p class="big">力の線と、電圧の丸が一本に重なった。</p><p>${story.circuit}</p>
           <p class="note">変形↔電荷、押す速さ↔電流、押し返す力↔電圧と読みかえると、同じ式になる。クッションの中に回路があるわけではない（式の形が同じだけ）。離した後のへこみの戻りは、回路には重ねていない。</p>
           <p><strong>では、本物の電気が流れている場所――神経細胞の膜――にも、同じ盲点はあるだろうか？</strong></p>
-          <div class="actions"><button class="btn go big" data-act="to-c3">事件3：膜の盲点へ</button></div></div>`
-            : `<div class="actions"><button class="btn ghost small" data-act="to-c3">重ねずに、事件3へ進む</button></div>`
+          <div class="actions"><button class="btn go big" data-act="to-c3">謎3：膜の盲点へ</button></div></div>`
+            : `<div class="actions"><button class="btn ghost small" data-act="to-c3">重ねずに、謎3へ進む</button></div>`
         }
       </div>
     </div>
@@ -842,7 +842,7 @@ function renderC3Why(): string {
         ${
           w === "c"
             ? `<p class="check agree"><strong>この説明なら、記録と合う。膜Bは容量が ${CASE3_B.c} 倍（通りやすさは同じ）。</strong>同じ電流を入れても、より多くの電荷がたまらないと電位が上がらないので、上がるのも戻るのも遅い。流し続けて落ち着いた電位は同じなので、長く流した後だけを見ると区別できない。カメラの「＋」の数（増えた電荷）を見比べてみよう。</p>
-               <p>戻るのにかかる時間の目安＝<strong>時定数</strong>は、容量×抵抗（膜A ${(10).toFixed(0)} → 膜B ${(10 * CASE3_B.c).toFixed(0)} ミリ秒）。止めた時の上がり分が半分になるまでの時間は、時定数の約0.7倍（${halfTimeMs(BASE_MEM).toFixed(1)} → ${halfTimeMs(CASE3_B).toFixed(1)} ミリ秒）。事件1の「上乗せ分がやわらぐ時間」と同じ形の量です。</p>
+               <p>戻るのにかかる時間の目安＝<strong>時定数</strong>は、容量×抵抗（膜A ${(10).toFixed(0)} → 膜B ${(10 * CASE3_B.c).toFixed(0)} ミリ秒）。止めた時の上がり分が半分になるまでの時間は、時定数の約0.7倍（${halfTimeMs(BASE_MEM).toFixed(1)} → ${halfTimeMs(CASE3_B).toFixed(1)} ミリ秒）。謎1の「上乗せ分がやわらぐ時間」と同じ形の量です。</p>
                <p class="note">電荷＝電気の量（ここではイオンが運ぶ）。実際の膜の容量は主に面積で決まり、同じ種類の膜なら面積あたりはほぼ一定。ここでは比べるために容量だけを変えた模型です。</p>
                <div class="actions"><button class="btn go big" data-act="to-c3duel">膜に、仕掛けろ</button></div>`
             : `<p class="note">ヒント：ロボの検査（長く流した後の電位）では、区別できなかった。それぞれの説明が正しければ、その値はどうなるはず？</p>`
@@ -907,7 +907,7 @@ function renderC3Duel(): string {
             ? `<div class="result ${shown.cleared ? "win" : "lose"}">
             <p class="big">${shown.cleared ? "検査を、すり抜けた。" : !shown.robot.ok ? "見つかった。" : "違いが残っていない。"}</p>
             <p>${shown.cleared ? (round.id === 1 ? "落ち着いた電位は同じ。でも止めた直後の戻り方が違う。" : "戻る速さは同じ。でも電位の高さが違う。抵抗を大きく・容量を小さく（＝通りやすさと容量を同じ向きに小さく）すると、時定数（容量×抵抗）は同じでも、膜としては別物になる。") : !shown.robot.ok ? "ロボが見る値に、差が出すぎた。" : `ロボは通った。でも「${round.hiddenLabel}」の差が小さすぎる。違いを残そう。`}</p>
-            ${shown.cleared && round.id === 2 ? `<p class="note">事件1の候補の一つ「上乗せのかたさが違う」素材も、回路に置きかえると抵抗とコンデンサの両方が変わり、その積（時定数）だけが同じになる。素材と膜で、同じ形の盲点。</p>` : ""}
+            ${shown.cleared && round.id === 2 ? `<p class="note">謎1の候補の一つ「上乗せのかたさが違う」素材も、回路に置きかえると抵抗とコンデンサの両方が変わり、その積（時定数）だけが同じになる。素材と膜で、同じ形の盲点。</p>` : ""}
             <div class="actions">${shown.cleared ? (state.memRound === 0 ? `<button class="btn go" data-act="mem-next">次のラウンドへ</button>` : `<button class="btn go big" data-act="to-finale">まとめへ</button>`) : `<button class="btn go" data-act="mem-retry">調整し直す</button>`}</div>
           </div>`
             : `<div class="actions"><button class="btn go big" data-act="mem-go" ${scanning ? "disabled" : ""}>この膜で、検査に挑む</button></div>`
@@ -922,21 +922,21 @@ function discovery(): string[] {
   const d = state.debrief;
   const out: string[] = [];
   const ph = v?.runPhotos.find((p) => p.distinguishable);
-  out.push(`事件1 見破れ：ロボは「一回押して20秒後の力」で区別できなかった。${ph ? `走行テスト（${tempoName(ph.period)}）の${ph.step + 1}歩目・${PHASE_LABEL[ph.phase as StepPhase]}に、沈み込みの差 ${sgn(ph.diff)}（判定幅 ${STEP_TOLERANCE}）を撮った。` : ""}`);
-  if (d) out.push(`事件1 正体：${d.explanation}（押した回数 ${d.observationCount} 回。回数の多少は優劣ではない）`);
+  out.push(`謎1 見破れ：ロボは「一回押して20秒後の力」で区別できなかった。${ph ? `走行テスト（${tempoName(ph.period)}）の${ph.step + 1}歩目・${PHASE_LABEL[ph.phase as StepPhase]}に、沈み込みの差 ${sgn(ph.diff)}（判定幅 ${STEP_TOLERANCE}）を撮った。` : ""}`);
+  if (d) out.push(`謎1 正体：${d.explanation}（押した回数 ${d.observationCount} 回。回数の多少は優劣ではない）`);
   const dl = state.duelLog;
-  if (dl.length) out.push(`事件2 仕掛けろ：${dl.map((x) => `ラウンド${x.round}を 上乗せのかたさ ${x.e1.toFixed(2)}・やわらぐ時間 ${x.tau.toFixed(2)} で突破`).join("、")}`);
+  if (dl.length) out.push(`謎2 仕掛けろ：${dl.map((x) => `ラウンド${x.round}を 上乗せのかたさ ${x.e1.toFixed(2)}・やわらぐ時間 ${x.tau.toFixed(2)} で突破`).join("、")}`);
   const mp = state.memPhotos.find((p) => p.ok);
-  if (mp) out.push(`事件3 膜：ロボは「長く流した後の電位」で区別できなかった。${mp.t <= PULSE_MS ? `流して${mp.t}ms` : `止めて${mp.t - PULSE_MS}ms`}後に差 ${sgn(mp.diff, 1)} mV を撮った。膜Bは容量が ${CASE3_B.c} 倍`);
+  if (mp) out.push(`謎3 膜：ロボは「長く流した後の電位」で区別できなかった。${mp.t <= PULSE_MS ? `流して${mp.t}ms` : `止めて${mp.t - PULSE_MS}ms`}後に差 ${sgn(mp.diff, 1)} mV を撮った。膜Bは容量が ${CASE3_B.c} 倍`);
   const ml = state.memLog;
-  if (ml.length) out.push(`事件3 仕掛けろ：${ml.map((x) => `ラウンド${x.round}を 通りやすさ ×${x.g.toFixed(2)}・容量 ×${x.c.toFixed(2)} で突破`).join("、")}`);
+  if (ml.length) out.push(`謎3 仕掛けろ：${ml.map((x) => `ラウンド${x.round}を 通りやすさ ×${x.g.toFixed(2)}・容量 ×${x.c.toFixed(2)} で突破`).join("、")}`);
   out.push("まだ言えないこと：これは教材が決めた式・値の範囲・誤差の決まりを前提にした結果。実物の材料や体の組織・膜の性質を、このモデルだけで決めたわけではない");
   return out;
 }
 
 function renderFinale(): string {
   return `<section>
-    ${kicker("CASE CLOSED / BLIND SPOTS", "見方が変わると、盲点も変わる。", "三つの事件で見つけた盲点は、同じ形をしていた。")}
+    ${kicker("CASE CLOSED / BLIND SPOTS", "見方が変わると、盲点も変わる。", "三つの謎で見つけた盲点は、同じ形をしていた。")}
     ${robot("手順を一つに決めると、私には見えないものがある。……次の試作品は、どう測りますか？", "shock")}
     <div class="blind3">
       <div class="card"><p class="num">1</p><h3>最後の値だけ見ると</h3><p>途中の違い（上乗せの大きさ・やわらぐ速さ・戻る速さ）を見落とす。素材でも、膜でも。</p></div>

@@ -1,6 +1,6 @@
 // 新しい画面の絵（舞台の SVG）。どの絵も、渡された計算値・記録から描く（隠れた答えは受け取らない）。
 import { BASE_MEM, deltaMv, PULSE_MS, RECORD_MS, REST_MV, type Membrane } from "../../server/model/membraneGame.js";
-import { BEAT_S, steadyBeat, type Vessel } from "../../server/model/vessel.js";
+import { BASE_VESSEL, BEAT_S, pumpFlow, steadyBeat, type Vessel } from "../../server/model/vessel.js";
 import { dentWithinStep, DUTY, MOVIE_RUN, MOVIE_WALK, stepDents } from "../../server/model/steps.js";
 import { BASE } from "../../server/model/public.js";
 
@@ -102,16 +102,9 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
   </g>`;
 }
 
-// ---------- 事件1：イメージムービー（検査の前の導入の物語。謎解きの手がかりは見せない。人物は描かない） ----------
+// ---------- 謎1：イメージムービー（検査の前の導入の物語。謎解きの手がかりは見せない。人物は描かない） ----------
 // 三つの場面：①新しい試作品Bができる ②膝の軟骨は一歩ごとに押される（見本の値で計算） ③ロボの検査「区別できません」
 // 各場面は 400×300 の枠に描く。再生中は一つを大きく、終わりは三つを並べる（動きを減らす設定でも同じ終わりの絵）。
-const SCENES = [
-  { from: 0, to: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ（本物ではない）。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた" },
-  { from: 5, to: 12, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される" },
-  { from: 12, to: 17, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN-07 は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」" },
-] as const;
-/** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
-export const MOVIE_LENGTH = 17;
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** ① 3Dプリンタで試作品Bを印刷する。s は場面の中の秒 */
@@ -222,29 +215,258 @@ function sceneRobot(s: number): string {
   </g>`;
 }
 
-const SCENE_DRAW = [scenePrinter, sceneLeg, sceneRobot] as const;
+// ---------- 謎2〜4の導入ムービー（同じ形。見本の値だけで描く） ----------
+function frame(inner: string): string {
+  return `<g><rect x="0" y="0" width="400" height="300" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>${inner}</g>`;
+}
+function stampMark(x: number, y: number, text: string, w = 200): string {
+  return `<g transform="translate(${x},${y}) rotate(-8)"><rect width="${w}" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="${w / 2}" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">${text}</text></g>`;
+}
 
-export function kneeMovie(t: number): string {
-  if (t >= MOVIE_LENGTH) {
-    // 結び：三つの場面を並べ、これからの謎を示す
+/** 謎2 ① ロボの検査のきまりに「見落とし」 */
+function sceneMiss(s: number): string {
+  return frame(`
+    ${robotArt(s > 1.4 ? "sweat" : "calm", 52, 70, 0.42)}
+    <g transform="translate(150,52) scale(0.8)">${ruleCard(0, 0, "ロボの検査のきまり", ["押して20秒待つ", "力を読む", "見本と比べる"], s > 1.4 ? 0 : null, false)}</g>
+    ${s > 1.4 ? stampMark(170, 190, "見落とし", 170) : ""}
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">謎1：走るときの違いは、このきまりでは見えなかった</text>`);
+}
+/** 謎2 ② わざと検査をすり抜ける試験用の軟骨をつくる（つまみ二つの3Dプリンタ） */
+function sceneDesign(s: number): string {
+  const p = clamp01(s / 4);
+  const h = 6 + 34 * p;
+  const nx = 270 + 60 * Math.sin(s * 5.2) * (p < 1 ? 1 : 0);
+  const ny = 236 - h - 14;
+  const knob = (cx: number, a: number, label: string) => `<g transform="translate(${cx},96)"><circle r="24" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/><line x1="0" y1="0" x2="${(18 * Math.sin(a)).toFixed(1)}" y2="${(-18 * Math.cos(a)).toFixed(1)}" stroke="var(--you)" stroke-width="5" stroke-linecap="round"/><text y="44" fill="var(--soft)" font-size="12" text-anchor="middle">${label}</text></g>`;
+  return frame(`
+    ${knob(56, Math.sin(s * 1.7) * 1.4, "つまみ 1")}${knob(126, Math.cos(s * 1.3) * 1.4, "つまみ 2")}
+    <text x="91" y="40" fill="var(--you)" font-size="14" font-weight="900" text-anchor="middle">設計はあなた</text>
+    <path d="M150 100 h22" stroke="var(--you)" stroke-width="3" stroke-dasharray="4 4"/>
+    <rect x="178" y="26" width="204" height="236" rx="10" fill="none" stroke="var(--metal-edge)" stroke-width="5"/>
+    <rect x="178" y="48" width="204" height="10" fill="var(--metal)"/>
+    <line x1="${nx}" y1="58" x2="${nx}" y2="${ny}" stroke="var(--metal-edge)" stroke-width="6"/>
+    <path d="M${nx - 12} ${ny} h24 l-12 12z" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <rect x="196" y="236" width="170" height="10" rx="3" fill="var(--metal-edge)"/>
+    <rect x="233" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--you)" opacity=".35" stroke="var(--you)" stroke-width="3"/>
+    <text x="280" y="20" fill="var(--soft)" font-size="12" text-anchor="middle">3Dプリンタ</text>
+    <text x="280" y="280" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">試験用の軟骨</text>
+    <text x="20" y="200" fill="var(--soft)" font-size="12">わざとすり抜ける</text>
+    <text x="20" y="218" fill="var(--soft)" font-size="12">軟骨をつくって、</text>
+    <text x="20" y="236" fill="var(--soft)" font-size="12">見落としを先に探す</text>`);
+}
+/** 謎2 ③ ロボは一度すり抜けられると、規則を改訂して見る場所を変える */
+function sceneRuleChange(s: number): string {
+  const rev = s > 2.6;
+  return frame(`
+    ${robotArt(rev ? "smug" : "scan", 52, 70, 0.42)}
+    <g transform="translate(150,60) scale(0.8)">${ruleCard(0, 0, "ロボの走行検査", ["ゆっくり歩かせる", "12歩目の一点を見る", rev ? "見る点を変える" : "（すり抜けられたら…）"], rev ? 2 : null, rev)}</g>
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">一度すり抜けられると、ロボは見る場所を変えてくる</text>`);
+}
+
+/** 謎3 ① 心臓は脈ごとに血液を送り、血管はふくらんで受け止める（見本の血管の値） */
+const VA_BEAT = steadyBeat(BASE_VESSEL);
+const VA_MIN = Math.min(...VA_BEAT);
+const VA_MAX = Math.max(...VA_BEAT);
+function vaAt(u: number): number {
+  const v = ((u % BEAT_S) + BEAT_S) % BEAT_S;
+  return VA_BEAT[Math.round((v / BEAT_S) * (VA_BEAT.length - 1))]!;
+}
+function vesselTube(x0: number, x1: number, y: number, p: number, edge: string, fill: string): string {
+  const bulge = 12 + 26 * ((p - VA_MIN) / (VA_MAX - VA_MIN));
+  return `<path d="M${x0} ${y - 12} C ${x0 + (x1 - x0) * 0.3} ${y - bulge}, ${x0 + (x1 - x0) * 0.7} ${y - bulge}, ${x1} ${y - 12} L${x1} ${y + 12} C ${x0 + (x1 - x0) * 0.7} ${y + bulge}, ${x0 + (x1 - x0) * 0.3} ${y + bulge}, ${x0} ${y + 12} Z" fill="${fill}" stroke="${edge}" stroke-width="3"/>`;
+}
+function heartArt(x: number, y: number, k: number): string {
+  return `<g transform="translate(${x},${y}) scale(${k.toFixed(3)})"><path d="M0 -40 C -40 -74, -80 -26, -40 14 L0 54 L40 14 C 80 -26, 40 -74, 0 -40Z" fill="var(--heart)" stroke="var(--heart-edge)" stroke-width="4"/></g>`;
+}
+const BEAT_SLOW = 2; // 1回の脈を実時間で2倍にのばして見せる
+function sceneHeart(s: number): string {
+  const u = (s / BEAT_SLOW) % BEAT_S;
+  const q = pumpFlow(u);
+  const k = 0.62 * (1 - Math.min(0.16, q / 2400));
+  const p = vaAt(u);
+  const out = (p - VA_MIN) / (VA_MAX - VA_MIN);
+  return frame(`
+    ${heartArt(80, 140, k)}
+    <text x="80" y="226" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">心臓</text>
+    ${q > 1 ? `<path d="M118 132 h40 m-10 -8 l10 8 l-10 8" stroke="var(--heart-edge)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="138" y="116" fill="var(--heart-edge)" font-size="12" font-weight="900" text-anchor="middle">ドクン</text>` : ""}
+    ${vesselTube(160, 340, 140, p, "var(--pad-a-edge)", "var(--pad-a)")}
+    <path d="M340 140 h30" stroke="var(--pad-a-edge)" stroke-width="6"/>
+    <path d="M356 ${140 - 8 - 6 * out} l10 ${8 + 6 * out} l-10 ${8 + 6 * out}" stroke="var(--pad-a-edge)" stroke-width="${(2 + 3 * out).toFixed(1)}" fill="none" stroke-linecap="round"/>
+    <text x="250" y="206" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">血管（ふくらんで受け止める）</text>
+    <text x="250" y="226" fill="var(--soft)" font-size="12" text-anchor="middle">次の脈までに、少しずつ先へ送る</text>
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">見本の血管の計算値（1回の脈を2倍にのばして見せている）</text>`);
+}
+/** 謎3 ② 心臓と血管のまねをした試験装置（ポンプ・人工血管・圧力計） */
+function gaugeArt(x: number, y: number, p: number, label: string): string {
+  const ang = (v: number) => ((-210 + (v / 150) * 240) * Math.PI) / 180;
+  return `<g transform="translate(${x},${y})"><circle r="40" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
+    ${[0, 50, 100, 150].map((v) => `<line x1="${(30 * Math.cos(ang(v))).toFixed(1)}" y1="${(30 * Math.sin(ang(v))).toFixed(1)}" x2="${(38 * Math.cos(ang(v))).toFixed(1)}" y2="${(38 * Math.sin(ang(v))).toFixed(1)}" stroke="var(--paper-soft)" stroke-width="2"/>`).join("")}
+    <line x1="0" y1="0" x2="${(30 * Math.cos(ang(p))).toFixed(1)}" y2="${(30 * Math.sin(ang(p))).toFixed(1)}" stroke="var(--stamp)" stroke-width="4" stroke-linecap="round"/><circle r="4" fill="var(--paper-ink)"/>
+    <text y="58" fill="var(--soft)" font-size="12" text-anchor="middle">${label}</text></g>`;
+}
+function sceneRig(s: number): string {
+  const u = (s / BEAT_SLOW) % BEAT_S;
+  const q = pumpFlow(u);
+  const p = vaAt(u);
+  return frame(`
+    <rect x="20" y="96" width="76" height="80" rx="12" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/>
+    ${heartArt(58, 130, 0.36 * (1 - Math.min(0.16, q / 2400)))}
+    <text x="58" y="88" fill="var(--soft)" font-size="12" text-anchor="middle">心臓ポンプ</text>
+    <path d="M96 136 h24" stroke="var(--metal-edge)" stroke-width="8"/>
+    ${vesselTube(120, 290, 136, p, "var(--vessel-edge)", "var(--vessel)")}
+    <text x="205" y="196" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">人工血管</text>
+    <path d="M290 136 h30 v90 h-260 v-50" stroke="var(--metal-edge)" stroke-width="5" fill="none"/>
+    <text x="190" y="246" fill="var(--soft)" font-size="12" text-anchor="middle">出口の先は、細い管（流れにくさ）を通ってポンプへ戻る</text>
+    ${gaugeArt(340, 60, p, "圧力計（mmHg）")}
+    <path d="M300 82 L270 120" stroke="var(--metal-edge)" stroke-width="3"/>
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">mmHg＝血圧に使う圧力の単位。見本の血管の計算値</text>`);
+}
+/** 謎3 ③ ロボは1回の脈の平均の圧を読む */
+function sceneRobotMean(s: number): string {
+  const u = (s / BEAT_SLOW) % BEAT_S;
+  const p = vaAt(u);
+  const done = s > 3.2;
+  const fill = clamp01(s / 3.2);
+  return frame(`
+    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
+    ${gaugeArt(250, 90, p, "圧力計")}
+    <rect x="190" y="180" width="160" height="22" rx="11" fill="var(--chip)"/>
+    <rect x="190" y="180" width="${(160 * fill).toFixed(1)}" height="22" rx="11" fill="var(--gold)"/>
+    <text x="270" y="224" fill="var(--soft)" font-size="12" text-anchor="middle">1回の脈の平均を計算中</text>
+    ${done ? stampMark(176, 200, "区別できません") : ""}
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">試作品 B の平均の圧を、見本と比べる</text>`);
+}
+
+/** 謎4 ① 膝が押された感じは、神経を通って脳へ。はじまりは神経の端の膜 */
+function sceneNerve(s: number): string {
+  const pressed = s % 2 < 1.2;
+  return frame(`
+    <g transform="translate(14,10) scale(0.62)">${nerveWhole(0, 0, pressed)}</g>
+    <g font-weight="900" text-anchor="middle">
+      <text x="296" y="70" fill="var(--gold)" font-size="15">膝が押される</text>
+      <text x="296" y="98" fill="var(--soft)" font-size="16">↓</text>
+      <text x="296" y="126" fill="var(--you)" font-size="15">神経の端の膜で</text>
+      <text x="296" y="146" fill="var(--you)" font-size="15">電圧が変わる</text>
+      <text x="296" y="174" fill="var(--soft)" font-size="16">↓</text>
+      <text x="296" y="202" fill="var(--ink)" font-size="15">脳へ伝わる</text>
+    </g>
+    <text x="296" y="226" fill="var(--soft)" font-size="11" text-anchor="middle">（脳へ送るしくみは、</text><text x="296" y="242" fill="var(--soft)" font-size="11" text-anchor="middle">この模型では扱わない）</text>`);
+}
+/** 謎4 ② 入口が開いて電流が入り、膜の電圧が −70 mV から上がり、止まると戻る（見本の膜の値） */
+const MEM_LOOP_S = 4; // 0〜200 ミリ秒を実時間4秒で見せる
+function sceneMembrane(s: number): string {
+  const t = ((s % MEM_LOOP_S) / MEM_LOOP_S) * RECORD_MS;
+  const gx0 = 40;
+  const gx1 = 380;
+  const gy0 = 196;
+  const gy1 = 278;
+  const xs = (ms: number) => gx0 + ((gx1 - gx0) * ms) / RECORD_MS;
+  const ys = (dv: number) => gy1 - ((gy1 - gy0) * dv) / 11;
+  const pts: string[] = [];
+  for (let m = 0; m <= t + 1e-9; m += 2) pts.push(`${xs(m).toFixed(1)},${ys(deltaMv(BASE_MEM, m)).toFixed(1)}`);
+  return frame(`
+    ${membranePatch(8, 8, 0.78, BASE_MEM, "見本の膜", "A", true, t)}
+    <rect x="${gx0}" y="${gy0}" width="${gx1 - gx0}" height="${gy1 - gy0}" fill="none" stroke="var(--line)"/>
+    <rect x="${gx0}" y="${gy0}" width="${xs(PULSE_MS) - gx0}" height="${gy1 - gy0}" fill="var(--gold)" opacity=".08"/>
+    <text x="${gx0}" y="${gy1 + 16}" fill="var(--gold)" font-size="10">黄色の帯：電流が入っている（押している）</text>
+    <text x="${gx0 - 4}" y="${gy1 + 4}" fill="var(--soft)" font-size="10" text-anchor="end">−70</text>
+    <text x="${gx0 - 4}" y="${ys(10) + 4}" fill="var(--soft)" font-size="10" text-anchor="end">−60</text>
+    <polyline points="${pts.join(" ")}" fill="none" stroke="var(--soft)" stroke-width="2.5"/>
+    <text x="${gx1}" y="${gy1 + 16}" fill="var(--soft)" font-size="10" text-anchor="end">${RECORD_MS} ms（ミリ秒＝1000分の1秒）</text>`);
+}
+/** 謎4 ③ ロボは電流を止める直前の膜の電圧だけを読む */
+function sceneRobotMem(s: number): string {
+  const t = Math.min(PULSE_MS, (s / 2.6) * PULSE_MS);
+  const done = s > 3;
+  const mv = REST_MV + deltaMv(BASE_MEM, t);
+  return frame(`
+    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
+    <g transform="translate(200,60)"><rect width="170" height="84" rx="12" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
+      <text x="85" y="26" fill="var(--paper-soft)" font-size="12" text-anchor="middle">膜の電圧計</text>
+      <text x="85" y="62" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text></g>
+    <rect x="200" y="160" width="170" height="16" rx="8" fill="var(--chip)"/>
+    <rect x="200" y="160" width="${((170 * t) / PULSE_MS).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
+    <text x="285" y="196" fill="var(--soft)" font-size="12" text-anchor="middle">電流を止める直前まで待つ</text>
+    ${done ? stampMark(176, 200, "区別できません") : ""}
+    <text x="200" y="282" fill="var(--soft)" font-size="12" text-anchor="middle">試作品の膜 B の電圧を、止める直前だけ見本と比べる（数字は見本）</text>`);
+}
+
+interface MovieScene {
+  dur: number;
+  tag: string;
+  cap: readonly [string, string];
+  short: string;
+  draw: (s: number) => string;
+}
+interface Movie {
+  scenes: readonly MovieScene[];
+  end: readonly [string, string];
+}
+export type MovieId = 1 | 2 | 3 | 4;
+const MOVIES: Record<MovieId, Movie> = {
+  1: {
+    scenes: [
+      { dur: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ（本物ではない）。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた", draw: scenePrinter },
+      { dur: 7, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される", draw: sceneLeg },
+      { dur: 5, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN-07 は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobot },
+    ],
+    end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
+  },
+  2: {
+    scenes: [
+      { dur: 5, tag: "① 検査の見落とし", cap: ["謎1で、ロボの検査には見落としがあると分かった。", "ラボは、検査を鍛えなおすことにした。"], short: "検査に見落としがあった", draw: sceneMiss },
+      { dur: 6, tag: "② わざとすり抜けてみる", cap: ["検査を鍛えるには、わざと検査をすり抜ける試験用の軟骨をつくって、", "見落としを先に見つけておく。設計するのは、あなた。"], short: "すり抜ける軟骨をつくる", draw: sceneDesign },
+      { dur: 6, tag: "③ ロボも負けていない", cap: ["ロボは、軟骨をゆっくり歩かせて、決まった一歩を測る。", "そして一度すり抜けられると、見る場所を変えてくる。"], short: "ロボは見る場所を変える", draw: sceneRuleChange },
+    ],
+    end: ["ロボの検査はすり抜けて、ほかのところには違いを残せ。", "二回戦では、ロボの測り方が変わる。"],
+  },
+  3: {
+    scenes: [
+      { dur: 6, tag: "① 心臓と血管のしごと", cap: ["心臓は、1回の脈（ドクン）ごとに血液を送り出す。", "血管はふくらんで受け止め、次の脈までに少しずつ先へ送る。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
+      { dur: 6, tag: "② 人工血管の試験装置", cap: ["ラボでは、心臓と血管のまねをした試験装置に人工血管をつないで調べる。", "新しい人工血管の試作品Bができた。"], short: "試験装置で人工血管を調べる", draw: sceneRig },
+      { dur: 5, tag: "③ 検査ロボの検査", cap: ["ロボは、1回の脈の平均の圧を読み、見本と比べる。", "答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobotMean },
+    ],
+    end: ["でも、1回の脈の中の圧の動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+  },
+  4: {
+    scenes: [
+      { dur: 6, tag: "① 膝から脳へ", cap: ["膝が押された感じは、神経を通って脳へ伝わる。", "そのはじまりは、膝のまわりの神経の端の膜。"], short: "はじまりは神経の端の膜", draw: sceneNerve },
+      { dur: 7, tag: "② 膜の電圧", cap: ["押されると膜の入口が開いて電流が入り、膜の電圧（細胞の中が外にくらべて何ミリボルトか）が", "−70 mV から上がる。電流が止まると、もとへ戻る。"], short: "電流が入ると電圧が上がり、戻る", draw: sceneMembrane },
+      { dur: 5, tag: "③ 検査ロボの検査", cap: ["ロボは、電流を止める直前の膜の電圧だけを読み、見本と比べる。", "答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobotMem },
+    ],
+    end: ["でも、電流を入れている途中や止めたあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+  },
+};
+/** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
+export function movieLength(id: MovieId): number {
+  return MOVIES[id].scenes.reduce((a, sc) => a + sc.dur, 0);
+}
+export function movieOutline(id: MovieId): { scenes: number; length: number; end: string } {
+  return { scenes: MOVIES[id].scenes.length, length: movieLength(id), end: MOVIES[id].end.join("") };
+}
+export function introMovie(id: MovieId, t: number): string {
+  const mv = MOVIES[id];
+  if (t >= movieLength(id)) {
     return `<g>
-      ${SCENES.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${SCENE_DRAW[i]!(sc.to - sc.from)}
+      ${mv.scenes.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${sc.draw(sc.dur)}
         <text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
       <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
-        <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">でも、走るときの押され方まで、本当に見本と同じ？</text>
-        <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">確かめるのは、あなた。測り方を自分で考えよう。</text></g>
+        <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
+        <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
     </g>`;
   }
-  const i = SCENES.findIndex((sc) => t < sc.to);
-  const sc = SCENES[i]!;
-  const s = t - sc.from;
+  let from = 0;
+  let i = 0;
+  while (i < mv.scenes.length - 1 && t >= from + mv.scenes[i]!.dur) from += mv.scenes[i++]!.dur;
+  const sc = mv.scenes[i]!;
+  const s = t - from;
   const fade = clamp01(s / 0.35);
   return `<g>
     <text x="640" y="32" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">${sc.tag}</text>
-    <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${SCENE_DRAW[i]!(s)}</g>
+    <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${sc.draw(s)}</g>
     <text x="640" y="420" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[0]}</text>
     <text x="640" y="450" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[1]}</text>
-    <text x="640" y="474" fill="var(--soft)" font-size="12" text-anchor="middle">イメージ（計算でつくった模型。本物の人工軟骨・検査機器ではない）</text>
+    <text x="640" y="474" fill="var(--soft)" font-size="12" text-anchor="middle">イメージ（計算でつくった模型。本物の人工軟骨・人工血管・神経・検査機器ではない）</text>
   </g>`;
 }
 
@@ -359,7 +581,7 @@ export function slsModelLabeled(x: number, y: number, hl: ModelPart | null, capt
   </g>`;
 }
 
-// ---------- 事件3：模擬循環回路 ----------
+// ---------- 謎3：模擬循環回路 ----------
 /** 心臓ポンプと二本の人工血管。血管の太さは、ふくらんで受け止めている血の量（C × 圧の上がり分）から描く */
 export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: number; minA: number; minB: number; flow: number }): string {
   const beatPhase = o.u / BEAT_S;
@@ -455,7 +677,7 @@ export function syncChart(x: number, y: number, w: number, h: number, target: Ve
   </g>`;
 }
 
-// ---------- 事件4：膜の水槽 ----------
+// ---------- 謎4：膜の水槽 ----------
 export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: string; b: string }, top = 14, revealB = true): string {
   const floorY = 420;
   const T = 120;
@@ -506,7 +728,7 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
   </g>`;
 }
 
-/** 事件4：神経の全体（膝の感覚の神経の端→脳）。拡大する場所を枠で示す */
+/** 謎4：神経の全体（膝の感覚の神経の端→脳）。拡大する場所を枠で示す */
 export function nerveWhole(x: number, y: number, pressed: boolean): string {
   return `<g transform="translate(${x},${y})">
     <rect x="0" y="0" width="270" height="448" rx="14" fill="var(--panel)" stroke="var(--line)"/>
@@ -621,7 +843,7 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
 }
 
 /**
- * 事件4の主の絵：膝の感覚の神経の端の膜を拡大し、膜の両側の電荷・入口（押されると開く）・いつも開いている通り道と、
+ * 謎4の主の絵：膝の感覚の神経の端の膜を拡大し、膜の両側の電荷・入口（押されると開く）・いつも開いている通り道と、
  * 電位のグラフを同じ時刻で動かす。reveal が false の膜は、容量と通りやすさを「？」にして、電荷・通り道を基準の数で描く。
  * この模型は、入口で電位が上がって戻る部分だけ（その先の信号のしくみは扱わない）。
  */

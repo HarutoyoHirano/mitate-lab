@@ -1,4 +1,4 @@
-// ゲーム版「橋」：抵抗Rと容量C1のスライダーで回路をつくり、事件1のB（開示した値）の保持中の力に
+// ゲーム版「橋」：抵抗Rと容量C1のスライダーで回路をつくり、謎1のB（開示した値）の保持中の力に
 // 回路の電圧を重ねる。高さと戻る速さの両方が合ったときだけ一本に重なる。誤差なしの計算。
 import { circuitVoltageAfterStop, circuitVoltageDuringCharge, parallelVoltage, toCircuit, type MechanicalCircuit } from "./circuit.js";
 import { DEPTH, type MaterialParams } from "./public.js";

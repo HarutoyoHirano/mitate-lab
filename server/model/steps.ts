@@ -1,4 +1,4 @@
-// ゲーム版 事件1の走行テスト：膝のクッションを一歩ずつ踏む（力を指定した標準線形固体）。
+// ゲーム版 謎1の走行テスト：膝のクッションを一歩ずつ踏む（力を指定した標準線形固体）。
 // 一歩：体重にあたる力 F を着地で一気にかけ、接地時間 P/2 保ち、足を上げて力を 0 にし、残り P/2 待つ（慣性は無視）。
 // 力が ΔF 跳ぶと σ1 は E1·ΔF/(E∞+E1) 跳ぶ。力が一定の間は σ1 が時定数 τc＝τ(E∞+E1)/E∞ で減る。へこみ x＝(F−σ1)/E∞。
 import type { MaterialParams } from "./public.js";
@@ -8,7 +8,7 @@ export const STEP_COUNT = 12;
 export const DUTY = 0.5;
 export const STEP_ERROR = 0.01;
 export const STEP_TOLERANCE = 0.03;
-/** 事件1のイメージムービー（導入の物語）で、見本の軟骨を歩かせ・走らせる二つのテンポ */
+/** 謎1のイメージムービー（導入の物語）で、見本の軟骨を歩かせ・走らせる二つのテンポ */
 export const MOVIE_WALK = 3;
 export const MOVIE_RUN = 0.75;
 

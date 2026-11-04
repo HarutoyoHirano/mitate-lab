@@ -1,4 +1,4 @@
-// ゲーム版 事件2「仕掛けろ」：走行テストで対決する。プレイヤーがつくった試験用のクッションが、
+// ゲーム版 謎2「仕掛けろ」：走行テストで対決する。プレイヤーがつくった試験用のクッションが、
 // 検査ロボの走行検査（12歩目の一点）をすり抜け、別の点には違いを残すか。
 // 隠れた答えは持たない。公開の式だけで、誤差なしに判定する（画面とテストで同じ関数を使う）。
 import { BASE, TEST_TOLERANCE, type MaterialParams } from "./public.js";
@@ -20,7 +20,7 @@ const pointLabel = (phase: StepPhase) => `ゆっくり歩いて12歩目の${PHAS
 export const LAND_CHECK: StepCheck = { phase: "land", label: pointLabel("land") };
 export const PEAK_CHECK: StepCheck = { phase: "peak", label: pointLabel("peak") };
 
-/** 最後の検査（事件1のいつもの検査）：試験台でふつう（1秒）押して20秒後の力 */
+/** 最後の検査（謎1のいつもの検査）：試験台でふつう（1秒）押して20秒後の力 */
 export const FINAL_CHECK = { pushSeconds: 1 as const, recordAt: 20, label: "試験台でふつう（1秒）に押して20秒後の力" };
 
 /** ロボの検査を通る差の大きさ／隠す違いとして必要な差の大きさ（沈み込み。深さ1に対する割合） */

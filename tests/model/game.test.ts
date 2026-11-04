@@ -32,7 +32,7 @@ function grid(min: number, max: number, step: number): number[] {
   return out;
 }
 
-describe("28 事件2 仕掛けろ（走行テストの対決）", () => {
+describe("28 謎2 仕掛けろ（走行テストの対決）", () => {
   const e1s = grid(DUEL_SLIDERS.e1.min, DUEL_SLIDERS.e1.max, DUEL_SLIDERS.e1.step);
   const taus = grid(DUEL_SLIDERS.tau.min, DUEL_SLIDERS.tau.max, DUEL_SLIDERS.tau.step);
   const pass = DUEL_ROUNDS.map((r) => e1s.flatMap((e) => taus.map((t) => ({ e, t }))).filter(({ e, t }) => judgeDuel(r, duelMaterial(e, t)).cleared));
@@ -83,7 +83,7 @@ describe("35 橋のスライダー", () => {
   });
 });
 
-describe("29 事件3 膜の解析解", () => {
+describe("29 謎3 膜の解析解", () => {
   it("受け身の膜の微分方程式の数値積分と一致する", () => {
     for (const m of [BASE_MEM, CASE3_B, { g: 0.5, c: 1.7 }, { g: 2.2, c: 0.45 }] as Membrane[]) {
       // C dV/dt = I − V/R （V は基準からの差）。I·R = 上がり幅、R·C = 時定数
@@ -109,7 +109,7 @@ describe("29 事件3 膜の解析解", () => {
   });
 });
 
-describe("30 事件3 見破れの固定例", () => {
+describe("30 謎3 見破れの固定例", () => {
   it("ロボの検査（止める直前）では区別できず、途中では差が見え、最後は区別できない", () => {
     expect(Math.abs(steadyDiff(CASE3_B))).toBeLessThanOrEqual(ROBOT_STEADY_TOL);
     const max = Math.max(...grid(0, RECORD_MS, 0.5).map((t) => Math.abs(diffAt(CASE3_B, t))));
@@ -118,7 +118,7 @@ describe("30 事件3 見破れの固定例", () => {
   });
 });
 
-describe("31 事件3 仕掛けろ", () => {
+describe("31 謎3 仕掛けろ", () => {
   const gs = grid(MEM_SLIDERS.g.min, MEM_SLIDERS.g.max, MEM_SLIDERS.g.step);
   const cs = grid(MEM_SLIDERS.c.min, MEM_SLIDERS.c.max, MEM_SLIDERS.c.step);
   const all = gs.flatMap((g) => cs.map((c) => ({ g, c })));
@@ -137,7 +137,7 @@ describe("31 事件3 仕掛けろ", () => {
   });
 });
 
-describe("32 事件1の写真", () => {
+describe("32 謎1の写真", () => {
   it("同じ曲線・同じ時刻を二度撮っても一枚", () => {
     const s = new Session("t", { seed: 3, cause: "relaxSlow" });
     s.saveCurvePrediction(1, "unknown");

@@ -1,4 +1,4 @@
-// 事件3「拍動の盲点」（CLAUDE.md 第7章 36〜38）
+// 謎3「拍動の盲点」（CLAUDE.md 第7章 36〜38）
 import { describe, expect, it } from "vitest";
 import {
   BASE_VESSEL,
@@ -54,7 +54,7 @@ describe("36 血管の模型（2要素ウィンドケッセル）", () => {
   });
 });
 
-describe("37 事件3 見破れ", () => {
+describe("37 謎3 見破れ", () => {
   const A = summarize(BASE_VESSEL);
   const B = summarize(CASE_VESSEL_B);
   it("ロボの検査（一拍の平均の圧）では区別できない", () => {
@@ -66,7 +66,7 @@ describe("37 事件3 見破れ", () => {
   });
 });
 
-describe("38 事件3 仕掛けろと、電気回路で同じ波をつくる", () => {
+describe("38 謎3 仕掛けろと、電気回路で同じ波をつくる", () => {
   const rs = grid(VESSEL_SLIDERS.r.min, VESSEL_SLIDERS.r.max, VESSEL_SLIDERS.r.step);
   const cs = grid(VESSEL_SLIDERS.c.min, VESSEL_SLIDERS.c.max, VESSEL_SLIDERS.c.step);
   const all = rs.flatMap((r) => cs.map((c) => ({ r, c })));
