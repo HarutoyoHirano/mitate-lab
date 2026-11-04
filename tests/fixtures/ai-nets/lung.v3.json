@@ -2,7 +2,7 @@
  "note": "Claude（Sonnet、指示文 v3 = server/claude/netPrompt.ts）が 2026-11-05 に出力したもの。人は手を加えない。",
  "topic": "肺",
  "promptVersion": "v3",
- "expectOk": true,
+ "expectOk": false,
  "output": {
   "title": "息の見落とし",
   "topic": "肺（息を吸って吐く、空気の出入り）",
@@ -130,5 +130,6 @@
    "空気と血液のあいだで気体を交換する薄い膜",
    "胸を広げて肺の外の圧を下げる筋肉"
   ]
- }
+ },
+ "v4note": "指示文 v3 の出力。出典（ref）とつなぎ（link）の欄がないため、1e-3 の確かめでは落ちる（記録として残す）。"
 }

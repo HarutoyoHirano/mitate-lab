@@ -2,7 +2,7 @@
  "note": "Claude（Sonnet、指示文 v3 = server/claude/netPrompt.ts）が 2026-11-05 に出力したもの。人は手を加えない。",
  "topic": "心臓",
  "promptVersion": "v3",
- "expectOk": true,
+ "expectOk": false,
  "output": {
   "title": "心臓の見落とし",
   "topic": "血液を送り出す心臓のポンプ",
@@ -161,5 +161,6 @@
    "心房（血液をためて心室へ送る、もう一つの小さな部屋）",
    "右の心臓と左の心臓をつなぐ、肺をまわる回路"
   ]
- }
+ },
+ "v4note": "指示文 v3 の出力。出典（ref）とつなぎ（link）の欄がないため、1e-3 の確かめでは落ちる（記録として残す）。"
 }

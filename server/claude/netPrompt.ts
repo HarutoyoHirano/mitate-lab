@@ -1,8 +1,9 @@
-// つづきの謎（CLAUDE.md 1e-2）：模型の形そのものを Claude が部品箱から組み立てる指示文（v3）。
+// つづきの謎（CLAUDE.md 1e-2・1e-3）：模型の形そのものを Claude が部品箱から組み立て、出典とつなぎも書く指示文（v4）。
 // 出力は NetPuzzleSpec の JSON。正しさは server/model/partsNet.ts の verifyNetPuzzle が確かめる（AIの出力は信用しない）。
 // 指示文の見本には、すでにある謎（血管・膜）だけを入れる。心臓などの組み立て方は書かない（AIが自分で組み立てる）。
 import type { Check, NetPuzzleSpec } from "../model/partsNet.js";
 import { STROKE_ML, EJECT_S } from "../model/vessel.js";
+import { refCatalogText } from "../model/refs.js";
 
 const QMAX = (STROKE_ML * Math.PI) / (2 * EJECT_S);
 
@@ -25,14 +26,16 @@ export const PREPARED_NETS: readonly NetPuzzleSpec[] = [
       { id: "out", name: "その先の細い血管", fixed: 0 },
     ],
     parts: [
-      { id: "pump", type: "source", name: "試験装置のポンプ", role: "心臓が1回の脈ごとに送り出す血液（決まった量）", node: "vessel", amplitude: Number(QMAX.toFixed(2)), shape: "halfSine" },
-      { id: "wall", type: "store", name: "血管のふくらみやすさ", role: "血管の壁がふくらんで血液をためる", node: "vessel", C: 1.5 },
-      { id: "exit", type: "resist", name: "出口の流れにくさ", role: "血管の先の細い血管の流れにくさ", from: "vessel", to: "out", R: 1 },
+      { id: "pump", type: "source", name: "試験装置のポンプ", role: "心臓が1回の脈ごとに送り出す血液（決まった量）", node: "vessel", amplitude: Number(QMAX.toFixed(2)), shape: "halfSine", ref: "westerhof2009" },
+      { id: "wall", type: "store", name: "血管のふくらみやすさ", role: "血管の壁がふくらんで血液をためる", node: "vessel", C: 1.5, ref: "westerhof2009" },
+      { id: "exit", type: "resist", name: "出口の流れにくさ", role: "血管の先の細い血管の流れにくさ", from: "vessel", to: "out", R: 1, ref: "westerhof2009" },
     ],
     watch: [{ probe: { node: "vessel" }, label: "血管の中の圧" }],
     robot: { probe: { node: "vessel" }, metric: "mean", says: "1回の脈の平均の圧が同じなら、同じ血管です。" },
     B: { part: "wall", param: "C", factor: 0.5, reveal: "血管Bは、ふくらみやすさが見本の半分。平均の圧は流れにくさだけで決まるので、ロボには同じに見えた。" },
     outOfScope: ["心臓が自分で縮むしくみと弁（この謎では、決まった量を送るポンプに置きかえた）", "実際の動脈で波がはね返ること"],
+    link: { fromTitle: "回路に見立てろ", story: "回路の係が言う。「この回路の形、血管チームの試験装置と同じだ」。膝へ血液を運ぶ人工血管のチームへ。", change: "軟骨の回路のコンデンサと抵抗に、決まった量の電流を送りこむもの（ポンプ）をつないだ。" },
+    nextTopics: ["神経の膜", "心臓"],
   },
   {
     title: "膜の見落とし",
@@ -51,14 +54,16 @@ export const PREPARED_NETS: readonly NetPuzzleSpec[] = [
       { id: "rest", name: "イオンの濃さの差がつくる電池", fixed: -70 },
     ],
     parts: [
-      { id: "gate", type: "source", name: "押されると開く入口", role: "押されているあいだ入ってくる電流", node: "inside", amplitude: 1, shape: "square" },
-      { id: "mem", type: "store", name: "膜の電気のためやすさ", role: "あぶらでできた膜が、内と外に電気をためる", node: "inside", C: 1 },
-      { id: "leakPath", type: "resist", name: "いつも開いている通り道", role: "イオンがたえず出入りして、たまった電気が逃げる道", from: "inside", to: "rest", R: 10 },
+      { id: "gate", type: "source", name: "押されると開く入口", role: "押されているあいだ入ってくる電流", node: "inside", amplitude: 1, shape: "square", ref: "hodgkin1946" },
+      { id: "mem", type: "store", name: "膜の電気のためやすさ", role: "あぶらでできた膜が、内と外に電気をためる", node: "inside", C: 1, ref: "hodgkin1946" },
+      { id: "leakPath", type: "resist", name: "いつも開いている通り道", role: "イオンがたえず出入りして、たまった電気が逃げる道", from: "inside", to: "rest", R: 10, ref: "hodgkin1946" },
     ],
     watch: [{ probe: { node: "inside" }, label: "膜の電圧" }],
     robot: { probe: { node: "inside" }, metric: "plateau", says: "止める直前の膜の電圧が同じなら、同じ膜です。" },
     B: { part: "mem", param: "C", factor: 2.2, reveal: "膜Bは、電気のためやすさが見本の2.2倍。上がるのも戻るのもゆっくりだが、長く流せば同じ高さになる。" },
     outOfScope: ["その先で信号が脳へ送られるしくみ", "イオンの種類ごとの動き"],
+    link: { fromTitle: "脈の見落とし", story: "血管チームの係が言う。「この回路に電池を一つ足すと、神経チームの膜の模型になる」。膝の感覚を脳へ伝える神経のチームへ。", change: "血管の回路に、電池（何もしていないときの膜の電圧 −70 mV）を一つ足した。" },
+    nextTopics: ["心臓", "肺", "体温"],
   },
 ];
 
@@ -71,17 +76,20 @@ const SCHEMA = `{
   "units": {"level": {"name": "高さにあたるもの", "unit": "単位"}, "amount": {"name": "たまる量", "unit": "単位"}, "flow": {"name": "流れ", "unit": "単位"}},
   "clock": {"kind": "pulse" か "beats", "on": 送る長さ, "period": 周期（beats のとき）, "record": 記録の長さ（pulse のとき）, "timeUnit": "秒など"},
   "nodes": [ {"id": "英小文字", "name": "場所の名前", "fixed": 高さ（高さの決まった場所だけ）} ],
-  "parts": [ {"id": "英小文字", "type": "store|chamber|resist|valve|source", "name": "部品の名前", "role": "体（題材）の何にあたるか", ...値とつなぎ先} ],
+  "parts": [ {"id": "英小文字", "type": "store|chamber|resist|valve|source", "name": "部品の名前", "role": "体（題材）の何にあたるか", "ref": "出典カタログの id", ...値とつなぎ先} ],
   "watch": [ {"probe": {"node": id} か {"flow": 部品id} か {"amount": 部品id}, "label": "プレイヤーが見るもの"} ]（1〜3個）,
   "robot": {"probe": 同上, "metric": "mean|max|min|plateau|halfTime|perCycle", "says": "ロボの証言（一文）"},
   "B": {"part": 部品id, "param": 値の名前, "factor": 倍率, "compensate": {"part": 部品id, "param": 値の名前}（任意）, "reveal": "正体の説明（一、二文）"},
   "outOfScope": ["この模型で扱わないこと", ...],
-  "missingParts": ["部品箱にないが、本当は要る部品", ...]（なければ空）
+  "missingParts": ["部品箱にないが、本当は要る部品", ...]（なければ空）,
+  "link": {"fromTitle": "前の謎の題名（そのまま写す）", "story": "前の謎の結びから、この謎へ進む話（ラボの誰かが次を頼む。一、二文）", "change": "前の模型から何を足した・置きかえたか（一文）"},
+  "nextTopics": ["この謎の次に調べると面白い題材", ...]（2〜3個、それぞれ20字以内）
 }`;
 
-/** 模型を組み立てる指示文。topic は学生が知りたい題材（例：「心臓」「肺」「腎臓」） */
-export function netPrompt(topic: string): string {
-  return `あなたは教材「見立てラボ」の謎を組み立てる係です。学生はここまでに、人工軟骨（ばねとダンパの模型）→同じ式の電気回路→膝へ血液を運ぶ人工血管→膝の感覚を伝える神経の膜、の五つの謎を解きました。どの謎も、検査ロボ TEJUN-07 が一つの数字だけを見て「区別できません」と言い、学生が測り方を変えて見落としを見つけます。
+/** 模型を組み立てる指示文。topic は学生が知りたい題材（例：「心臓」「肺」「腎臓」）、previous は直前に解いた謎（つなぎの元） */
+export function netPrompt(topic: string, previous: NetPuzzleSpec = PREPARED_NETS[1]!): string {
+  return `あなたは教材「見立てラボ」の謎を組み立てる係です。学生はここまでに、人工軟骨（ばねとダンパの模型）→同じ式の電気回路→膝へ血液を運ぶ人工血管→膝の感覚を伝える神経の膜、の五つの謎を解きました。どの謎も、検査ロボ TEJUN が一つの数字だけを見て「区別できません」と言い、学生が測り方を変えて見落としを見つけます。
+学生が直前に解いた謎は「${previous.title}」（${previous.topic}）で、その結びは「${previous.endLine}」でした。
 学生は続きとして「${topic.slice(0, 40)}」について知りたがっています。同じ形の謎を一つ組み立ててください。
 
 今回は、**模型の形そのものをあなたが組み立てます**。下の部品箱から部品を選んでつなぎ、題材のいちばん大事なはたらきが、模型の中で本当に動くようにしてください。表せるふりをしてはいけません。プログラムが組み立てた形のまま計算し、確かめます。
@@ -102,6 +110,20 @@ export function netPrompt(topic: string): string {
 - 題材のはたらきのうち、部品箱で表せない部分は outOfScope に書き、本当は要る部品を missingParts に書く。表せる範囲を正直に選ぶ
 - 値は教科書で使う程度のもっともらしい値でよいが、「模型の値」であり体の値を表さない。単位は学生に分かるものを書く
 
+出典の約束（実世界を完全に表す模型はないので、実物と違う点があってもよい。ただし、研究として確立していない空想で説明してはいけない）：
+- どの部品にも "ref" を書く。ref は下の出典カタログの id だけ。カタログにない文献を書かない（作らない）
+- その文献が支える種類の部品にだけ使う。その文献が扱っていないことを、その文献の部品の役（role）にしない
+- 別の対象の文献の形だけを借りない（例：肺の文献で胃を表さない）。部品の名前か役には、その文献の対象（カタログの括弧の中）にあたる言葉を入れる
+- 題材の大事なはたらきを、カタログのどの文献でも支えられないときは、支えられる部分を選んで謎にする。支えられない部分は outOfScope と missingParts に書く
+出典カタログ：
+${refCatalogText()}
+
+つなぎの約束：
+- link.fromTitle には前の謎の題名「${previous.title}」をそのまま写す
+- link.story は、前の謎の結びから自然に続く話にする（前の謎で出てきたチームや部品にふれる）
+- 前の模型と同じ種類の部品を一つ以上残し、一つ以上を足すか置きかえる（同じ見方を一歩ずつ広げる）。前の模型：${previous.parts.map((p) => `${p.name}（${p.type}）`).join("、")}${previous.nodes.some((n) => typeof n.fixed === "number" && n.fixed !== 0) ? "、電池（高さの決まった場所）" : ""}
+- nextTopics には、この謎の次に調べると面白い題材を2〜3個（物理・化学・生物をまたぐもの）
+
 謎の約束：
 - robot は一つの場所・一つの数字だけを見る：mean（平均）／max（最高）／min（最低）／plateau（送り終わる直前、pulse だけ）／halfTime（送り終えてから、初めの高さとの差が半分に戻るまでの時間、pulse だけ）／perCycle（その部品を1回で流れた量、flow だけ）
 - B は見本Aと、一つの部品の一つの値（store の C、chamber の Emin・Emax・V0、resist・valve の R、source の amplitude）が factor 倍違う（0.33〜3倍、1.3倍以上の違い）
@@ -119,8 +141,8 @@ ${JSON.stringify(PREPARED_NETS[1])}`;
 }
 
 /** 確かめに通らなかったとき、理由を添えて一度だけ作り直してもらう */
-export function netRetryPrompt(topic: string, previous: unknown, failed: Check[]): string {
-  return `${netPrompt(topic)}
+export function netRetryPrompt(topic: string, before: NetPuzzleSpec | undefined, previous: unknown, failed: Check[]): string {
+  return `${netPrompt(topic, before)}
 
 さきほどの出力は、プログラムの確かめに通りませんでした。
 出力：${JSON.stringify(previous).slice(0, 6000)}

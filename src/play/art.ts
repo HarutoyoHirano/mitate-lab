@@ -8,7 +8,7 @@ import { toCircuit } from "../../server/model/circuit.js";
 
 export type Mood = "calm" | "smug" | "sweat" | "shock" | "scan" | "down";
 
-/** 検査ロボ TEJUN-07（定型ルールで動く。AIではない） */
+/** 検査ロボ TEJUN（定型ルールで動く。AIではない） */
 export function robotArt(mood: Mood, x: number, y: number, s = 1): string {
   const eyes =
     mood === "shock"
@@ -28,7 +28,7 @@ export function robotArt(mood: Mood, x: number, y: number, s = 1): string {
     <rect x="-36" y="66" width="172" height="120" rx="22" fill="var(--screen)"/>
     ${eyes}${mouth}${sweat}
     <rect x="-30" y="236" width="160" height="150" rx="24" fill="var(--metal-2)" stroke="var(--metal-edge)" stroke-width="5"/>
-    <rect x="0" y="262" width="100" height="40" rx="8" fill="var(--screen)"/><text x="50" y="290" fill="var(--bot)" font-size="20" font-weight="900" text-anchor="middle">07</text>
+    <rect x="0" y="262" width="100" height="40" rx="8" fill="var(--screen)"/><text x="50" y="290" fill="var(--bot)" font-size="17" font-weight="900" text-anchor="middle">TEJUN</text>
   </g>`;
 }
 
@@ -455,7 +455,7 @@ const MOVIES: Record<MovieId, Movie> = {
     scenes: [
       { dur: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ（本物ではない）。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される", draw: sceneLeg },
-      { dur: 5, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN-07 は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobot },
+      { dur: 5, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobot },
     ],
     end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
   },

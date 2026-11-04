@@ -1,12 +1,13 @@
 // 試作「つづきの謎をつくる」（CLAUDE.md 1e-2）：Claude（開いた人の Claude）が部品箱から模型の形ごと組み立て、計算プログラムが確かめる。
 // AIの出力は信用しない：verifyNetPuzzle が形・つなぎ方・計算・ロボの見落とし・見える違い・言葉を確かめ、通ったものだけを遊べる謎にする。
 import "./proto.css";
-import { probeSeries, verifyNetPuzzle, type Check, type Metric, type NetPart, type NetPuzzleSpec, type NetVerdict, type Probe } from "../../server/model/partsNet.js";
+import { probeSeries, verifyNetPuzzle, type Check, type DiffType, type Metric, type NetPart, type NetPuzzleSpec, type NetVerdict, type Probe } from "../../server/model/partsNet.js";
+import { refById } from "../../server/model/refs.js";
 import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/claude/netPrompt.js";
 
 type Sample = ((input: string, opts?: Record<string, unknown>) => Promise<{ text: string }>) & { json: (input: string, opts?: Record<string, unknown>) => Promise<unknown> };
 interface Attempt { spec: unknown; verdict: NetVerdict }
-interface Shown { spec: NetPuzzleSpec; verdict: NetVerdict; source: "ai" | "prepared"; attempts: Attempt[]; note?: string }
+interface Shown { spec: NetPuzzleSpec; verdict: NetVerdict; source: "ai" | "prepared"; attempts: Attempt[]; note?: string; prev?: NetPuzzleSpec }
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -23,6 +24,9 @@ let tIndex = 0;
 let evidence: { label: string; t: number; diff: number; ok: boolean } | null = null;
 let revealed = false;
 let ctl: AbortController | null = null;
+/** つづきの元（前の謎）。はじめは謎5（膜）。解いた謎から続けると、その謎になる */
+let previous: NetPuzzleSpec = PREPARED_NETS[1]!;
+const DIFF_NAME: Record<DiffType, string> = { source: "送りこむもの", store: "ためる部品", chamber: "自分で固くなる部屋", resist: "流れにくさ", valve: "一方通行の戸", battery: "電池（高さの決まった場所）" };
 
 const ERR: Record<string, string> = {
   not_granted: "このページから Claude を使うことが許可されていません。",
@@ -61,7 +65,7 @@ async function check(spec: unknown): Promise<NetVerdict> {
   status = "計算プログラムが、組み立てた模型を計算して確かめています…";
   render();
   await later();
-  return verifyNetPuzzle(spec);
+  return verifyNetPuzzle(spec, previous);
 }
 
 async function generate(topic: string): Promise<void> {
@@ -72,17 +76,18 @@ async function generate(topic: string): Promise<void> {
   status = "Claude が部品を選んで模型を組み立てています（1分ほどかかることがあります）…";
   render();
   try {
-    let spec = await sample.json(netPrompt(topic), { signal: ctl.signal, cache: false });
+    const before = previous;
+    let spec = await sample.json(netPrompt(topic, before), { signal: ctl.signal, cache: false });
     let verdict = await check(spec);
     attempts.push({ spec, verdict });
     if (!verdict.ok) {
       status = "確かめに通らなかった点を伝えて、一度だけ組み立て直してもらっています…";
       render();
-      spec = await sample.json(netRetryPrompt(topic, spec, verdict.checks.filter((c) => !c.ok)), { signal: ctl.signal, cache: false });
+      spec = await sample.json(netRetryPrompt(topic, before, spec, verdict.checks.filter((c) => !c.ok)), { signal: ctl.signal, cache: false });
       verdict = await check(spec);
       attempts.push({ spec, verdict });
     }
-    if (verdict.ok) show({ spec: spec as NetPuzzleSpec, verdict, source: "ai", attempts });
+    if (verdict.ok) show({ spec: spec as NetPuzzleSpec, verdict, source: "ai", attempts, prev: before });
     else show({ spec: PREPARED_NETS[0]!, verdict: verifyNetPuzzle(PREPARED_NETS[0]), source: "prepared", attempts, note: "AIが組み立てた模型は、二度とも確かめに通りませんでした。代わりに用意した謎を出します（下の記録で、どこが通らなかったかを見られます）。" });
     status = "";
   } catch (e) {
@@ -134,7 +139,7 @@ function wrapText(x: number, y: number, text: string, per: number, cls: string, 
 function schematic(spec: NetPuzzleSpec, lit: Set<string>): string {
   const order = nodeOrder(spec);
   const gap = 132;
-  const W = Math.max(520, 90 + gap * (order.length - 1) + 90);
+  const W = Math.max(560, 80 + gap * (order.length - 1) + 170);
   const row = 128;
   const rail = 236;
   const H = 280;
@@ -243,12 +248,13 @@ function puzzleHtml(s: Shown): string {
     <p class="badge ${s.source}">${s.source === "ai" ? "AIが組み立てた模型（計算と判定はプログラムが確かめた。体の何にあたるかはAIの見立てで、先生の確認前）" : "用意した謎"}</p>
     ${s.note ? `<p class="note">${esc(s.note)}</p>` : ""}
     <h2>${esc(spec.title)}<small>${esc(spec.topic)}</small></h2>
+    ${linkHtml(s)}
     <ol class="scenes">${spec.scenes.map((sc) => `<li><b>${esc(sc.tag)}</b>${sc.caption.map((c) => `<span>${esc(c)}</span>`).join("")}</li>`).join("")}</ol>
     <p class="end">${esc(spec.endLine)}</p>
     <div class="model"><p class="soft">${s.source === "ai" ? "AIが部品箱から組み立てた模型" : "この謎の模型"}（部品 ${spec.parts.length}・場所 ${spec.nodes.length}）。プログラムは、このつなぎ方のまま計算した。</p>
       ${schematic(spec, lit)}
       <p class="soft">外からエネルギーを入れているもの：${(v.energySources ?? []).map(esc).join("、")}</p></div>
-    <div class="robot"><span class="who">TEJUN-07（決まったルールで動く・AIではない）</span><p>「${esc(spec.robot.says)}」</p>
+    <div class="robot"><span class="who">検査ロボ TEJUN</span><p>「${esc(spec.robot.says)}」</p>
       <p class="nums">ロボが見る数字（${esc(robotWhere)}・${METRIC[spec.robot.metric]}）：見本A ${fmt(v.robotA!)}／試作品B ${fmt(v.robotB!)} ${esc(robotU)} → <b>区別できません</b></p></div>
     <div class="lab">
       ${spec.watch.length > 1 ? `<div class="row tabs" role="tablist">${spec.watch.map((x, i) => `<button role="tab" aria-selected="${i === watchIdx}" data-act="watch" data-i="${i}" class="${i === watchIdx ? "on" : ""}">${esc(x.label)}</button>`).join("")}</div>` : ""}
@@ -263,11 +269,24 @@ function puzzleHtml(s: Shown): string {
     ${revealed ? `<div class="reveal"><p><b>正体：</b>${esc(spec.B.reveal)}</p>
       <p><b>違った部品：</b>${esc(bPart.name)}（${esc(spec.B.param)} が見本の ${spec.B.factor} 倍）${spec.B.compensate ? `。ロボの数字がそろうように、プログラムが ${esc(spec.parts.find((p) => p.id === spec.B.compensate!.part)?.name)}（${esc(spec.B.compensate.param)}）を見本の ${fmt(v.compensateFactor ?? 1)} 倍に合わせた` : ""}</p>
       <p><b>見立て：</b>${esc(spec.analogy)}</p>
-      <ul class="roles">${spec.parts.map((p) => `<li${lit.has(p.id) ? ' class="lit"' : ""}><b>${esc(p.name)}</b>（${TYPE_NAME[p.type]}）＝${esc(p.role)}</li>`).join("")}</ul>
+      <ul class="roles">${spec.parts.map((p) => `<li${lit.has(p.id) ? ' class="lit"' : ""}><b>${esc(p.name)}</b>（${TYPE_NAME[p.type]}）＝${esc(p.role)}<small class="cite">出典：${esc(refById(p.ref)?.cite ?? "—")}</small></li>`).join("")}</ul>
+      <p class="soft">部品の見立ては、出典の文献で知られている模型による。実物を完全に表すものではない。</p>
       <p><b>この模型で扱わないこと：</b>${spec.outOfScope.map(esc).join("、")}</p>
-      ${spec.missingParts?.length ? `<p><b>部品箱にないが、本当は要る部品（AIの申告）：</b>${spec.missingParts.map(esc).join("、")}</p>` : ""}</div>` : ""}
+      ${spec.missingParts?.length ? `<p><b>部品箱にないが、本当は要る部品（AIの申告）：</b>${spec.missingParts.map(esc).join("、")}</p>` : ""}</div>
+      <div class="next"><p><b>つづき：</b>この謎を前の謎にして、次をつくる${s.source === "ai" ? "（題材の候補はAIの提案）" : ""}</p>
+        <div class="row">${spec.nextTopics.map((t) => `<button type="button" data-act="next" data-topic="${esc(t)}" ${!sample || busy ? "disabled" : ""}>${esc(t)}</button>`).join("")}</div></div>` : ""}
     <p class="fine">値は模型の値で、体の値や病気の判定を表しません。</p>
   </section>`;
+}
+
+/** つなぎ：前の謎の結び → この謎への話 → 部品の足し引き（足し引きはプログラムの計算） */
+function linkHtml(s: Shown): string {
+  const { spec, verdict: v } = s;
+  const d = v.diff;
+  const chip = (t: DiffType, k: string) => `<span class="chip ${k}">${k === "add" ? "＋" : k === "del" ? "−" : ""}${DIFF_NAME[t]}</span>`;
+  return `<div class="link"><p class="from">前の謎「${esc(spec.link.fromTitle)}」${s.prev ? `の結び：${esc(s.prev.endLine)}` : ""}</p>
+    <p class="story">${esc(spec.link.story)}</p>
+    ${d ? `<p class="diff"><span class="soft">前の模型から（プログラムの計算）：</span>${d.added.map((t) => chip(t, "add")).join("")}${d.removed.map((t) => chip(t, "del")).join("")}${[...new Set(d.kept)].map((t) => chip(t, "keep")).join("")}</p>` : `<p class="soft">${esc(spec.link.change)}</p>`}</div>`;
 }
 
 function checksHtml(list: Check[]): string {
@@ -281,6 +300,7 @@ function render(): void {
     <header><h1>つづきの謎をつくる</h1><p>見立てラボの試作。Claude（AI）が部品箱から模型の形ごと組み立て、計算プログラムが「本当に動き、本当に解ける謎か」を確かめます。</p></header>
     <form id="f" class="ask">
       <label for="topic">次に知りたい題材</label>
+      <p class="soft">つづきの元（前の謎）：「${esc(previous.title)}」${previous === PREPARED_NETS[1] ? "（謎5）" : "（つづきの謎）"}</p>
       <div class="row"><input id="topic" type="text" maxlength="40" placeholder="例：心臓、肺、腎臓、体温" value="${esc(topic)}" ${!sample || busy ? "disabled" : ""}>
       <button class="go" type="submit" ${!sample || busy ? "disabled" : ""}>模型を組み立てる</button>
       ${busy ? `<button type="button" data-act="stop">止める</button>` : ""}</div>
@@ -304,9 +324,17 @@ app.addEventListener("click", (e) => {
   if (!el) return;
   const act = el.dataset.act;
   if (act === "stop") ctl?.abort();
+  if (act === "next" && shown) {
+    previous = shown.spec;
+    const tp = el.dataset.topic ?? "";
+    const inp = document.querySelector<HTMLInputElement>("#topic");
+    if (inp) inp.value = tp;
+    void generate(tp);
+  }
   if (act === "prepared") {
     const spec = PREPARED_NETS[Number(el.dataset.i)]!;
-    show({ spec, verdict: verifyNetPuzzle(spec), source: "prepared", attempts: [] });
+    const prev = Number(el.dataset.i) === 1 ? PREPARED_NETS[0] : undefined;
+    show({ spec, verdict: verifyNetPuzzle(spec, prev), source: "prepared", attempts: [], prev });
     render();
   }
   if (act === "watch" && shown) {

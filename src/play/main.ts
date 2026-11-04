@@ -72,7 +72,7 @@ const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06f
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "TEJUN-07（決まったルールで動く・AIではない）", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
+const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
 
 const state = {
   scene: "title" as Scene,
@@ -809,7 +809,7 @@ function titleView(): View {
           .map(([c, n, k], i) => `<g transform="translate(0,${14 + i * 62})"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
         <text x="0" y="356" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
-        <text x="0" y="380" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN-07 が決まった手順で調べる。</text>
+        <text x="0" y="380" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN が決まった手順で調べる。</text>
         <text x="0" y="404" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
@@ -864,7 +864,7 @@ function panelHtml(): string {
       <h2 id="notice-h">はじめる前に</h2>
       <ul>
         <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
-        <li>検査ロボ TEJUN-07 は決まったルールで動くプログラム（AIではない）。相棒 Claude はAIで、隠れた答えを知りません。</li>
+        <li>検査ロボ TEJUN は決まったルールで動くプログラム（AIではない）。相棒 Claude はAIで、隠れた答えを知りません。</li>
         <li>試す回数で減点しません。名前などは集めません。</li>
       </ul>
       <p class="sub">くわしい説明と先生用の設定は、右上の「？」にあります。</p>
@@ -872,7 +872,7 @@ function panelHtml(): string {
   const body =
     state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <table><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
+      <table><tr><th>検査ロボ TEJUN</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
       <tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
       <tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
       <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の記録には測るたびのぶれがあり、謎2〜5はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
@@ -893,7 +893,7 @@ function render(): void {
   app.innerHTML = `<div class="game"><div class="screen">
     <header class="hud">
       <span class="chap">${esc(v.chap)}</span><span class="goal">${esc(v.goal)}</span>
-      <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN-07 の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
+      <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
       <span class="ai">相棒 Claude（AI）${state.claude ? "" : "・休止中"}</span>
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
       <button class="mini-btn" data-act="panel" data-val="card">発見カード</button>
@@ -1733,7 +1733,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-say("bot", "私はTEJUN-07。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
+say("bot", "私はTEJUN。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
 status().then((s) => {
   state.claude = s.claude;
   render();

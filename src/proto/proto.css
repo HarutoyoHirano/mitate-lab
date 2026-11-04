@@ -85,3 +85,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 .tabs button.on { background: var(--you); color: var(--on-you); border-color: var(--you); font-weight: 700; }
 .roles { margin: 4px 0; padding-left: 1.2em; }
 .roles .lit { color: var(--stamp); font-weight: 700; }
+/* つなぎと出典（1e-3） */
+.link { border-left: 5px solid var(--gold); padding: 4px 12px; display: grid; gap: 4px; }
+.link p { margin: 0; }
+.link .from { color: var(--soft); font-size: 0.9rem; }
+.link .story { font-weight: 700; }
+.chip { display: inline-block; font-size: 0.85rem; padding: 1px 8px; margin: 2px 4px 2px 0; border-radius: 999px; border: 2px solid var(--line); }
+.chip.add { border-color: var(--you); color: var(--you); font-weight: 700; }
+.chip.del { border-style: dashed; color: var(--soft); }
+.chip.keep { color: var(--soft); }
+.cite { display: block; color: #5a4a30; font-size: 0.8rem; }
+.next { background: var(--bg); border-radius: 10px; padding: 10px 14px; }
+.next p { margin: 0 0 6px; }

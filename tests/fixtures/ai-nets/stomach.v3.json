@@ -2,7 +2,7 @@
  "note": "Claude（Sonnet、指示文 v3 = server/claude/netPrompt.ts）が 2026-11-05 に出力したもの。人は手を加えない。",
  "topic": "胃",
  "promptVersion": "v3",
- "expectOk": true,
+ "expectOk": false,
  "output": {
   "title": "胃の見落とし",
   "topic": "食べたものを少しずつ送り出す胃",
@@ -138,5 +138,6 @@
    "胃液を出して中身を変える、化学の反応の部品",
    "波のように順に縮む、いくつもつながった自分で縮む部屋"
   ]
- }
+ },
+ "v4note": "指示文 v3 の出力。出典（ref）とつなぎ（link）の欄がないため、1e-3 の確かめでは落ちる（記録として残す）。"
 }

@@ -1,6 +1,6 @@
 // テスト41（CLAUDE.md 1e-2）：部品箱と、AIが組み立てた模型の確かめ。
 import { describe, expect, it } from "vitest";
-import { metricOf, runNet, verifyNetPuzzle, withB, type NetPuzzleSpec } from "../../server/model/partsNet.js";
+import { metricOf, partDiff, runNet, verifyNetPuzzle, withB, type NetPuzzleSpec } from "../../server/model/partsNet.js";
 import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/claude/netPrompt.js";
 import { BASE_VESSEL, CASE_VESSEL_B, steadyBeat, summarize } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, potentialMv } from "../../server/model/membraneGame.js";
@@ -28,14 +28,16 @@ const rc: NetPuzzleSpec = {
     { id: "g", name: "地面", fixed: 0 },
   ],
   parts: [
-    { id: "s", type: "source", name: "送る", role: "送る", node: "a", amplitude: 2 },
-    { id: "c", type: "store", name: "ためる", role: "ためる", node: "a", C: 0.5 },
-    { id: "r", type: "resist", name: "逃げ道", role: "逃げ道", from: "a", to: "g", R: 2 },
+    { id: "s", type: "source", name: "送る", role: "心臓が送る血液", node: "a", amplitude: 2, ref: "westerhof2009" },
+    { id: "c", type: "store", name: "ためる", role: "血管がふくらんでためる", node: "a", C: 0.5, ref: "westerhof2009" },
+    { id: "r", type: "resist", name: "逃げ道", role: "細い血管の流れにくさ", from: "a", to: "g", R: 2, ref: "westerhof2009" },
   ],
   watch: [{ probe: { node: "a" }, label: "高さ" }],
   robot: { probe: { node: "a" }, metric: "plateau", says: "同じです。" },
   B: { part: "c", param: "C", factor: 2, reveal: "正体" },
   outOfScope: ["なし"],
+  link: { fromTitle: "前の謎", story: "次へ。", change: "足した。" },
+  nextTopics: ["一", "二"],
 };
 
 /** 心臓（自分で固くなる部屋＋一方通行の戸二つ＋血管）。部品箱の計算の確かめ用（指示文には入れない） */
@@ -50,11 +52,11 @@ const heart: NetPuzzleSpec = {
     { id: "out", name: "その先", fixed: 0 },
   ],
   parts: [
-    { id: "mv", type: "valve", name: "入口の戸", role: "入口の弁", from: "vein", to: "lv", R: 0.01 },
-    { id: "ch", type: "chamber", name: "部屋", role: "下の部屋", node: "lv", Emin: 0.06, Emax: 2, V0: 10 },
-    { id: "av", type: "valve", name: "出口の戸", role: "出口の弁", from: "lv", to: "art", R: 0.005 },
-    { id: "ca", type: "store", name: "血管のふくらみやすさ", role: "太い血管", node: "art", C: 1.5 },
-    { id: "rp", type: "resist", name: "出口の流れにくさ", role: "細い血管", from: "art", to: "out", R: 1 },
+    { id: "mv", type: "valve", name: "入口の戸", role: "入口の弁", from: "vein", to: "lv", R: 0.01, ref: "shi2011" },
+    { id: "ch", type: "chamber", name: "部屋", role: "下の部屋", node: "lv", Emin: 0.06, Emax: 2, V0: 10, ref: "suga1973" },
+    { id: "av", type: "valve", name: "出口の戸", role: "出口の弁", from: "lv", to: "art", R: 0.005, ref: "shi2011" },
+    { id: "ca", type: "store", name: "血管のふくらみやすさ", role: "太い血管", node: "art", C: 1.5, ref: "westerhof2009" },
+    { id: "rp", type: "resist", name: "出口の流れにくさ", role: "細い血管", from: "art", to: "out", R: 1, ref: "westerhof2009" },
   ],
   watch: [
     { probe: { node: "art" }, label: "血管の圧" },
@@ -117,11 +119,45 @@ describe("41 部品箱", () => {
     });
   });
 
-  it("用意した謎は確かめに通る", () => {
+  it("用意した謎は確かめに通る（膜は、血管を前の謎にしたつなぎも通る）", () => {
     for (const sp of PREPARED_NETS) {
       const v = verifyNetPuzzle(sp);
       expect(v.checks.filter((c) => !c.ok)).toEqual([]);
     }
+    const v = verifyNetPuzzle(PREPARED_NETS[1], PREPARED_NETS[0]);
+    expect(v.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(v.diff!.added).toEqual(["battery"]);
+  });
+
+  it("出典：カタログにない・支えない部品・その文献が扱わない役は落ちる", () => {
+    const fail = (sp: NetPuzzleSpec) => verifyNetPuzzle(sp).checks.find((c) => c.id === "sources")!;
+    const withRef = (id: string, ref: string | undefined, role?: string): NetPuzzleSpec => ({ ...rc, parts: rc.parts.map((p) => (p.id === id ? { ...p, ref, role: role ?? p.role } : p)) });
+    expect(fail(rc).ok).toBe(true);
+    expect(fail(withRef("c", undefined)).ok).toBe(false);
+    expect(fail(withRef("c", "smith2020")).ok).toBe(false);
+    expect(fail(withRef("c", "deen1972")).ok).toBe(false); // deen1972 は流れにくさだけを支える
+    expect(fail(withRef("r", "deen1972", "こした液を血液へ取りもどす道")).ok).toBe(false);
+    expect(fail(withRef("r", "deen1972", "糸球体で液がこし出される通りやすさ")).ok).toBe(true);
+    // 別の対象の文献の形だけを借りる（肺の文献で胃を表す）のは落ちる
+    expect(fail({ ...rc, parts: rc.parts.map((p) => ({ ...p, ref: "bates2009", role: "胃の壁がのびて食べ物をためる" })) }).ok).toBe(false);
+    expect(fail({ ...rc, parts: rc.parts.map((p) => ({ ...p, ref: "bates2009", role: "肺に空気がたまる" })) }).ok).toBe(true);
+    // 心臓の部屋は、時間とともに変わる弾性の文献でだけ支えられる
+    expect(verifyNetPuzzle({ ...heart, parts: heart.parts.map((p) => (p.id === "ch" ? { ...p, ref: "westerhof2009" } : p)) }).checks.find((c) => c.id === "sources")!.ok).toBe(false);
+  });
+
+  it("つなぎ：題名・部品の共有と違いを確かめ、足し引きは計算する", () => {
+    const mem = PREPARED_NETS[1]!;
+    const h = { ...heart, link: { fromTitle: mem.title, story: "神経のチームの次は、心臓のチームへ。", change: "ポンプを、自分で縮む部屋と戸に置きかえた。" } };
+    const d = partDiff(mem, h);
+    expect(d.added.sort()).toEqual(["chamber", "valve", "valve"].sort());
+    expect(d.removed).toEqual(["source"]);
+    expect(d.kept.sort()).toEqual(["battery", "resist", "store"].sort());
+    expect(verifyNetPuzzle(h, mem).checks.find((c) => c.id === "link")!.ok).toBe(true);
+    expect(verifyNetPuzzle({ ...h, link: { ...h.link, fromTitle: "別の謎" } }, mem).checks.find((c) => c.id === "link")!.ok).toBe(false);
+    // 前と部品の種類が全く同じ
+    expect(verifyNetPuzzle({ ...mem, link: { ...mem.link, fromTitle: mem.title } }, mem).checks.find((c) => c.id === "link")!.ok).toBe(false);
+    // つなぎがない
+    expect(verifyNetPuzzle({ ...h, link: undefined } as unknown as NetPuzzleSpec, mem).checks.find((c) => c.id === "link")!.ok).toBe(false);
   });
 
   it("心臓の例：部屋が縮んで送り出し、落ち着いた1回で入る量と出る量が等しい", () => {
@@ -175,7 +211,7 @@ describe("41 部品箱", () => {
       ...rc,
       B: { ...rc.B, factor: 2.2 },
       nodes: [...rc.nodes, { id: "g2", name: "地面2", fixed: 0 }],
-      parts: [...rc.parts, { id: "z", type: "resist", name: "飾り", role: "飾り", from: "g", to: "g2", R: 1 }],
+      parts: [...rc.parts, { id: "z", type: "resist", name: "飾り", role: "飾りの血管", from: "g", to: "g2", R: 1, ref: "westerhof2009" }],
     };
     expect(verifyNetPuzzle(idle).checks.find((c) => c.id === "active")!.ok).toBe(false);
     // 病気につながる言葉
@@ -187,7 +223,9 @@ describe("41 部品箱", () => {
     expect(p).toContain("心臓");
     expect(p).toContain("chamber（自分で固くなる部屋");
     expect(p).not.toContain('"Emax":2');
-    expect(netRetryPrompt("心臓", { a: 1 }, [{ id: "x", label: "理由", ok: false, detail: "詳細" }])).toContain("理由：詳細");
+    expect(p).toContain("膜の見落とし");
+    expect(p).toContain("suga1973");
+    expect(netRetryPrompt("心臓", undefined, { a: 1 }, [{ id: "x", label: "理由", ok: false, detail: "詳細" }])).toContain("理由：詳細");
   });
 
   it("Claude が実際に組み立てた模型の確かめの結果（記録）", () => {
@@ -199,8 +237,12 @@ describe("41 部品箱", () => {
       files = [];
     }
     for (const f of files) {
-      const rec = JSON.parse(readFileSync(join(dir, f), "utf8")) as { expectOk: boolean; output: unknown };
-      expect(verifyNetPuzzle(rec.output).ok, f).toBe(rec.expectOk);
+      const rec = JSON.parse(readFileSync(join(dir, f), "utf8")) as { expectOk: boolean; output: unknown; previous?: string };
+      // previous："prepared:1"＝用意した謎（膜）、"file:xxx.json"＝その記録の出力（つづきの連鎖）
+      let prev: NetPuzzleSpec | undefined;
+      if (rec.previous?.startsWith("prepared:")) prev = PREPARED_NETS[Number(rec.previous.slice(9))];
+      if (rec.previous?.startsWith("file:")) prev = (JSON.parse(readFileSync(join(dir, rec.previous.slice(5)), "utf8")) as { output: NetPuzzleSpec }).output;
+      expect(verifyNetPuzzle(rec.output, prev).ok, f).toBe(rec.expectOk);
     }
   });
 });

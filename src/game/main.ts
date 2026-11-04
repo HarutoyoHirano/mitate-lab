@@ -249,7 +249,7 @@ function panelHtml(): string {
   const body =
     state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <table class="roles"><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ライフは、あなたが謎を解くたびに減る（あなたの減点ではない）</td></tr><tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr><tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
+      <table class="roles"><tr><th>検査ロボ TEJUN</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ライフは、あなたが謎を解くたびに減る（あなたの減点ではない）</td></tr><tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr><tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
       <p class="note">クッションと膜は、計算で作った仮想の試料です（クッションは、見本Aを押して十分に待った力を1とする目盛り）。ラボも試作品も架空で、実在の人工関節・軟骨・医療機器の性能を表すものではありません。ここでの「検査」はゲームの中のルールで、臨床検査や実在の機器の手順ではありません。診断や性能の判定はしません。</p>
       <p class="note">謎1の記録には測定誤差があり、謎2・3と橋は誤差なしの計算です。試す回数で減点はしません。氏名などは集めていません。</p>`
       : `<h2>発見カード（記録から）</h2>
@@ -262,7 +262,7 @@ function panelHtml(): string {
 function robot(line: string, mood: Mood = state.mood): string {
   return `<div class="robot ${mood}">
     <div class="robot-face">${robotSvg(mood)}</div>
-    <div><p class="robot-name">TEJUN-07・検査ロボ（決まった測り方で動く定型ルール。AIではありません）</p><p class="robot-line">${line}</p></div>
+    <div><p class="robot-name">TEJUN・検査ロボ（決まった測り方で動く定型ルール。AIではありません）</p><p class="robot-line">${line}</p></div>
   </div>`;
 }
 
@@ -282,11 +282,11 @@ function renderTitle(): string {
       ${factorySvg()}
       <div class="story">
         <p><strong>ここは</strong>再生医療ラボ（仮想）。3Dプリンタで、膝の骨と骨の間に入れる人工のクッションを試作している。クッションは一歩ごとに押され、足を上げると元へ戻る。</p>
-        <p><strong>ロボの検査</strong>試作品は、検査ロボ TEJUN-07 が調べる。押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
+        <p><strong>ロボの検査</strong>試作品は、検査ロボ TEJUN が調べる。押して、20秒待って、押し返す力を読む。見本Aとの差が ±0.03 以内なら「見本と区別できない」。いつも同じ手順で、それ以外は見ない。</p>
         <p><strong>謎</strong>新しい印刷条件で作ったクッションB。ロボの判定は「見本と区別できません」。でも、走るときのようにすばやく押されたら？ 次の一歩までに元へ戻る？ ロボが見ていないところを調べるのが、あなたの仕事。</p>
       </div>
     </div>
-    ${robot("私はTEJUN-07。試作品の検査ロボです。決まった手順（押して20秒後の力）で、見本と同じかを判定します。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
+    ${robot("私はTEJUN。試作品の検査ロボです。決まった手順（押して20秒後の力）で、見本と同じかを判定します。私の検査で区別できなければ、二つは同じとみなします。", "smug")}
     <div class="title-grid">
       <div class="card">
         <h2>あなたの任務</h2>

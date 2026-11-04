@@ -1,5 +1,7 @@
 // つづきの謎（CLAUDE.md 1e-2）：模型の形そのものをAIが部品箱から組み立て、プログラムが計算して確かめる。
 // 部品：ためる部品・自分で固くなる部屋・流れにくさ・一方通行の戸・送りこむもの。節点には「高さの決まった場所」を置ける。
+import { refById } from "./refs.js";
+
 // AIの出力（NetPuzzleSpec）は信用しない。形・つなぎ方・計算・ロボの見落とし・見える違い・言葉をすべてここで確かめる。
 
 export type ClockKind = "pulse" | "beats";
@@ -32,6 +34,8 @@ export interface NetPart {
   readonly V0?: number;
   readonly amplitude?: number;
   readonly shape?: Shape;
+  /** 出典（server/model/refs.ts のカタログの id。1e-3） */
+  readonly ref?: string;
 }
 
 export type Probe = { readonly node: string } | { readonly flow: string } | { readonly amount: string };
@@ -63,6 +67,43 @@ export interface NetPuzzleSpec {
   readonly outOfScope: readonly string[];
   /** 部品箱にない部品が要ると判断したら書く */
   readonly missingParts?: readonly string[];
+  /** 前の謎からのつなぎ（1e-3） */
+  readonly link: { readonly fromTitle: string; readonly story: string; readonly change: string };
+  /** 次の題材の候補（AIが2〜3個） */
+  readonly nextTopics: readonly string[];
+}
+
+/** 足し引きを数える部品の種類。battery は高さが 0 でない「高さの決まった場所」（電池） */
+export type DiffType = PartType | "battery";
+
+export interface PartDiff {
+  readonly added: DiffType[];
+  readonly removed: DiffType[];
+  readonly kept: DiffType[];
+}
+
+/** 前の模型からの部品の足し引き（種類ごとの数で比べる） */
+export function partDiff(prev: NetPuzzleSpec, cur: NetPuzzleSpec): PartDiff {
+  const count = (sp: NetPuzzleSpec) => {
+    const m = new Map<DiffType, number>();
+    for (const p of sp.parts) m.set(p.type, (m.get(p.type) ?? 0) + 1);
+    const bat = sp.nodes.filter((n) => typeof n.fixed === "number" && n.fixed !== 0).length;
+    if (bat) m.set("battery", bat);
+    return m;
+  };
+  const a = count(prev);
+  const b = count(cur);
+  const added: DiffType[] = [];
+  const removed: DiffType[] = [];
+  const kept: DiffType[] = [];
+  for (const t of ["source", "store", "chamber", "resist", "valve", "battery"] as DiffType[]) {
+    const x = a.get(t) ?? 0;
+    const y = b.get(t) ?? 0;
+    for (let k = 0; k < Math.min(x, y); k++) kept.push(t);
+    for (let k = x; k < y; k++) added.push(t);
+    for (let k = y; k < x; k++) removed.push(t);
+  }
+  return { added, removed, kept };
 }
 
 export interface Check {
@@ -98,6 +139,8 @@ export interface NetVerdict {
   readonly best?: { readonly label: string; readonly probe: Probe; readonly t: number; readonly a: number; readonly b: number; readonly tol: number };
   /** 外からエネルギーを入れている部品・場所 */
   readonly energySources?: string[];
+  /** 前の模型からの部品の足し引き（前の謎を渡したとき） */
+  readonly diff?: PartDiff;
 }
 
 export const MAX_NODES = 7;
@@ -352,7 +395,7 @@ function paramOk(spec: NetPuzzleSpec, part: string, param: string): boolean {
 }
 
 /** AIの組み立てた謎を確かめる */
-export function verifyNetPuzzle(raw: unknown): NetVerdict {
+export function verifyNetPuzzle(raw: unknown, previous?: NetPuzzleSpec): NetVerdict {
   const checks: Check[] = [];
   const add = (id: string, label: string, ok: boolean, detail = "") => checks.push({ id, label, ok, detail });
   const s = raw as NetPuzzleSpec;
@@ -448,6 +491,34 @@ export function verifyNetPuzzle(raw: unknown): NetVerdict {
   const banned = JSON.stringify(s).match(BANNED);
   add("words", "病名・診断・治療・薬の量につながる言葉がない", !banned, banned ? `「${banned[0]}」を含む` : "");
 
+  // 4b. 出典（1e-3）：どの部品にも、カタログにある出典があり、その文献がその部品の種類を支える
+  const refErr: string[] = [];
+  for (const p of s.parts) {
+    const r = refById(p.ref);
+    if (!r) refErr.push(`${p.name}：${p.ref ? `カタログにない出典「${String(p.ref).slice(0, 30)}」` : "出典がない"}`);
+    else if (!r.supports.includes(p.type)) refErr.push(`${p.name}：${r.id} はこの種類の部品を支えない`);
+    else if (r.excludeWords && r.excludeWords.test(`${p.name} ${p.role}`)) refErr.push(`${p.name}：${r.id} は「${p.role}」を扱っていない（${r.notCovers}）`);
+    else if (!r.topicWords.test(`${p.name} ${p.role}`)) refErr.push(`${p.name}：${r.id}（${r.field}の文献）の対象ではない（別の対象の文献の形だけを借りている）`);
+  }
+  add("sources", "どの部品にも、確かめた文献の出典がある", refErr.length === 0, refErr.join("／"));
+
+  // 4c. つなぎ（1e-3）：前の謎の題名、部品の種類の共有と違い（足し引きはプログラムが計算する）
+  const linkShape = !!s.link && textOk(s.link.fromTitle, 40) && textOk(s.link.story, 120) && textOk(s.link.change, 120);
+  let diff: PartDiff | undefined;
+  let linkOk = linkShape;
+  let linkDetail = linkShape ? "" : "つなぎ（fromTitle・story・change）が欠けている、または長すぎる";
+  if (linkShape && previous) {
+    diff = partDiff(previous, s);
+    const sameTitle = s.link.fromTitle.trim() === previous.title.trim();
+    const shares = diff.kept.length > 0;
+    const differs = diff.added.length + diff.removed.length > 0;
+    linkOk = sameTitle && shares && differs;
+    linkDetail = [!sameTitle ? `前の謎の題名が違う（前は「${previous.title}」）` : "", !shares ? "前の模型と同じ種類の部品が一つもない" : "", !differs ? "前の模型と部品の種類が全く同じ" : ""].filter(Boolean).join("／");
+  }
+  add("link", "前の謎とつながっている（同じ部品を残し、一つ以上足すか置きかえる）", linkOk, linkDetail);
+  const nextOk = Array.isArray(s.nextTopics) && s.nextTopics.length >= 2 && s.nextTopics.length <= 3 && s.nextTopics.every((t) => textOk(t, 20));
+  add("next", "次の題材の候補が2〜3個ある", nextOk);
+
   // 5. 見るもの・ロボ・B の参照
   const refsOk =
     s.watch.every((w) => probeOk(s, w.probe)) &&
@@ -460,7 +531,7 @@ export function verifyNetPuzzle(raw: unknown): NetVerdict {
   const f = s.B.factor;
   const factorOk = isPos(f) && f >= 0.33 && f <= 3 && Math.abs(Math.log(f)) >= Math.log(1.3);
   add("factor", "Bの違いの大きさ（見本の0.33〜3倍、1.3倍以上の違い）", factorOk, `見本の ${f} 倍`);
-  if (trapped.length || banned || !refsOk || !factorOk) return { ok: false, checks };
+  if (trapped.length || banned || refErr.length || !linkOk || !nextOk || !refsOk || !factorOk) return { ok: false, checks, diff };
 
   // 6. 計算
   const runA = runNet(s);
@@ -561,5 +632,5 @@ export function verifyNetPuzzle(raw: unknown): NetVerdict {
     ...s.nodes.filter((n) => n.fixed !== undefined && n.fixed !== 0).map((n) => n.name),
   ];
   const ok = checks.every((c) => c.ok);
-  return { ok, checks, runA, runB, specB: withB(s, g), compensateFactor: s.B.compensate ? g : undefined, robotA, robotB: b.v, best, energySources };
+  return { ok, checks, runA, runB, specB: withB(s, g), compensateFactor: s.B.compensate ? g : undefined, robotA, robotB: b.v, best, energySources, diff };
 }
