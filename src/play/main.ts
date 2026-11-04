@@ -159,7 +159,7 @@ async function damage(n: number): Promise<void> {
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string][] = [
-    ["証言 1 / 2", `「20秒後の力は、A ${r.base.toFixed(3)}・B ${r.force.toFixed(3)}」（見本Aが落ち着いた力を1とした数）`, `「差 ${sgn(r.diff)}。『同じ』とみなす幅 ±${r.tolerance} の内側」`],
+    ["証言 1 / 2", `「20秒後の力は、A ${r.base.toFixed(3)}・B ${r.force.toFixed(3)}」`, `「差 ${sgn(r.diff)}。『同じ』の幅 ±${r.tolerance} の内側」`],
     ["証言 2 / 2", "「だから、AとBは", "　同じ軟骨です」"],
   ];
   const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
@@ -168,7 +168,7 @@ function c1Say(): View {
     chap: "事件1 見破れ",
     goal: "ロボの証言を聞き、確かめ方を考えよう",
     svg: `${ruleCard(40, 40, "検査規則 第1版", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ 差 ±0.03 以内 → 同じ"], null, false)}
-      ${bubble(380, 70, lab, l1, l2, 440)}${robotArt(state.mood, 960, 40, 0.95)}`,
+      ${bubble(370, 70, lab, l1, l2, 500)}${robotArt(state.mood, 960, 40, 0.95)}<text x="40" y="270" fill="var(--soft)" font-size="15">力の数字は、見本Aが落ち着いたときの力を1とした数</text>`,
     who: "bot",
     text: state.line.text,
     cmds: !asked
@@ -384,7 +384,7 @@ function c2(): View {
   return {
     chap: "事件2 仕掛けろ",
     goal: `ロボの「次の一手」をすり抜け、別の点に違いを残す試作品をつくれ（ラウンド${round.id}）`,
-    svg: `${ruleCard(30, 20, round.id === 1 ? "検査規則 第2版（走行検査を追加）" : "検査規則 第3版", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`, "④ 第1版の検査（20秒後の力）も続ける"], 1, round.id === 2)}
+    svg: `${ruleCard(30, 20, round.id === 1 ? "検査規則 第2版（走行検査を追加）" : "検査規則 第3版", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
       <g transform="translate(330,22)"><rect width="470" height="56" rx="28" fill="color-mix(in srgb, var(--bot) 18%, var(--panel))" stroke="var(--bot)" stroke-width="3"/>
         <circle cx="30" cy="28" r="16" fill="var(--bot)"/><circle cx="30" cy="28" r="6" fill="var(--panel)"/>
         <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後（体重がかかった直後）" : "足を上げる直前（体重が抜ける直前）"}</text></g>
