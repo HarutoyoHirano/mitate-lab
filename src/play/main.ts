@@ -1411,10 +1411,16 @@ app.addEventListener("click", async (e) => {
       break;
     case "m-run": {
       const reduce = reduceMotion();
-      for (let t = 0; t <= RECORD_MS; t += reduce ? RECORD_MS : 4) {
+      for (let t = 0; t <= RECORD_MS; t += reduce ? RECORD_MS : 2) {
         state.memT = t;
         const svg = app.querySelector("svg.st");
         if (svg) svg.innerHTML = VIEWS["c4-watch"]().svg;
+        const sl = app.querySelector<HTMLInputElement>("#mt");
+        if (sl) {
+          sl.value = String(t);
+          const sp = sl.parentElement?.nextElementSibling;
+          if (sp) sp.textContent = `${t} ms`;
+        }
         await sleep(20);
       }
       state.memRan = true;
