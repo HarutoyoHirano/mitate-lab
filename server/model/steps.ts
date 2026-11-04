@@ -8,6 +8,11 @@ export const STEP_COUNT = 12;
 export const DUTY = 0.5;
 export const STEP_ERROR = 0.01;
 export const STEP_TOLERANCE = 0.03;
+/** 事件1のイメージムービーの「例：沈みやすい軟骨」（押した直後だけ増えるかたさが小さい。隠れた範囲の外の、計算した例。Bの答えではない） */
+export const MOVIE_EXAMPLE = Object.freeze({ eInf: 1, e1: 0.2, tau: 1 });
+/** イメージムービーの二つのテンポ（歩く・走る） */
+export const MOVIE_WALK = 3;
+export const MOVIE_RUN = 0.75;
 
 export type TempoId = "slowWalk" | "walk" | "jog" | "sprint";
 export const TEMPOS: readonly { id: TempoId; label: string; period: number }[] = [

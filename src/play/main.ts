@@ -12,11 +12,12 @@ import { clampPeriod, STEP_PHASES, STEP_TOLERANCE, TAP_TO_PERIOD, TEMPOS, type S
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
-import { answerMap, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { answerMap, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, kneeMovie, MOVIE_LENGTH, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 
 type Scene =
   | "title"
+  | "c1-movie"
   | "c1-say"
   | "c1-run"
   | "c1-present"
@@ -120,6 +121,8 @@ const state = {
   // 事件4
   memT: 0,
   memRan: false,
+  movieT: 0,
+  moviePlaying: false,
   memTank: false,
   memWhy: {} as Partial<Record<"g" | "c", "match" | "out" | "unsure">>,
   memChecked: false,
@@ -157,6 +160,41 @@ async function damage(n: number): Promise<void> {
 }
 
 // ---------- 事件1：証言 ----------
+let introLine = "";
+let movieTimer = 0;
+function movieLoop(): void {
+  const s0 = performance.now() - state.movieT * 1000;
+  const tick = () => {
+    if (!state.moviePlaying || state.scene !== "c1-movie") return;
+    state.movieT = (performance.now() - s0) / 1000;
+    if (state.movieT >= MOVIE_LENGTH) {
+      state.movieT = MOVIE_LENGTH;
+      state.moviePlaying = false;
+      render();
+      return;
+    }
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS["c1-movie"]().svg;
+    movieTimer = requestAnimationFrame(tick);
+  };
+  cancelAnimationFrame(movieTimer);
+  tick();
+}
+function c1Movie(): View {
+  return {
+    chap: "事件1 見破れ",
+    goal: "検査の前に：膝の軟骨は、一歩ごとにどう押されるか見てみよう",
+    svg: kneeMovie(state.movieT),
+    who: state.line.who,
+    text: state.line.text,
+    cmds: state.moviePlaying
+      ? [{ act: "movie-skip", label: "最後まで飛ばす", ghost: true }]
+      : [
+          { act: "to-c1say", label: "検査室へ", sub: "ロボの検査の結果を聞く", hot: true },
+          { act: "movie-replay", label: "もう一度見る", ghost: true },
+        ],
+  };
+}
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string][] = [
@@ -717,6 +755,7 @@ function titleView(): View {
 // ---------- 描画 ----------
 const VIEWS: Record<Scene, () => View> = {
   title: titleView,
+  "c1-movie": c1Movie,
   "c1-say": c1Say,
   "c1-run": c1Run,
   "c1-present": c1Present,
@@ -967,8 +1006,11 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     });
     state.mood = "smug";
     const it = r.view.intro;
-    say("bot", `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。差は「同じ」とみなす幅の内側。`);
-    state.scene = "c1-say";
+    introLine = `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。差は「同じ」とみなす幅の内側。`;
+    say("guide", "検査の前に：膝の軟骨は、歩く・走るたびに体重で押される。見本と、計算した例の軟骨を比べてみよう（例はBの答えではない）。");
+    state.scene = "c1-movie";
+    state.movieT = reduceMotion() ? MOVIE_LENGTH : 0;
+    state.moviePlaying = !reduceMotion();
   });
 }
 
@@ -1076,12 +1118,32 @@ app.addEventListener("click", async (e) => {
       break;
     case "start":
       await startSession({});
+      if (state.moviePlaying) movieLoop();
+      break;
+    case "movie-skip":
+      state.moviePlaying = false;
+      state.movieT = MOVIE_LENGTH;
+      render();
+      break;
+    case "movie-replay":
+      state.movieT = 0;
+      state.moviePlaying = !reduceMotion();
+      if (!state.moviePlaying) state.movieT = MOVIE_LENGTH;
+      render();
+      if (state.moviePlaying) movieLoop();
+      break;
+    case "to-c1say":
+      state.moviePlaying = false;
+      state.mood = "smug";
+      say("bot", introLine);
+      go("c1-say");
       break;
     case "start-teacher": {
       const pass = (app.querySelector<HTMLInputElement>("#t-pass")?.value ?? "").trim();
       const cause = app.querySelector<HTMLSelectElement>("#t-cause")?.value || undefined;
       const seed = app.querySelector<HTMLInputElement>("#t-seed")?.value.trim();
       await startSession({ teacherPassphrase: pass, cause, seed: seed ? Number(seed) : undefined });
+      if (state.moviePlaying) movieLoop();
       break;
     }
     // 事件1 証言
