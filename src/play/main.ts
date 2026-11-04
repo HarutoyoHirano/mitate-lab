@@ -78,7 +78,7 @@ const state = {
   conf: 100,
   mood: "smug" as Mood,
   panel: null as null | "about" | "card",
-  line: { who: "bot" as Who, text: "" },
+  line: { who: "bot" as Who, text: "", rest: [] as string[] },
   view: null as PublicSessionView | null,
   debrief: null as Debrief | null,
   evidence: [] as Evidence[],
@@ -132,8 +132,16 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const sgn = (x: number, d = 3) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}`;
 const roll = (v: string, delay = 0) => `<span data-roll="${v}" data-delay="${delay}">${v}</span>`;
 
+/** メッセージ窓に出す。長い文は「。」の切れ目で分け、窓を押すと次へ送る（一度に一つか二つの文） */
 function say(who: Who, text: string): void {
-  state.line = { who, text };
+  const parts = text.split(/(?<=[。？！])/).filter((x) => x.trim());
+  const pages: string[] = [];
+  for (const p of parts) {
+    const last = pages[pages.length - 1];
+    if (last !== undefined && last.length + p.length <= 52) pages[pages.length - 1] = last + p;
+    else pages.push(p);
+  }
+  state.line = { who, text: pages[0] ?? "", rest: pages.slice(1) };
 }
 
 async function damage(n: number): Promise<void> {
@@ -205,7 +213,11 @@ function c1Run(): View {
     svg: `${beatLane(60, 16, notes, state.playing)}
       ${legsStage({ dentA: state.dents.a, dentB: state.dents.b, contact: state.dents.contact, impact: state.dents.impact, labelA: "見本 A（計算）", labelB: "新作 B（記録 ±0.01）", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, y0: 30, scale: 0.92 })}`,
     html: `<div class="tempo">
-      ${TEMPOS.map((t) => `<button class="${Math.abs(state.period - t.period) < 1e-9 ? "on" : ""}" data-act="tempo" data-val="${t.period}" ${state.playing !== null ? "disabled" : ""}>${t.label}</button>`).join("")}
+      ${TEMPOS.map((t) => {
+        const runs = v.runs.filter((r) => Math.abs(r.period - t.period) < 1e-9);
+        const best = runs.length ? Math.max(...runs.flatMap((r) => r.b.map((_, k) => Math.abs(stepMax(r, k).diff)))) : null;
+        return `<button class="${Math.abs(state.period - t.period) < 1e-9 ? "on" : ""}" data-act="tempo" data-val="${t.period}" ${state.playing !== null ? "disabled" : ""}><span>${t.label}</span>${best !== null ? `<i class="tbar" style="width:${Math.min(100, (best / 0.2) * 100).toFixed(0)}%;background:${best > STEP_TOLERANCE ? "var(--stamp)" : "var(--you)"}"></i><small>いちばん大きい差 ${best.toFixed(3)}</small>` : "<small>まだ走らせていない</small>"}</button>`;
+      }).join("")}
       <button class="drum" data-act="tap" ${state.playing !== null ? "disabled" : ""}>叩いて<br>決める</button>
     </div>`,
     who: state.line.who,
@@ -744,7 +756,7 @@ function render(): void {
     </header>
     <div class="stage"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
-      <div><span class="who ${v.who}">${WHO_LABEL[v.who]}</span><p class="text" aria-live="polite">${esc(v.text)}</p>${v.sub ? `<p class="sub">${esc(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
+      <div><span class="who ${v.who}">${WHO_LABEL[v.who]}</span><p class="text ${state.line.rest.length ? "more" : ""}" aria-live="polite" ${state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${esc(v.text)}</p>${state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${v.sub ? `<p class="sub">${esc(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
       <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
@@ -995,6 +1007,10 @@ app.addEventListener("click", async (e) => {
   const v = state.view;
   beep("tap");
   switch (act) {
+    case "more":
+      if (state.line.rest.length) state.line = { ...state.line, text: state.line.rest[0]!, rest: state.line.rest.slice(1) };
+      render();
+      break;
     case "sound":
       sound.on = !sound.on;
       render();

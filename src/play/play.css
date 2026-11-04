@@ -127,9 +127,16 @@ button { font: inherit; }
 
 /* 舞台の部品 */
 .note.hit { cursor: pointer; }
-.tempo { position: absolute; left: 80%; top: 22%; display: grid; gap: 0.5cqw; width: 17%; }
+.tempo { position: absolute; left: 80%; top: 17%; display: grid; gap: 0.4cqw; width: 18%; }
 .tempo button { border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 0.4cqw; font-weight: 800; cursor: pointer; font-size: max(11px, 1.1cqw); }
 .tempo button.on { border-color: var(--bot); color: var(--bot); }
+.tempo button { display: grid; gap: 2px; text-align: left; padding: 0.35cqw 0.7cqw; }
+.tempo button small { font-size: max(9px, 0.8cqw); color: var(--soft); font-weight: 700; }
+.tempo .tbar { display: block; height: 6px; border-radius: 3px; min-width: 4px; }
+.text.more { cursor: pointer; }
+.next-hint { margin: 0.2cqw 0 0; color: var(--gold); font-size: max(11px, 1cqw); font-weight: 800; cursor: pointer; animation: blinkhint 1.2s ease-in-out infinite; }
+@keyframes blinkhint { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .next-hint { animation: none; } }
 .drum { width: 8.5cqw; height: 8.5cqw; border-radius: 50%; border: 0.6cqw solid var(--bot); background: var(--panel); color: var(--gold); font-weight: 900; font-size: max(12px, 1.3cqw); cursor: pointer; justify-self: center; box-shadow: 0 0 0 0.8cqw color-mix(in srgb, var(--bot) 18%, transparent); }
 .drum:active { transform: scale(0.92); background: var(--bot); color: #1a0d04; }
 .tray { position: absolute; left: 2%; top: 4%; width: 34%; display: grid; gap: 0.8cqw; grid-template-columns: 1fr 1fr; }
