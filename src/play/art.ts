@@ -55,31 +55,47 @@ function bone(x1: number, y1: number, x2: number, y2: number, w: number): string
 
 /** 試験脚とクッション（走行テスト）。dent は沈み込み（深さ1に対する割合） */
 export function legsStage(o: { dentA: number; dentB: number; contact: boolean; impact: boolean; labelA: string; labelB: string; diff: number | null; hot: boolean; x0?: number; y0?: number; scale?: number }): string {
+  // 膝の試験機：太ももの骨（上・試験機が体重にあたる力をかける）とすねの骨（下・固定）の間に、人工の膝クッションをはさむ。
+  // 沈み込み（試験台で押す深さを1とした割合）だけ、クッションが薄くなり、太ももの骨が下がる。地面や床を踏む絵ではない。
   const y0 = o.y0 ?? 0;
   const x0 = o.x0 ?? 0;
   const lane = (cx: number, label: string, dent: number, kind: "A" | "B") => {
-    const top = 330 + Math.max(-0.05, Math.min(1.3, dent)) * 70;
-    const footY = o.contact ? top - 4 : 300;
+    const d = Math.max(-0.05, Math.min(1.3, dent));
+    const plateau = 360; // すねの骨の上の面
+    const thick = 64 - 38 * d; // クッションの厚み
+    const top = plateau - thick;
+    const bulge = 10 + 26 * Math.max(0, d);
     const col = kind === "A" ? "var(--pad-a)" : "var(--pad-b)";
     const edge = kind === "A" ? "var(--pad-a-edge)" : "var(--pad-b-edge)";
+    const femurBottom = top - 2;
     return `<g>
-      <text x="${cx - 130}" y="128" fill="var(--ink)" font-size="19" font-weight="900">${label}</text>
-      ${bone(cx - 8, 150, cx + 40, 225, 18)}${bone(cx + 40, 225, cx, footY - 18, 16)}
-      <circle cx="${cx + 40}" cy="225" r="14" fill="var(--metal-edge)"/><rect x="${cx - 56}" y="${footY - 20}" width="112" height="20" rx="8" fill="var(--metal-edge)"/>
-      <path d="M${cx - 130} ${top} V430 A130 20 0 0 0 ${cx + 130} 430 V${top}Z" fill="${col}"/>
-      <ellipse cx="${cx}" cy="${top}" rx="130" ry="20" fill="${col}" stroke="${edge}" stroke-width="3"/>
-      <ellipse cx="${cx}" cy="${top}" rx="130" ry="20" fill="url(#hex-${kind})" opacity=".5"/>
-      ${o.impact ? `<g class="impact" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"><path d="M${cx - 150} ${top - 6} l-22 -14"/><path d="M${cx + 150} ${top - 6} l22 -14"/><path d="M${cx - 156} ${top + 10} l-24 0"/><path d="M${cx + 156} ${top + 10} l24 0"/></g>` : ""}
-      <text x="${cx + 150}" y="${top + 44}" fill="var(--ink)" font-size="24" font-weight="900" font-variant-numeric="tabular-nums">${dent.toFixed(2)}</text>
+      <text x="${cx - 150}" y="108" fill="var(--ink)" font-size="19" font-weight="900">${label}</text>
+      <!-- 試験機の押し棒（体重にあたる力） -->
+      <rect x="${cx - 16}" y="118" width="32" height="${Math.max(10, femurBottom - 150 - 118)}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+      ${o.contact ? `<path d="M${cx + 34} 128 v40 m-12 -12 l12 12 l12 -12" stroke="var(--bot)" stroke-width="5" fill="none" stroke-linecap="round"/><text x="${cx + 52}" y="152" fill="var(--bot)" font-size="13" font-weight="900">体重</text>` : ""}
+      <!-- 太ももの骨 -->
+      <path d="M${cx - 22} ${femurBottom - 150} V${femurBottom - 46} C ${cx - 22} ${femurBottom - 30}, ${cx - 78} ${femurBottom - 34}, ${cx - 78} ${femurBottom - 12} C ${cx - 78} ${femurBottom + 2}, ${cx - 40} ${femurBottom + 2}, ${cx} ${femurBottom - 4} C ${cx + 40} ${femurBottom + 2}, ${cx + 78} ${femurBottom + 2}, ${cx + 78} ${femurBottom - 12} C ${cx + 78} ${femurBottom - 34}, ${cx + 22} ${femurBottom - 30}, ${cx + 22} ${femurBottom - 46} V${femurBottom - 150} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
+      <text x="${cx - 100}" y="${femurBottom - 80}" fill="var(--soft)" font-size="13" text-anchor="end">太ももの骨</text>
+      <!-- 人工の膝クッション -->
+      <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="${col}" stroke="${edge}" stroke-width="3"/>
+      <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="url(#hex-${kind})" opacity=".55"/>
+      <text x="${cx + 100}" y="${(top + plateau) / 2 + 5}" fill="var(--soft)" font-size="13">人工の膝クッション</text>
+      ${o.impact ? `<g class="impact" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"><path d="M${cx - 96 - bulge} ${(top + plateau) / 2} l-20 0"/><path d="M${cx - 92 - bulge} ${top} l-16 -10"/></g>` : ""}
+      <!-- すねの骨（下で固定） -->
+      <path d="M${cx - 84} ${plateau} H${cx + 84} C ${cx + 84} ${plateau + 22}, ${cx + 26} ${plateau + 26}, ${cx + 24} ${plateau + 44} V${plateau + 76} H${cx - 24} V${plateau + 44} C ${cx - 26} ${plateau + 26}, ${cx - 84} ${plateau + 22}, ${cx - 84} ${plateau} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
+      <rect x="${cx - 60}" y="${plateau + 76}" width="120" height="14" rx="4" fill="var(--metal-edge)"/>
+      <text x="${cx - 100}" y="${plateau + 56}" fill="var(--soft)" font-size="13" text-anchor="end">すねの骨（固定）</text>
+      <text x="${cx + 150}" y="${plateau + 40}" fill="var(--ink)" font-size="24" font-weight="900" font-variant-numeric="tabular-nums">${dent.toFixed(2)}</text>
+      <text x="${cx + 150}" y="${plateau + 58}" fill="var(--soft)" font-size="12">沈み込み</text>
     </g>`;
   };
   const pat = (id: string, c: string) => `<pattern id="${id}" width="18" height="15.6" patternUnits="userSpaceOnUse"><path d="M4.5 0 h9 l4.5 7.8 l-4.5 7.8 h-9 l-4.5 -7.8z" fill="none" stroke="${c}" stroke-width="1.2"/></pattern>`;
   return `<g transform="translate(${x0},${y0}) scale(${o.scale ?? 1})">
     <defs>${pat("hex-A", "var(--pad-a-edge)")}${pat("hex-B", "var(--pad-b-edge)")}</defs>
-    <rect x="150" y="136" width="760" height="16" rx="6" fill="var(--metal)"/>
-    <path d="M100 452 H960" stroke="var(--line)" stroke-width="3"/>
+    <rect x="150" y="104" width="760" height="16" rx="6" fill="var(--metal)"/>
+    <text x="545" y="470" fill="var(--soft)" font-size="13" text-anchor="middle">膝の試験機：歩く・走るときの体重を、一歩ごとに膝へかける（地面ではなく、膝の中のクッションを調べる）</text>
     ${lane(330, o.labelA, o.dentA, "A")}${lane(760, o.labelB, o.dentB, "B")}
-    ${o.diff !== null ? `<g transform="translate(470,210)"><rect width="140" height="40" rx="20" fill="${o.hot ? "var(--stamp)" : "var(--chip)"}"/><text x="70" y="27" fill="${o.hot ? "#fff" : "var(--ink)"}" font-size="18" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">差 ${o.diff >= 0 ? "+" : "−"}${Math.abs(o.diff).toFixed(3)}</text></g>` : ""}
+    ${o.diff !== null ? `<g transform="translate(470,200)"><rect width="140" height="40" rx="20" fill="${o.hot ? "var(--stamp)" : "var(--chip)"}"/><text x="70" y="27" fill="${o.hot ? "#fff" : "var(--ink)"}" font-size="18" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">差 ${o.diff >= 0 ? "+" : "−"}${Math.abs(o.diff).toFixed(3)}</text></g>` : ""}
   </g>`;
 }
 
@@ -209,14 +225,15 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
 }
 
 /** 心臓＝電流源、血管のやわらかさ＝コンデンサ、末梢＝抵抗（膜の等価回路と同じ形） */
-export function heartCircuit(x: number, y: number, r: number, c: number, labels = { src: "心臓ポンプ＝電流源", cap: "血管のやわらかさ＝コンデンサ C", res: "末梢の流れにくさ＝抵抗 R" }): string {
+export function heartCircuit(x: number, y: number, r: number, c: number, labels: { src: string; cap: string; res: string; bat?: string } = { src: "心臓ポンプ＝電流源", cap: "血管のやわらかさ＝コンデンサ C", res: "末梢の流れにくさ＝抵抗 R" }): string {
   const plate = Math.max(18, Math.min(80, 28 * c));
   const zz = Math.max(40, Math.min(120, 60 * r));
   const zig = Array.from({ length: 6 }, (_, i) => `l${zz / 12} ${i % 2 ? 9 : -9} l${zz / 12} ${i % 2 ? -9 : 9}`).join(" ");
   return `<g transform="translate(${x},${y})" stroke-linecap="round">
     <g stroke="var(--ink)" stroke-width="3" fill="none">
-      <path d="M40 20 H360 M40 200 H360 M40 20 V80 M40 140 V200 M200 20 V${110 - 10} M200 ${110 + 10} V200 M360 20 V${110 - zz / 2} M360 ${110 + zz / 2} V200"/>
+      <path d="M40 20 H360 M40 200 H360 M40 20 V80 M40 140 V200 M200 20 V${110 - 10} M200 ${110 + 10} V200 M360 20 V${110 - zz / 2} M360 ${110 + zz / 2} V${labels.bat ? 166 : 200}${labels.bat ? " M360 182 V200" : ""}"/>
     </g>
+    ${labels.bat ? `<path d="M340 166 H380 M350 182 H370" stroke="var(--gold)" stroke-width="5"/><text x="390" y="170" fill="var(--gold)" font-size="13" font-weight="900">${labels.bat}</text>` : ""}
     <circle cx="40" cy="110" r="30" fill="var(--heart)" stroke="var(--heart-edge)" stroke-width="3"/><path d="M40 128 V92 m-8 8 l8 -8 l8 8" stroke="#fff" stroke-width="3" fill="none"/>
     <path d="M${200 - plate / 2} 100 H${200 + plate / 2} M${200 - plate / 2} 120 H${200 + plate / 2}" stroke="var(--you)" stroke-width="6"/>
     <path d="M360 ${110 - zz / 2} ${zig.replace(/l([\d.]+) (-?[\d.]+)/g, (_m, a, b) => `l${b} ${a}`)}" stroke="var(--bot)" stroke-width="3.5" fill="none"/>
@@ -293,6 +310,132 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
     <line x1="${xs(t)}" x2="${xs(t)}" y1="${T}" y2="${floorY}" stroke="var(--gold)" stroke-width="2.5"/>
     <circle cx="${xs(t)}" cy="${ys(deltaMv(a, t))}" r="6" fill="var(--panel)" stroke="var(--soft)" stroke-width="3"/>
     <circle cx="${xs(t)}" cy="${ys(deltaMv(b, t))}" r="7" fill="var(--you)"/>
+  </g>`;
+}
+
+/** 事件4：神経の全体（膝の感覚の神経の端→脳）。拡大する場所を枠で示す */
+export function nerveWhole(x: number, y: number, pressed: boolean): string {
+  return `<g transform="translate(${x},${y})">
+    <rect x="0" y="0" width="270" height="448" rx="14" fill="var(--panel)" stroke="var(--line)"/>
+    <text x="14" y="26" fill="var(--ink)" font-size="15" font-weight="900">全体：膝の感覚の神経</text>
+    <path d="M70 92 C 40 92, 38 56, 66 50 C 70 28, 110 22, 128 36 C 150 18, 196 26, 196 52 C 226 56, 224 94, 196 96 C 190 112, 150 116, 138 104 C 120 116, 84 112, 70 92 Z" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
+    <path d="M92 64 q16 -12 30 0 M134 56 q14 10 32 -2 M100 88 q20 -8 40 4" stroke="var(--pad-b-edge)" stroke-width="2" fill="none"/>
+    <text x="214" y="40" fill="var(--soft)" font-size="13">脳</text>
+    <path d="M178 340 C 214 270, 226 180, 162 124" stroke="var(--you)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M150 112 l22 2 l-10 18 z" fill="var(--you)"/>
+    <text x="222" y="222" fill="var(--soft)" font-size="12">神経</text>
+    <text x="196" y="142" fill="var(--you)" font-size="12" font-weight="900">脳へ伝える</text>
+    <rect x="98" y="210" width="34" height="96" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
+    <path d="M78 318 C 78 298, 152 298, 152 318 Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
+    <rect x="80" y="320" width="70" height="${pressed ? 10 : 14}" rx="6" fill="var(--pad-a)" stroke="var(--pad-a-edge)" stroke-width="2"/>
+    <path d="M76 ${pressed ? 334 : 338} H154 C 154 352, 132 356, 130 372 V420 H100 V372 C 98 356, 76 352, 76 ${pressed ? 334 : 338} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
+    <text x="14" y="252" fill="var(--soft)" font-size="12">膝</text>
+    ${pressed ? `<path d="M115 172 v30 m-10 -10 l10 10 l10 -10" stroke="var(--gold)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="132" y="188" fill="var(--gold)" font-size="12" font-weight="900">押される</text>` : ""}
+    <path d="M178 340 l-12 14 M178 340 l2 18 M178 340 l14 12" stroke="var(--you)" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <g fill="var(--you)"><circle cx="166" cy="355" r="3.5"/><circle cx="180" cy="359" r="3.5"/><circle cx="192" cy="353" r="3.5"/></g>
+    <rect x="156" y="318" width="44" height="44" rx="6" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="5 4"/>
+    <path d="M200 324 L270 20 M200 356 L270 440" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="4 5" opacity=".7"/>
+    <text x="14" y="438" fill="var(--soft)" font-size="12">枠＝神経の端の膜（右に拡大）</text>
+  </g>`;
+}
+
+/** 膜の拡大図一枚（左上が x, y。幅 490×高さ 200 を s 倍） */
+export function membranePatch(x: number, y: number, s: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number): string {
+  return `<g transform="translate(${x},${y}) scale(${s}) translate(-300,-18)">${patchAt(18, m, label, kind, reveal, t, t <= PULSE_MS)}</g>`;
+}
+
+function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number, flowing: boolean): string {
+  const L = 300;
+  const R = 790;
+  const dv = deltaMv(m, t);
+  const mv = REST_MV + dv;
+  const cEff = reveal ? m.c : 1;
+  const gEff = reveal ? m.g : 1;
+  const memTop = y0 + 84;
+  const memBot = y0 + 122;
+  const entX = 372;
+  const leaks = Math.max(1, Math.min(5, Math.round(2 * gEff)));
+  const leakX = Array.from({ length: leaks }, (_, k) => 640 + k * 30 - (leaks - 1) * 15);
+  const near = (xx: number) => Math.abs(xx - entX) < 22 || leakX.some((lx) => Math.abs(xx - lx) < 14);
+  const heads: string[] = [];
+  for (let xx = L + 22; xx <= R - 16; xx += 13) {
+    if (near(xx)) continue;
+    heads.push(`<circle cx="${xx}" cy="${memTop + 5}" r="5"/><circle cx="${xx}" cy="${memBot - 5}" r="5"/><path d="M${xx - 2} ${memTop + 10} v8 M${xx + 2} ${memTop + 10} v8 M${xx - 2} ${memBot - 18} v8 M${xx + 2} ${memBot - 18} v8"/>`);
+  }
+  const restX = Array.from({ length: 14 }, (_, k) => L + 40 + k * 32).filter((xx) => !near(xx));
+  const plus = Math.max(0, Math.min(26, Math.round(0.8 * cEff * Math.max(0, dv))));
+  const plusMarks = Array.from({ length: plus }, (_, k) => {
+    const col = k % 13;
+    const row = Math.floor(k / 13);
+    return `<text x="${430 + col * 14}" y="${memBot + 30 + row * 16}" font-size="15" font-weight="900" text-anchor="middle">＋</text>`;
+  }).join("");
+  const out = Math.max(0, Math.min(14, 1.3 * gEff * dv));
+  const edge = kind === "A" ? "var(--soft)" : "var(--you)";
+  return `<g>
+    <rect x="${L}" y="${y0}" width="${R - L}" height="200" rx="12" fill="var(--panel)" stroke="${edge}" stroke-width="${kind === "B" ? 2.5 : 1.5}"/>
+    <text x="${L + 14}" y="${y0 + 24}" fill="var(--ink)" font-size="17" font-weight="900">${label}</text>
+    <text x="${L + 26 + 18 * label.length}" y="${y0 + 24}" fill="var(--soft)" font-size="13">${reveal ? `容量 ×${m.c.toFixed(2)}　通りやすさ ×${m.g.toFixed(2)}` : "容量 ×？　通りやすさ ×？"}</text>
+    <text x="${R - 14}" y="${y0 + 26}" fill="${edge}" font-size="24" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text>
+    <text x="${R - 14}" y="${y0 + 52}" fill="var(--soft)" font-size="12" text-anchor="end">細胞の外</text>
+    <text x="${L + 14}" y="${y0 + 190}" fill="var(--soft)" font-size="12">細胞の中</text>
+    <rect x="${L + 10}" y="${memTop}" width="${R - L - 20}" height="${memBot - memTop}" fill="var(--membrane)"/>
+    <g fill="var(--membrane-edge)" stroke="var(--membrane-edge)" stroke-width="1.5">${heads.join("")}</g>
+    <g fill="var(--plus)">${restX.map((xx) => `<text x="${xx}" y="${memTop - 8}" font-size="14" font-weight="900" text-anchor="middle">＋</text>`).join("")}</g>
+    <g fill="var(--minus)">${restX.map((xx) => `<text x="${xx}" y="${memBot + 16}" font-size="16" font-weight="900" text-anchor="middle">−</text>`).join("")}</g>
+    <g fill="var(--gold)">${plusMarks}</g>
+    <!-- 入口（押されると開く） -->
+    <rect x="${entX - 18}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
+    <rect x="${entX + 6}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
+    ${flowing ? `<path d="M${entX} ${memTop - 30} V${memBot + 22}" stroke="var(--gold)" stroke-width="7" stroke-linecap="round"/><path d="M${entX - 10} ${memBot + 12} l10 12 l10 -12" stroke="var(--gold)" stroke-width="5" fill="none" stroke-linecap="round"/>` : `<rect x="${entX - 8}" y="${memTop + 12}" width="16" height="${memBot - memTop - 24}" fill="var(--bot)"/>`}
+    <text x="${entX}" y="${y0 + 46}" fill="var(--bot)" font-size="12" font-weight="900" text-anchor="middle">入口（押されると開く）</text>
+    <!-- いつも開いている通り道 -->
+    ${leakX.map((lx) => `<rect x="${lx - 9}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/><rect x="${lx + 3}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/>${out > 0.6 ? `<path d="M${lx} ${memBot + 14} V${memTop - 18}" stroke="var(--leak)" stroke-width="${Math.max(2, out / Math.sqrt(leaks)).toFixed(1)}" stroke-linecap="round"/><path d="M${lx - 7} ${memTop - 10} l7 -9 l7 9" stroke="var(--leak)" stroke-width="3" fill="none"/>` : ""}`).join("")}
+    <text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 46}" fill="var(--leak)" font-size="12" font-weight="900" text-anchor="end">いつも開いている通り道</text>
+    <text x="${R - 14}" y="${y0 + 190}" fill="var(--gold)" font-size="12" text-anchor="end">${plus > 0 ? "金の＋：入ってたまった電荷" : ""}</text>
+  </g>`;
+}
+
+/** 電位のグラフ（A＝点線、B＝実線、時刻の線）。notes で下の注を出す */
+export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: number }, a: Membrane, b: Membrane, t: number, o: { a: string; b: string; top?: number; notes?: boolean }): string {
+  const { GL, GR, GT, GB } = box;
+  const top = o.top ?? 14;
+  const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;
+  const ys = (d: number) => GB - ((GB - GT) * Math.max(0, Math.min(top, d))) / top;
+  const line = (m: Membrane) => {
+    const pts: string[] = [];
+    for (let ms = 0; ms <= RECORD_MS; ms += 2) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
+    return pts.join(" ");
+  };
+  return `<g>
+    <rect x="${xs(0)}" y="${GT}" width="${xs(PULSE_MS) - xs(0)}" height="${GB - GT}" fill="var(--band)"/>
+    <text x="${(xs(0) + xs(PULSE_MS)) / 2}" y="${GT + 18}" fill="var(--soft)" font-size="12" text-anchor="middle">押されている間（入口が開く）</text>
+    ${[0, 5, 10].filter((v) => v <= top).map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GL - 6}" y="${ys(v) + 4}" fill="var(--soft)" font-size="12" text-anchor="end">−${Math.abs(REST_MV + v)}</text>`).join("")}
+    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${GB + 20}" fill="var(--soft)" font-size="12" text-anchor="middle">${ms} ms</text>`).join("")}
+    <text x="${GL - 30}" y="${GT - 14}" fill="var(--ink)" font-size="13" font-weight="900">電位（mV）</text>
+    <text x="${GL + 70}" y="${GT - 14}" fill="var(--soft)" font-size="12">上へ＝中のマイナスが小さくなる（電位が上がる）</text>
+    <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
+    <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
+    <line x1="${xs(t)}" x2="${xs(t)}" y1="${GT}" y2="${GB}" stroke="var(--gold)" stroke-width="2.5"/>
+    <circle cx="${xs(t)}" cy="${ys(deltaMv(a, t))}" r="6" fill="var(--panel)" stroke="var(--soft)" stroke-width="3"/>
+    <circle cx="${xs(t)}" cy="${ys(deltaMv(b, t))}" r="7" fill="var(--you)"/>
+    ${o.notes === false ? `<text x="${GL - 30}" y="${GB + 40}" fill="var(--soft)" font-size="12">点線＝${o.a}　実線＝${o.b}</text>` : `<text x="${GL - 30}" y="${GB + 44}" fill="var(--soft)" font-size="12">点線＝${o.a}　実線＝${o.b}。静止時は −70 mV（イオンの濃さの差がつくる）</text>
+    <text x="${GL - 30}" y="${GB + 62}" fill="var(--soft)" font-size="12">この模型は、入口で電位が上がって戻るところだけ。</text>
+    <text x="${GL - 30}" y="${GB + 78}" fill="var(--soft)" font-size="12">その先で信号が脳へ送られるしくみは扱わない。</text>`}
+  </g>`;
+}
+
+/**
+ * 事件4の主の絵：膝の感覚の神経の端の膜を拡大し、膜の両側の電荷・入口（押されると開く）・いつも開いている通り道と、
+ * 電位のグラフを同じ時刻で動かす。reveal が false の膜は、容量と通りやすさを「？」にして、電荷・通り道を基準の数で描く。
+ * この模型は、入口で電位が上がって戻る部分だけ（その先の信号のしくみは扱わない）。
+ */
+export function nerveStage(a: Membrane, b: Membrane, t: number, o: { a: string; b: string; revealB: boolean; whole?: boolean; top?: number }): string {
+  const flowing = t <= PULSE_MS;
+  const dx = o.whole === false ? -290 : 0;
+  return `<g transform="translate(${dx},0)">
+    ${o.whole === false ? "" : nerveWhole(16, 16, flowing)}
+    ${patchAt(18, a, o.a, "A", true, t, flowing)}${patchAt(248, b, o.b, "B", o.revealB, t, flowing)}
+    ${membraneGraph({ GL: 830, GR: 1250, GT: 78, GB: 390 }, a, b, t, o)}
   </g>`;
 }
 

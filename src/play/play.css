@@ -34,6 +34,11 @@
   --water: #2c6a9e;
   --water-edge: #8cc8ff;
   --band: rgba(255, 138, 61, 0.1);
+  --membrane: #3b3358;
+  --membrane-edge: #b9a6ff;
+  --plus: #ff8fa0;
+  --minus: #8cc8ff;
+  --leak: #7bd88f;
   --focus: #ffd166;
   color-scheme: dark;
 }
@@ -65,6 +70,11 @@
     --water: #9fd0f3;
     --water-edge: #1f6fb0;
     --band: rgba(212, 98, 26, 0.08);
+    --membrane: #e6e0fa;
+    --membrane-edge: #6a55c8;
+    --plus: #c0283f;
+    --minus: #1f6fb0;
+    --leak: #2f8a45;
     color-scheme: light;
   }
 }
@@ -146,8 +156,9 @@ button { font: inherit; }
 .card-ev .big { color: #c2261d; font-weight: 900; font-size: max(14px, 1.6cqw); }
 .card-ev.dim { opacity: 0.7; }
 .lineup { position: absolute; left: 2%; right: 2%; top: 2%; bottom: 2%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; }
-.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
-.ghost .puck { width: 70%; margin: 0 auto; display: block; }
+.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
+.ghost .puck { width: 55%; margin: 0 auto; display: block; }
+.ghost .glook { font-size: max(10px, 0.95cqw); color: var(--soft); }
 .ghost .gname { font-weight: 900; font-size: max(12px, 1.2cqw); color: var(--c); }
 .ghost .mini { width: 100%; height: auto; background: var(--panel); border-radius: 8px; align-self: center; }
 .ghost .tag { justify-self: center; font-weight: 900; font-size: max(13px, 1.4cqw); border: 3px solid var(--soft); color: var(--soft); border-radius: 8px; padding: 0 1cqw; transform: rotate(-4deg); }
@@ -178,6 +189,7 @@ button { font: inherit; }
 .meter .nums { color: var(--soft); font-variant-numeric: tabular-nums; }
 .scrub { position: absolute; display: flex; gap: 0.8cqw; align-items: center; font-size: max(11px, 1.05cqw); font-weight: 800; }
 .scrub input { width: 22cqw; accent-color: var(--gold); }
+.scrub.narrow input { width: 11cqw; }
 .scrub button { border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 0.3cqw 0.8cqw; cursor: pointer; font-weight: 800; }
 .photos { position: absolute; display: flex; gap: 0.6cqw; flex-wrap: wrap; }
 .photo { background: var(--paper); color: var(--paper-ink); border-radius: 8px; padding: 0.4cqw 0.7cqw; font-size: max(10px, 0.95cqw); transform: rotate(-2deg); border: 3px solid transparent; }
