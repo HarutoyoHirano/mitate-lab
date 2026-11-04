@@ -65,3 +65,23 @@ button:disabled { opacity: 0.5; cursor: default; }
 .checks small { color: var(--soft); margin-left: 8px; }
 .log pre { overflow-x: auto; background: var(--bg); border-radius: 8px; padding: 10px; font-size: 0.8rem; }
 @media (prefers-reduced-motion: reduce) { .stamp.win { transform: none; } }
+/* 組み立てた模型の図（1e-2） */
+.model { display: grid; gap: 6px; min-width: 0; }
+.schem { width: 100%; height: auto; background: var(--bg); border-radius: 10px; }
+.schem .wire { stroke: var(--soft); stroke-width: 2; }
+.schem .sym { stroke: var(--ink); stroke-width: 2.4; }
+.schem .sym.thick { stroke-width: 4; }
+.schem .fillsym { fill: var(--ink); }
+.schem .mask { fill: var(--bg); }
+.schem .dot { fill: var(--ink); }
+.schem .fixed { fill: var(--gold); }
+.schem .lbl { fill: var(--ink); font-size: 13px; }
+.schem .lbl.soft { fill: var(--soft); font-size: 12px; }
+.schem .lbl.node { fill: var(--soft); font-size: 12px; }
+.schem .lit .sym { stroke: var(--stamp); }
+.schem .lit .fillsym { fill: var(--stamp); }
+.schem .lit .lbl { fill: var(--stamp); font-weight: 700; }
+.tabs button { font-weight: 400; padding: 4px 12px; }
+.tabs button.on { background: var(--you); color: var(--on-you); border-color: var(--you); font-weight: 700; }
+.roles { margin: 4px 0; padding-left: 1.2em; }
+.roles .lit { color: var(--stamp); font-weight: 700; }
