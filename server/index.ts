@@ -34,4 +34,4 @@ const server = createServer(async (req, res) => {
 });
 
 const port = Number(process.env.PORT) || 8787;
-server.listen(port, () => console.log(`見え方ラボ：http://localhost:${port}`));
+server.listen(port, () => console.log(`見立てラボ：http://localhost:${port}`));

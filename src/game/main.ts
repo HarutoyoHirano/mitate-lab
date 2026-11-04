@@ -1,4 +1,4 @@
-// 見え方ラボ ゲーム版「検査ロボの盲点」（入口）。
+// 見立てラボ ゲーム版「検査ロボの盲点」（入口）。
 // 事件1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
 // 事件2・3は公開の式だけの計算（誤差なし）。検査ロボは定型ルールで動き、AIではない。
 import "./game.css";
@@ -1655,7 +1655,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "copy":
       try {
-        await navigator.clipboard.writeText(["見え方ラボ 今回の発見", ...discovery().map((x) => `・${x}`)].join("\n"));
+        await navigator.clipboard.writeText(["見立てラボ 今回の発見", ...discovery().map((x) => `・${x}`)].join("\n"));
         state.copied = true;
       } catch {
         state.error = "コピーできませんでした。画面の文字を選んでコピーしてください。";

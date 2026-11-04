@@ -1,4 +1,4 @@
-// 見え方ラボ「検査ロボとの対決」（新しい画面）。一画面の舞台・メッセージ窓・コマンド。
+// 見立てラボ「検査ロボとの対決」（新しい画面）。一画面の舞台・メッセージ窓・コマンド。
 // 事件1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
 // 事件2〜4は公開の式だけの計算（誤差なし。事件3の血管B・事件4の膜Bは固定例）。検査ロボは定型ルールで動き、AIではない。
 import "./play.css";
@@ -648,7 +648,7 @@ function c4Duel(): View {
 
 // ---------- まとめ ----------
 function shareText(): string {
-  return ["見え方ラボ「検査ロボの見落とし」", ...state.record].join("\n");
+  return ["見立てラボ「検査ロボの見落とし」", ...state.record].join("\n");
 }
 function endView(): View {
   return {
@@ -678,7 +678,7 @@ function endView(): View {
 
 function titleView(): View {
   return {
-    chap: "見え方ラボ",
+    chap: "見立てラボ",
     goal: "同じに見える。でも、測り方を変えると違う。",
     svg: `<g transform="translate(60,40)">
         ${[
@@ -1054,7 +1054,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "copy":
       try {
-        await navigator.clipboard.writeText(["見え方ラボ 発見カード", ...discovery().map((x) => `・${x}`), "", shareText()].join("\n"));
+        await navigator.clipboard.writeText(["見立てラボ 発見カード", ...discovery().map((x) => `・${x}`), "", shareText()].join("\n"));
         say("you", "発見カードをコピーした。");
       } catch {
         state.error = "コピーできませんでした。文字を選んでコピーしてください。";
