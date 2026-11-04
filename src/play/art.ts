@@ -70,19 +70,19 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
     const femurBottom = top - 2;
     return `<g>
       <text x="${cx - 150}" y="108" fill="var(--ink)" font-size="19" font-weight="900">${label}</text>
-      <!-- 試験機の押し棒（体重にあたる力） -->
+      
       <text x="${cx - 26}" y="140" fill="var(--soft)" font-size="12" text-anchor="end">試験機の押し棒</text>
       <rect x="${cx - 16}" y="118" width="32" height="${Math.max(10, femurBottom - 150 - 118)}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
       ${o.contact ? `<path d="M${cx + 34} 128 v40 m-12 -12 l12 12 l12 -12" stroke="var(--bot)" stroke-width="5" fill="none" stroke-linecap="round"/><text x="${cx + 52}" y="152" fill="var(--bot)" font-size="13" font-weight="900">体重にあたる力</text>` : ""}
-      <!-- 太ももの骨 -->
+      
       <path d="M${cx - 22} ${femurBottom - 150} V${femurBottom - 46} C ${cx - 22} ${femurBottom - 30}, ${cx - 78} ${femurBottom - 34}, ${cx - 78} ${femurBottom - 12} C ${cx - 78} ${femurBottom + 2}, ${cx - 40} ${femurBottom + 2}, ${cx} ${femurBottom - 4} C ${cx + 40} ${femurBottom + 2}, ${cx + 78} ${femurBottom + 2}, ${cx + 78} ${femurBottom - 12} C ${cx + 78} ${femurBottom - 34}, ${cx + 22} ${femurBottom - 30}, ${cx + 22} ${femurBottom - 46} V${femurBottom - 150} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
       <text x="${cx - 100}" y="${femurBottom - 80}" fill="var(--soft)" font-size="13" text-anchor="end">太ももの骨</text>
-      <!-- 人工の膝クッション -->
+      
       <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="${col}" stroke="${edge}" stroke-width="3"/>
       <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="url(#hex-${kind})" opacity=".55"/>
       <text x="${cx + 100}" y="${(top + plateau) / 2 + 5}" fill="var(--soft)" font-size="13">人工軟骨</text>
       ${o.impact ? `<g class="impact" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"><path d="M${cx - 96 - bulge} ${(top + plateau) / 2} l-20 0"/><path d="M${cx - 92 - bulge} ${top} l-16 -10"/></g>` : ""}
-      <!-- すねの骨（下で固定） -->
+      
       <path d="M${cx - 84} ${plateau} H${cx + 84} C ${cx + 84} ${plateau + 22}, ${cx + 26} ${plateau + 26}, ${cx + 24} ${plateau + 44} V${plateau + 76} H${cx - 24} V${plateau + 44} C ${cx - 26} ${plateau + 26}, ${cx - 84} ${plateau + 22}, ${cx - 84} ${plateau} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
       <rect x="${cx - 60}" y="${plateau + 76}" width="120" height="14" rx="4" fill="var(--metal-edge)"/>
       <text x="${cx - 100}" y="${plateau + 56}" fill="var(--soft)" font-size="13" text-anchor="end">すねの骨（固定）</text>
@@ -260,7 +260,7 @@ export function syncChart(x: number, y: number, w: number, h: number, target: Ve
     ${[60, 80, 100, 120].map((p) => `<line x1="0" x2="${w}" y1="${ys(p)}" y2="${ys(p)}" stroke="var(--line)"/><text x="6" y="${ys(p) - 3}" fill="var(--soft)" font-size="11">${p}</text>`).join("")}
     <polyline points="${loop(pt)}" fill="none" stroke="var(--vessel-edge)" stroke-width="${both ? 7 : 4}" opacity="${both ? 0.6 : 1}"/>
     ${[...pm, ...pm.slice(1)].filter((_, i) => i % 8 === 0).map((p, k) => `<circle cx="${((w / 2) * (k * 8)) / (pm.length - 1)}" cy="${ys(p)}" r="4" fill="var(--bot)"/>`).join("")}
-    <text x="${w - 6}" y="${h + 18}" fill="var(--soft)" font-size="12" text-anchor="end">脈2回ぶん　線＝血管Bの圧（mmHg）　丸＝あなたの回路の電圧</text>
+    <text x="${w - 6}" y="${h + 18}" fill="var(--soft)" font-size="12" text-anchor="end">脈2回ぶん　線＝血管Bの圧（mmHg）　丸＝あなたの回路の電圧（式の形が同じなので、同じ目盛りで描く）</text>
   </g>`;
 }
 
@@ -296,13 +296,13 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
       <path d="M${R} ${floorY - door - 6} V${T - 10}" fill="none" stroke="${edge}" stroke-width="4"/>
       ${out > 0.5 ? `<path d="M${R + 4} ${floorY - door / 2} h${20 + out}" stroke="var(--water-edge)" stroke-width="${out.toFixed(1)}" stroke-linecap="round"/>` : ""}
       ${flowing ? `<path d="M${cx} ${T - 26} V${Math.max(T, wy - 2)}" stroke="var(--bot)" stroke-width="6" stroke-linecap="round"/>` : ""}
-      <text x="${cx}" y="${floorY + 30}" text-anchor="middle" fill="var(--soft)" font-size="13">${hide ? "広さ（ためやすさ）×？　出口×？" : `広さ（ためやすさ）×${m.c.toFixed(2)}　出口×${m.g.toFixed(2)}`}</text>
+      <text x="${cx}" y="${floorY + 30}" text-anchor="middle" fill="var(--soft)" font-size="13">${hide ? "広さ（ためやすさ）×？　出口の広さ×？" : `広さ（ためやすさ）×${m.c.toFixed(2)}　出口の広さ×${m.g.toFixed(2)}`}</text>
       <path d="M${R + 6} ${wy} L${xs(t) - 8} ${ys(dv)}" stroke="${edge}" stroke-width="2" stroke-dasharray="5 5"/>
     </g>`;
   };
   return `<g>
     <rect x="40" y="${floorY}" width="520" height="10" rx="3" fill="var(--metal-edge)"/>
-    <text x="40" y="${floorY + 54}" fill="var(--soft)" font-size="13">水槽はたとえ：水位＝膜の電圧の上がり分、広さ＝電気のためやすさ、出口＝イオンの通りやすさ、床＝何もしていないとき −${Math.abs(REST_MV)} mV</text>
+    <text x="40" y="${floorY + 54}" fill="var(--soft)" font-size="13">水槽はたとえ：水位＝−70 mVから上がった高さ、広さ＝電気のためやすさ、出口の広さ＝イオンの通りやすさ、床＝何もしていないとき −${Math.abs(REST_MV)} mV</text>
     ${tank(180, a, labels.a, "A")}${tank(420, b, labels.b, "B")}
     <rect x="${xs(0)}" y="${T}" width="${xs(PULSE_MS) - xs(0)}" height="${floorY - T}" fill="var(--band)"/>
     ${[0, 5, 10].map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GR}" y="${ys(v) - 4}" fill="var(--soft)" font-size="12" text-anchor="end">−${Math.abs(REST_MV + v)} mV</text>`).join("")}
@@ -385,15 +385,15 @@ function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal
     <g fill="var(--plus)">${restX.map((xx) => `<text x="${xx}" y="${memTop - 8}" font-size="14" font-weight="900" text-anchor="middle">＋</text>`).join("")}</g>
     <g fill="var(--minus)">${restX.map((xx) => `<text x="${xx}" y="${memBot + 16}" font-size="16" font-weight="900" text-anchor="middle">−</text>`).join("")}</g>
     <g fill="var(--gold)">${plusMarks}</g>
-    <!-- 入口（押されると開く） -->
+    
     <rect x="${entX - 18}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
     <rect x="${entX + 6}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
     ${flowing ? `<path d="M${entX} ${memTop - 30} V${memBot + 22}" stroke="var(--gold)" stroke-width="7" stroke-linecap="round"/><path d="M${entX - 10} ${memBot + 12} l10 12 l10 -12" stroke="var(--gold)" stroke-width="5" fill="none" stroke-linecap="round"/>` : `<rect x="${entX - 8}" y="${memTop + 12}" width="16" height="${memBot - memTop - 24}" fill="var(--bot)"/>`}
     <text x="${L + 14}" y="${y0 + 46}" fill="var(--bot)" font-size="12" font-weight="900">入口（膝が押されると開く）</text>
-    <!-- いつも開いている通り道 -->
+    
     ${leakX.map((lx) => `<rect x="${lx - 9}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/><rect x="${lx + 3}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/>${out > 0.6 ? `<path d="M${lx} ${memBot + 14} V${memTop - 18}" stroke="var(--leak)" stroke-width="${Math.max(2, out / Math.sqrt(leaks)).toFixed(1)}" stroke-linecap="round"/><path d="M${lx - 7} ${memTop - 10} l7 -9 l7 9" stroke="var(--leak)" stroke-width="3" fill="none"/>` : ""}`).join("")}
     <text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 46}" fill="var(--leak)" font-size="12" font-weight="900" text-anchor="end">いつも開いている通り道</text>
-      <text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 61}" fill="var(--leak)" font-size="11" text-anchor="end">（上がった分に比例して＋がもれる）</text>
+      <text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 61}" fill="var(--leak)" font-size="11" text-anchor="end">（上がった高さに比例して＋がもれる）</text>
     <text x="${R - 14}" y="${y0 + 190}" fill="var(--gold)" font-size="12" text-anchor="end">${plus > 0 ? "金の＋：入った＋のイオン（中の−を打ち消し、電圧を上げる）" : ""}</text>
   </g>`;
 }
@@ -417,7 +417,7 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
     <text x="${GL - 30}" y="${GT - 30}" fill="var(--ink)" font-size="13" font-weight="900">膜の電圧（mV）</text>
     <text x="${GL + 92}" y="${GT - 30}" fill="var(--soft)" font-size="12">＝細胞の中が、外にくらべて何ミリボルトか</text>
     <text x="${GL - 30}" y="${GT - 12}" fill="var(--soft)" font-size="12">上へ＝0に近づく（−70→−60。中のマイナスが弱まる）</text>
-    ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)) > top ? `<text x="${xs(PULSE_MS / 2)}" y="${GT + 38}" fill="var(--gold)" font-size="13" font-weight="900" text-anchor="middle">↑ 線が枠の外へ出ている（上がり幅 ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)).toFixed(1)} mV）</text>` : ""}
+    ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)) > top ? `<text x="${xs(PULSE_MS / 2)}" y="${GT + 38}" fill="var(--gold)" font-size="13" font-weight="900" text-anchor="middle">↑ 線が枠の外へ出ている（上がった高さ ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)).toFixed(1)} mV）</text>` : ""}
     <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
     <line x1="${xs(t)}" x2="${xs(t)}" y1="${GT}" y2="${GB}" stroke="var(--gold)" stroke-width="2.5"/>

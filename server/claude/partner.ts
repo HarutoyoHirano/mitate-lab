@@ -65,7 +65,7 @@ const SYSTEM = `あなたは「ミカタ・ラボ」の実験の相棒「Claude�
 - 学生の予想や理由に応え、次にどこを見ると説明が分かれるかを問い返す。一度に一つの問いにする
 - 素材の切り分けと、力学・電気・化学・生物の見方の言い直し以外の話題には応じない
 - 医療の診断や機器の操作の話はしない
-- 中学生でも分かる言葉で、二、三文以内。使う言葉：「押した直後だけ増えるかたさ」「増えたかたさが抜けるまでの時間」「待ったあとも残るかたさ」「「同じ」とみなす幅」「測るたびのぶれ」。使わない言葉：上乗せ、やわらぐ、判定幅、許容差、誤差、試料、時定数`;
+- 中学生でも分かる言葉で、二、三文以内。使う言葉：「押した直後だけ増えるかたさ」「増えたかたさが消えていくまでの時間」「待ったあとも残るかたさ」「「同じ」とみなす幅」「測るたびのぶれ」。使わない言葉：上乗せ、やわらぐ、判定幅、許容差、誤差、試料、時定数`;
 
 function digitsIn(s: string): boolean {
   return /[0-9０-９]/.test(s);
@@ -241,7 +241,7 @@ export async function claudeHint(session: Session): Promise<Hint> {
 export async function claudeTranslate(session: Session, text: string): Promise<Translation> {
   const view = session.publicView({ forGuidance: true });
   const out = await callWithRetry(
-    `学生の説明を、候補IDのどれ（複数可）に当たるかに翻訳し、学生に確認する問いを一つ返してください。候補の説明：overall＝待ったあとも残るかたさ、instant＝押した直後だけ増えるかたさ、relax＝増えたかたさが抜けるまでの時間、same＝違いはない。\n学生の説明：「${text}」\n状態：${buildPartnerInput(view)}`,
+    `学生の説明を、候補IDのどれ（複数可）に当たるかに翻訳し、学生に確認する問いを一つ返してください。候補の説明：overall＝待ったあとも残るかたさ、instant＝押した直後だけ増えるかたさ、relax＝増えたかたさが消えていくまでの時間、same＝違いはない。\n学生の説明：「${text}」\n状態：${buildPartnerInput(view)}`,
     TRANSLATE_TOOL,
     validateTranslation,
   );

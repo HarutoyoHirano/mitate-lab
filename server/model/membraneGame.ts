@@ -79,7 +79,7 @@ export interface MemRound {
 
 export const MEM_ROUNDS: readonly MemRound[] = [
   { id: 1, robotLine: "私は「長く流した後（止める直前）」の膜の電圧を見ます。すり抜けられますか？", robotLabel: "止める直前の膜の電圧", hiddenLabel: `止めて${HIDDEN_AFTER_MS}ミリ秒後の膜の電圧` },
-  { id: 2, robotLine: "測り方を変えます。今度は「止めた時の上がり分（−70 mV からの高さ）が、半分になるまでの時間」を見ます。", robotLabel: "止めた時の上がり分が半分に戻るまでの時間", hiddenLabel: "止める直前の膜の電圧" },
+  { id: 2, robotLine: "測り方を変えます。今度は「止めた時の、−70 mV から上がった高さが、半分になるまでの時間」を見ます。", robotLabel: "止めた時の上がった高さが半分に戻るまでの時間", hiddenLabel: "止める直前の膜の電圧" },
 ];
 
 export interface MemDuelResult {

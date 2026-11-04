@@ -327,7 +327,7 @@ export class Session {
   /** 本人が確認した候補（言葉→候補の翻訳を確かめたもの）。Claudeへの入力に含める */
   confirmCandidate(id: CandidateId): void {
     this.#assertOpen();
-    if (!isCandidateId(id)) throw new SessionError("候補が正しくない");
+    if (!isCandidateId(id)) throw new SessionError("選んだ説明が見つかりません");
     if (!this.#confirmed.includes(id)) this.#confirmed.push(id);
   }
 

@@ -42,7 +42,7 @@ export function templateHint(
       ...base,
       stage,
       suggestion: null,
-      text: "この曲線と点線（見本A）を、押し終わった瞬間・2秒後・20秒後の三か所で見比べてみましょう。どこで離れて、どこで重なりますか？ どの説明の線も、押し終わった瞬間の高さはBに合わせてあります。途中も合うかを見て、合わないと思う説明を選んでから、検算しましょう。迷ったら「分からない」でも進めます。",
+      text: "Bの記録（点）と見本Aの線を、押し終わった瞬間・2秒後・20秒後の三か所で見比べてみましょう。どこで離れて、どこで重なりますか？ どの説明の線も、押し終わった瞬間の高さはBに合わせてあります。途中も合うかを見て、合わないと思う説明を選んでから、検算しましょう。迷ったら「分からない」でも進めます。",
     };
   }
   if (comparison.overall === "narrowed") {
@@ -50,7 +50,7 @@ export function templateHint(
       ...base,
       stage,
       suggestion: null,
-      text: `この候補の中では${names([comparison.narrowedTo!])}に絞れました。どの観察で、ほかの候補が合わなくなったかを振り返ってみましょう。`,
+      text: `この説明の中では${names([comparison.narrowedTo!])}に絞れました。どの記録で、ほかの説明が合わなくなったかを振り返ってみましょう。`,
     };
   }
   if (comparison.overall === "noneFits") {
@@ -58,7 +58,7 @@ export function templateHint(
       ...base,
       stage,
       suggestion: null,
-      text: "今の候補では説明できません。「Aと一つだけ違う」という前提が合っていないのかもしれません。無理に一つを選ばず、記録を見直しましょう。",
+      text: "今の説明のどれでも、記録を説明できません。「Aと一つだけ違う」という前提が合っていないのかもしれません。無理に一つを選ばず、記録を見直しましょう。",
     };
   }
   if (comparison.overall === "onlyWidened") {
@@ -66,7 +66,7 @@ export function templateHint(
       ...base,
       stage,
       suggestion: null,
-      text: "ふつうのぶれの範囲では、どの候補とも合いません。同じ観察をもう一度して、測り直しで結果が変わるかを確かめてみましょう。",
+      text: "ふつうのぶれの範囲では、どの説明とも合いません。同じ押し方でもう一度記録して、結果が変わるかを確かめてみましょう。",
     };
   }
   if (stage === 1 || !hasPrediction) {
@@ -96,7 +96,7 @@ export function templateHint(
       ...base,
       stage: 3,
       suggestion: null,
-      text: `残っている説明ごとに、曲線の形を思い浮かべてみましょう。「押した直後の高さ」の違いと、「抜けていく速さ」の違いは、どの押し方なら見分けやすいでしょう？ ${why}`,
+      text: `残っている説明ごとに、曲線の形を思い浮かべてみましょう。「押した直後だけ増えるかたさ」の違いと、「増えたかたさが消えていくまでの時間」の違いは、どの押し方なら見分けやすいでしょう？ ${why}`,
     };
   }
   return {

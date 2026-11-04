@@ -41,7 +41,7 @@ export const DUEL_ROUNDS: readonly DuelRound[] = [
 
 export const DUEL_SLIDERS = {
   e1: { min: 0.2, max: 2.2, step: 0.05, label: "押した直後だけ増えるかたさ" },
-  tau: { min: 0.4, max: 4, step: 0.05, label: "増えたかたさが抜けるまでの時間" },
+  tau: { min: 0.4, max: 4, step: 0.05, label: "増えたかたさが消えていくまでの時間" },
 } as const;
 
 export function duelMaterial(e1: number, tau: number): MaterialParams {
