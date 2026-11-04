@@ -183,14 +183,14 @@ function movieLoop(): void {
 function c1Movie(): View {
   return {
     chap: "事件1 見破れ",
-    goal: "検査の前に：膝の軟骨は、一歩ごとにどう押されるか見てみよう",
+    goal: "はじまりの話：試作品Bと検査ロボ",
     svg: kneeMovie(state.movieT),
     who: state.line.who,
     text: state.line.text,
     cmds: state.moviePlaying
       ? [{ act: "movie-skip", label: "最後まで飛ばす", ghost: true }]
       : [
-          { act: "to-c1say", label: "検査室へ", sub: "ロボの検査の結果を聞く", hot: true },
+          { act: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く", hot: true },
           { act: "movie-replay", label: "もう一度見る", ghost: true },
         ],
   };
@@ -1007,7 +1007,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     state.mood = "smug";
     const it = r.view.intro;
     introLine = `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。差は「同じ」とみなす幅の内側。`;
-    say("guide", "検査の前に：膝の軟骨は、歩く・走るたびに体重で押される。見本と、計算した例の軟骨を比べてみよう（例はBの答えではない）。");
+    say("guide", "はじまりの話：新しい試作品Bができて、検査ロボが調べた。何が起きたのか、見てみよう。");
     state.scene = "c1-movie";
     state.movieT = reduceMotion() ? MOVIE_LENGTH : 0;
     state.moviePlaying = !reduceMotion();

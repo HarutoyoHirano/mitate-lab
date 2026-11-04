@@ -1,7 +1,7 @@
 // 新しい画面の絵（舞台の SVG）。どの絵も、渡された計算値・記録から描く（隠れた答えは受け取らない）。
 import { BASE_MEM, deltaMv, PULSE_MS, RECORD_MS, REST_MV, type Membrane } from "../../server/model/membraneGame.js";
 import { BEAT_S, steadyBeat, type Vessel } from "../../server/model/vessel.js";
-import { dentWithinStep, DUTY, MOVIE_EXAMPLE, MOVIE_RUN, MOVIE_WALK, stepDents } from "../../server/model/steps.js";
+import { dentWithinStep, DUTY, MOVIE_RUN, MOVIE_WALK, stepDents } from "../../server/model/steps.js";
 import { BASE } from "../../server/model/public.js";
 
 export type Mood = "calm" | "smug" | "sweat" | "shock" | "scan" | "down";
@@ -102,96 +102,149 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
   </g>`;
 }
 
-// ---------- 事件1：イメージムービー（検査の前。計算した例。人物は描かない） ----------
-/** 実時間（秒）：歩く 0〜5、間 5〜5.6、走る 5.6〜11.6、結び 11.6〜 */
-export const MOVIE_LENGTH = 11.6;
-const MOVIE_MODEL_SPAN = 6; // 各テンポで見せる模型の秒数
-function moviePhase(t: number): { P: number; tm: number; label: string } {
-  if (t < 5) return { P: MOVIE_WALK, tm: (t / 5) * MOVIE_MODEL_SPAN, label: `歩く（一歩 ${MOVIE_WALK} 秒）` };
-  if (t < 5.6) return { P: MOVIE_WALK, tm: MOVIE_MODEL_SPAN, label: `歩く（一歩 ${MOVIE_WALK} 秒）` };
-  const r = Math.min(1, (t - 5.6) / 6);
-  return { P: MOVIE_RUN, tm: r * MOVIE_MODEL_SPAN, label: `走る（一歩 ${MOVIE_RUN} 秒）` };
-}
-function dentAt(p: typeof BASE, P: number, tm: number): number {
-  const n = Math.ceil(MOVIE_MODEL_SPAN / P) + 1;
-  const steps = stepDents(p, P, n);
-  const k = Math.min(n - 1, Math.floor(tm / P));
-  const u = Math.min(1, (tm - k * P) / P);
-  return dentWithinStep(p, P, steps, k, u);
-}
-function movieColumn(x0: number, p: typeof BASE, title: string, sub: string, t: number, id: string, color: string): string {
-  const { P, tm } = moviePhase(t);
-  const k = Math.floor(tm / P);
-  const u = (tm - k * P) / P;
-  const stance = u < DUTY;
-  const dent = dentAt(p, P, tm);
-  // 脚の形（試験用の脚の模型）
-  const L = 105;
-  const hx = x0 + 90;
-  const hy = 130;
-  const deg = Math.PI / 180;
-  const th = stance ? (20 - 40 * (u / DUTY)) * deg : (-20 + 40 * (0.5 - 0.5 * Math.cos(Math.PI * ((u - DUTY) / (1 - DUTY))))) * deg;
-  const flexMax = P < 1 ? 85 : 45;
-  const flex = (stance ? 5 : 5 + flexMax * Math.sin(Math.PI * ((u - DUTY) / (1 - DUTY)))) * deg;
-  const kx = hx + L * Math.sin(th);
-  const ky = hy + L * Math.cos(th);
-  const ph = th - flex;
-  const ax = kx + L * Math.sin(ph);
-  const ay = ky + L * Math.cos(ph);
-  // 拡大の円：骨と骨の間の軟骨。厚み＝ 44 − 30×へこみ
-  const cx = x0 + 300;
-  const cy = 215;
-  const thick = Math.max(4, 52 - 42 * dent);
-  const plate = cy + 34;
-  const top = plate - thick;
-  // へこみのグラフ（いまのテンポの、ここまで）
-  const gx = x0 + 420;
-  const gw = 170;
-  const gy0 = 120;
-  const gy1 = 300;
-  const ys = (d: number) => gy1 - ((gy1 - gy0) * Math.max(0, Math.min(1.1, d))) / 1.1;
-  const pts: string[] = [];
-  for (let m = 0; m <= tm + 1e-9; m += 0.04) pts.push(`${(gx + (gw * m) / MOVIE_MODEL_SPAN).toFixed(1)},${ys(dentAt(p, P, m)).toFixed(1)}`);
+// ---------- 事件1：イメージムービー（検査の前の導入の物語。謎解きの手がかりは見せない。人物は描かない） ----------
+// 三つの場面：①新しい試作品Bができる ②膝の軟骨は一歩ごとに押される（見本の値で計算） ③ロボの検査「区別できません」
+// 各場面は 400×300 の枠に描く。再生中は一つを大きく、終わりは三つを並べる（動きを減らす設定でも同じ終わりの絵）。
+const SCENES = [
+  { from: 0, to: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ（本物ではない）。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた" },
+  { from: 5, to: 12, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される" },
+  { from: 12, to: 17, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN-07 は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」" },
+] as const;
+/** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
+export const MOVIE_LENGTH = 17;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** ① 3Dプリンタで試作品Bを印刷する。s は場面の中の秒 */
+function scenePrinter(s: number): string {
+  const p = clamp01(s / 3.6);
+  const h = 6 + 38 * p; // 印刷した高さ
+  const nx = 270 + 70 * Math.sin(s * 5.2) * (p < 1 ? 1 : 0);
+  const ny = 236 - h - 14;
+  const layers = Math.floor(h / 6);
   return `<g>
-    <text x="${x0}" y="78" fill="var(--ink)" font-size="17" font-weight="900">${title}</text>
-    <text x="${x0}" y="98" fill="var(--soft)" font-size="12">${sub}</text>
-    <line x1="${x0 + 10}" x2="${x0 + 190}" y1="${hy + 2 * L * Math.cos(20 * deg) + 8}" y2="${hy + 2 * L * Math.cos(20 * deg) + 8}" stroke="var(--line)" stroke-width="4"/>
-    ${Array.from({ length: 7 }, (_, j) => { const off = ((j * 30 - (tm / P) * 60) % 210 + 210) % 210; return `<line x1="${x0 + 10 + off}" x2="${x0 + 10 + Math.min(180, off + 14)}" y1="${hy + 2 * L * Math.cos(20 * deg) + 16}" y2="${hy + 2 * L * Math.cos(20 * deg) + 16}" stroke="var(--metal-edge)" stroke-width="3"/>`; }).join("")}
-    <rect x="${hx - 34}" y="${hy - 22}" width="68" height="26" rx="8" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
-    ${stance ? `<path d="M${hx + 50} ${hy - 30} v24 m-8 -9 l8 9 l8 -9" stroke="var(--bot)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="${hx + 62}" y="${hy - 12}" fill="var(--bot)" font-size="12" font-weight="900">体重</text>` : ""}
-    <path d="M${hx} ${hy} L${kx.toFixed(1)} ${ky.toFixed(1)}" stroke="var(--metal-edge)" stroke-width="26" fill="none" stroke-linecap="round"/><path d="M${kx.toFixed(1)} ${ky.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}" stroke="var(--metal-edge)" stroke-width="18" fill="none" stroke-linecap="round"/>
-    <path d="M${ax.toFixed(1)} ${ay.toFixed(1)} l34 ${(6).toFixed(1)}" stroke="var(--metal-edge)" stroke-width="14" stroke-linecap="round"/>
-    <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="14" fill="var(--panel)" stroke="${color}" stroke-width="4"/>
-    <path d="M${(kx + 14).toFixed(1)} ${ky.toFixed(1)} L${cx - 92} ${cy}" stroke="${color}" stroke-width="1.5" stroke-dasharray="4 5"/>
-    <defs><clipPath id="clip-${id}"><circle cx="${cx}" cy="${cy}" r="90"/></clipPath></defs>
-    <circle cx="${cx}" cy="${cy}" r="90" fill="var(--panel)" stroke="${color}" stroke-width="3"/>
-    <g clip-path="url(#clip-${id})">
-      <path d="M${cx - 70} ${top} C ${cx - 70} ${top - 30}, ${cx - 20} ${top - 26}, ${cx - 18} ${top - 60} V${cy - 120} H${cx + 18} V${top - 60} C ${cx + 20} ${top - 26}, ${cx + 70} ${top - 30}, ${cx + 70} ${top} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
-      <rect x="${cx - 66}" y="${top}" width="132" height="${thick}" rx="8" fill="${id === "a" ? "var(--pad-a)" : "var(--pad-b)"}" stroke="${id === "a" ? "var(--pad-a-edge)" : "var(--pad-b-edge)"}" stroke-width="3"/>
-      <path d="M${cx - 76} ${plate} H${cx + 76} V${cy + 120} H${cx - 76} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
-    </g>
-    <text x="${cx}" y="${cy - 98}" fill="var(--soft)" font-size="12" text-anchor="middle">膝の中（拡大）：骨と骨の間の軟骨</text>
-    <text x="${cx}" y="${cy + 112}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">へこみ ${dent.toFixed(2)}</text>
-    <rect x="${gx}" y="${gy0}" width="${gw}" height="${gy1 - gy0}" fill="var(--panel)" stroke="var(--line)"/>
-    ${[0, 0.5, 1].map((v) => `<line x1="${gx}" x2="${gx + gw}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${gx - 4}" y="${ys(v) + 4}" fill="var(--soft)" font-size="11" text-anchor="end">${v}</text>`).join("")}
-    <polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2.5"/>
-    <text x="${gx}" y="${gy0 - 8}" fill="var(--soft)" font-size="11">へこみ（下＝戻った・上＝沈んだ）</text>
+    <rect x="0" y="0" width="400" height="300" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="22" y="196" width="110" height="10" rx="3" fill="var(--metal-edge)"/>
+    <rect x="34" y="166" width="86" height="30" rx="14" fill="var(--pad-a)" stroke="var(--pad-a-edge)" stroke-width="3"/>
+    <text x="77" y="232" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">見本 A</text>
+    <text x="77" y="252" fill="var(--soft)" font-size="12" text-anchor="middle">性質が分かっている</text>
+    <rect x="168" y="26" width="214" height="236" rx="10" fill="none" stroke="var(--metal-edge)" stroke-width="5"/>
+    <rect x="168" y="48" width="214" height="10" fill="var(--metal)"/>
+    <line x1="${nx}" y1="58" x2="${nx}" y2="${ny}" stroke="var(--metal-edge)" stroke-width="6"/>
+    <path d="M${nx - 12} ${ny} h24 l-12 12z" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <rect x="190" y="236" width="170" height="10" rx="3" fill="var(--metal-edge)"/>
+    <rect x="227" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
+    ${Array.from({ length: layers }, (_, i) => `<line x1="231" x2="319" y1="${236 - 6 * (i + 1)}" y2="${236 - 6 * (i + 1)}" stroke="var(--pad-b-edge)" stroke-width="1" opacity=".5"/>`).join("")}
+    <text x="275" y="20" fill="var(--soft)" font-size="12" text-anchor="middle">3Dプリンタ</text>
+    <text x="275" y="${p < 1 ? 280 : 280}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${p < 1 ? "印刷中…" : "試作品 B（新しい印刷条件）"}</text>
   </g>`;
 }
-export function kneeMovie(t: number): string {
-  const { label } = moviePhase(t);
-  const end = t >= MOVIE_LENGTH;
+
+/** ② 試験用の脚の模型が歩き、走る。膝の中の軟骨（見本の値で計算）が一歩ごとにへこむ */
+const WALK_REAL = 3.5; // 場面の中で、歩く秒数（このあと走る）
+function legMotion(s: number): { P: number; tm: number; label: string } {
+  // 模型の時間：歩くは実時間1秒で模型2秒（一歩3秒→実時間1.5秒）、走るも同じ倍率（一歩0.75秒→実時間0.375秒）
+  if (s < WALK_REAL) return { P: MOVIE_WALK, tm: s * 2, label: "歩く" };
+  return { P: MOVIE_RUN, tm: (s - WALK_REAL) * 2, label: "走る" };
+}
+function baseDent(P: number, tm: number): { dent: number; stance: boolean; u: number } {
+  const n = Math.ceil(tm / P) + 2;
+  const steps = stepDents(BASE, P, n);
+  const k = Math.min(n - 1, Math.floor(tm / P));
+  const u = clamp01((tm - k * P) / P);
+  return { dent: dentWithinStep(BASE, P, steps, k, u), stance: u < DUTY, u };
+}
+function sceneLeg(s: number): string {
+  const { P, tm, label } = legMotion(s);
+  const { dent, stance, u } = baseDent(P, tm);
+  const deg = Math.PI / 180;
+  const L = 66;
+  const hx = 92;
+  const hy = 96;
+  const th = stance ? (20 - 40 * (u / DUTY)) * deg : (-20 + 40 * (0.5 - 0.5 * Math.cos(Math.PI * ((u - DUTY) / (1 - DUTY))))) * deg;
+  const flex = (stance ? 5 : 5 + (P < 1 ? 80 : 45) * Math.sin(Math.PI * ((u - DUTY) / (1 - DUTY)))) * deg;
+  const kx = hx + L * Math.sin(th);
+  const ky = hy + L * Math.cos(th);
+  const ax = kx + L * Math.sin(th - flex);
+  const ay = ky + L * Math.cos(th - flex);
+  const belt = hy + 2 * L * Math.cos(20 * deg) + 8;
+  // 膝の中（拡大）
+  const cx = 290;
+  const cy = 150;
+  const thick = Math.max(6, 44 - 34 * dent);
+  const plate = cy + 30;
+  const top = plate - thick;
   return `<g>
-    <text x="640" y="30" fill="var(--soft)" font-size="14" text-anchor="middle">イメージ：膝の軟骨は、一歩ごとに体重で押され、足を上げると戻る（試験用の脚の模型。計算した例）</text>
-    <text x="640" y="56" fill="var(--gold)" font-size="20" font-weight="900" text-anchor="middle">${label}</text>
-    ${movieColumn(30, BASE, "見本 A の軟骨", "計算した値", t, "a", "var(--soft)")}
-    ${movieColumn(660, MOVIE_EXAMPLE, "例：沈みやすい軟骨", "計算した例（押した直後だけ増えるかたさが小さい）。Bの答えではない", t, "x", "var(--you)")}
-    <text x="640" y="476" fill="var(--soft)" font-size="12" text-anchor="middle">時間は模型の秒（本当の歩く速さとは合わせていない）。へこみは、軟骨が押されてうすくなった量</text>
-    ${end ? `<g transform="translate(300,334)"><rect width="680" height="124" rx="14" fill="var(--paper)"/>
-      <text x="20" y="30" fill="var(--paper-ink)" font-size="16" font-weight="900">走ると、見本はすばやく受け止めて、沈みが浅くなる。</text>
-      <text x="20" y="54" fill="var(--paper-ink)" font-size="16" font-weight="900">例の軟骨は深く沈み、骨と骨が近づく。</text>
-      <text x="20" y="80" fill="var(--paper-ink)" font-size="16" font-weight="900">でも、ロボの検査（押して20秒後）では、どちらも同じ。</text>
-      <text x="20" y="108" fill="var(--paper-soft)" font-size="14">違い方はほかにもある。新しい試作品Bは、どう違う？ それとも同じ？</text></g>` : ""}
+    <rect x="0" y="0" width="400" height="300" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <text x="20" y="30" fill="var(--gold)" font-size="20" font-weight="900">${label}</text>
+    <text x="20" y="50" fill="var(--soft)" font-size="12">一歩 ${P} 秒（模型の秒）</text>
+    <line x1="22" x2="170" y1="${belt}" y2="${belt}" stroke="var(--line)" stroke-width="4"/>
+    ${Array.from({ length: 6 }, (_, j) => { const off = ((j * 26 - (tm / P) * 52) % 156 + 156) % 156; return `<line x1="${22 + off}" x2="${22 + Math.min(148, off + 12)}" y1="${belt + 8}" y2="${belt + 8}" stroke="var(--metal-edge)" stroke-width="3"/>`; }).join("")}
+    <rect x="${hx - 28}" y="${hy - 20}" width="56" height="22" rx="7" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <path d="M${hx} ${hy} L${kx.toFixed(1)} ${ky.toFixed(1)}" stroke="var(--metal-edge)" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <path d="M${kx.toFixed(1)} ${ky.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}" stroke="var(--metal-edge)" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M${ax.toFixed(1)} ${ay.toFixed(1)} l26 4" stroke="var(--metal-edge)" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="11" fill="var(--panel)" stroke="var(--you)" stroke-width="4"/>
+    <text x="96" y="${belt + 32}" fill="var(--soft)" font-size="11" text-anchor="middle">試験用の脚の模型</text>
+    <path d="M${(kx + 11).toFixed(1)} ${ky.toFixed(1)} L${cx - 84} ${cy}" stroke="var(--you)" stroke-width="1.5" stroke-dasharray="4 5"/>
+    <defs><clipPath id="mv-zoom"><circle cx="${cx}" cy="${cy}" r="84"/></clipPath></defs>
+    <circle cx="${cx}" cy="${cy}" r="84" fill="var(--panel)" stroke="var(--you)" stroke-width="3"/>
+    <g clip-path="url(#mv-zoom)">
+      <path d="M${cx - 64} ${top} C ${cx - 64} ${top - 28}, ${cx - 18} ${top - 24}, ${cx - 16} ${top - 56} V${cy - 110} H${cx + 16} V${top - 56} C ${cx + 18} ${top - 24}, ${cx + 64} ${top - 28}, ${cx + 64} ${top} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
+      <rect x="${cx - 60}" y="${top}" width="120" height="${thick}" rx="8" fill="var(--pad-a)" stroke="var(--pad-a-edge)" stroke-width="3"/>
+      <path d="M${cx - 70} ${plate} H${cx + 70} V${cy + 110} H${cx - 70} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
+    </g>
+    ${stance ? `<path d="M${cx} ${cy - 120} v22 m-8 -9 l8 9 l8 -9" stroke="var(--bot)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="${cx + 14}" y="${cy - 104}" fill="var(--bot)" font-size="12" font-weight="900">体重</text>` : ""}
+    <text x="${cx}" y="${cy + 104}" fill="var(--soft)" font-size="12" text-anchor="middle">膝の中（拡大）：骨と骨の間の軟骨</text>
+  </g>`;
+}
+
+/** ③ 検査ロボが試作品Bを押し、20秒待って「区別できません」 */
+function sceneRobot(s: number): string {
+  const press = clamp01(s / 0.6);
+  const wait = clamp01((s - 0.6) / 2.6);
+  const done = s >= 3.3;
+  const sec = Math.round(wait * 20);
+  const plateY = 150 + 30 * press;
+  const ang = wait * 360;
+  return `<g>
+    <rect x="0" y="0" width="400" height="300" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
+    <rect x="196" y="60" width="12" height="${plateY - 60}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <rect x="232" y="60" width="12" height="${plateY - 60}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <rect x="186" y="${plateY}" width="190" height="14" rx="4" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+    <rect x="232" y="${plateY + 14}" width="100" height="${238 - (plateY + 14)}" rx="10" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
+    <rect x="186" y="238" width="190" height="12" rx="4" fill="var(--metal-edge)"/>
+    <text x="282" y="272" fill="var(--soft)" font-size="12" text-anchor="middle">試作品 B を押して、深さを保つ</text>
+    <g transform="translate(330,46)"><circle r="26" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
+      <line x1="0" y1="0" x2="${(18 * Math.sin(ang * (Math.PI / 180))).toFixed(1)}" y2="${(-18 * Math.cos(ang * (Math.PI / 180))).toFixed(1)}" stroke="var(--paper-ink)" stroke-width="3" stroke-linecap="round"/>
+      <text x="0" y="46" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${sec} 秒</text></g>
+    ${done ? `<g transform="translate(170,172) rotate(-8)"><rect width="200" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="100" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}
+  </g>`;
+}
+
+const SCENE_DRAW = [scenePrinter, sceneLeg, sceneRobot] as const;
+
+export function kneeMovie(t: number): string {
+  if (t >= MOVIE_LENGTH) {
+    // 結び：三つの場面を並べ、これからの謎を示す
+    return `<g>
+      ${SCENES.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${SCENE_DRAW[i]!(sc.to - sc.from)}
+        <text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
+      <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
+        <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">でも、走るときの押され方まで、本当に見本と同じ？</text>
+        <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">確かめるのは、あなた。測り方を自分で考えよう。</text></g>
+    </g>`;
+  }
+  const i = SCENES.findIndex((sc) => t < sc.to);
+  const sc = SCENES[i]!;
+  const s = t - sc.from;
+  const fade = clamp01(s / 0.35);
+  return `<g>
+    <text x="640" y="32" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">${sc.tag}</text>
+    <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${SCENE_DRAW[i]!(s)}</g>
+    <text x="640" y="420" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[0]}</text>
+    <text x="640" y="450" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[1]}</text>
+    <text x="640" y="474" fill="var(--soft)" font-size="12" text-anchor="middle">イメージ（計算でつくった模型。本物の人工軟骨・検査機器ではない）</text>
   </g>`;
 }
 
