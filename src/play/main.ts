@@ -477,6 +477,7 @@ function c3Say(): View {
     svg: `<g transform="translate(-40,40) scale(0.72)">${c3Stage()}</g>${bubble(560, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
+    sub: "mmHg（ミリメートル水銀柱）は、血圧に使う圧力の単位。値は模型の値で、体の血圧ではない。",
     cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "次の証言" : "ゆさぶる", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
   };
 }
@@ -687,6 +688,7 @@ function titleView(): View {
         ]
           .map(([c, n, k], i) => `<g transform="translate(0,${i * 110})"><rect width="520" height="92" rx="14" fill="var(--paper)"/><text x="20" y="36" fill="var(--paper-soft)" font-size="16" font-weight="900">${c}</text><text x="20" y="72" fill="var(--paper-ink)" font-size="26" font-weight="900">${n}</text><text x="500" y="72" fill="var(--paper-soft)" font-size="16" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
+        <text x="0" y="346" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
         <text x="0" y="370" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ KENSA-07 が決まった手順で調べる。</text>
         <text x="0" y="394" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
       </g>${robotArt("smug", 900, 40, 1)}`,
