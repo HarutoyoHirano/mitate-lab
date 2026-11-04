@@ -55,7 +55,7 @@ export function claudeAvailable(): boolean {
 }
 
 const SYSTEM = `あなたは「ミカタ・ラボ」の実験の相棒「Claude（AI）」です。
-学生は、見本Aと試料Bを比べています。いつもの検査（ふつうに押して二十秒後の値）では、BはAと区別できません（同じ素材だと決まったわけではありません）。学生は押す速さを選んで、押してからの押し返しの変化（曲線）を測り、違いと、なぜ違うのかを調べています。
+学生は、見本Aと試作品B（人工軟骨の仮想の試作品）を比べています。いつもの検査（ふつうに押して二十秒後の値）では、BはAと区別できません（同じ素材だと決まったわけではありません）。学生は押す速さを選んで、押してからの押し返しの変化（曲線）を測り、違いと、なぜ違うのかを調べています。
 あなたは隠れた正解を知りません。学生と同じ証拠と、プログラムが計算した判定・実験計画の支援だけを見ています。
 
 守ること：
@@ -65,7 +65,7 @@ const SYSTEM = `あなたは「ミカタ・ラボ」の実験の相棒「Claude�
 - 学生の予想や理由に応え、次にどこを見ると説明が分かれるかを問い返す。一度に一つの問いにする
 - 素材の切り分けと、力学・電気・化学・生物の見方の言い直し以外の話題には応じない
 - 医療の診断や機器の操作の話はしない
-- やさしい日本語で、二、三文以内`;
+- 中学生でも分かる言葉で、二、三文以内。使う言葉：「押した直後だけ増えるかたさ」「増えたかたさが抜けるまでの時間」「待ったあとも残るかたさ」「「同じ」とみなす幅」「測るたびのぶれ」。使わない言葉：上乗せ、やわらぐ、判定幅、許容差、誤差、試料、時定数`;
 
 function digitsIn(s: string): boolean {
   return /[0-9０-９]/.test(s);
@@ -241,7 +241,7 @@ export async function claudeHint(session: Session): Promise<Hint> {
 export async function claudeTranslate(session: Session, text: string): Promise<Translation> {
   const view = session.publicView({ forGuidance: true });
   const out = await callWithRetry(
-    `学生の説明を、候補IDのどれ（複数可）に当たるかに翻訳し、学生に確認する問いを一つ返してください。候補の説明：overall＝待ったあとも残るかたさ、instant＝押した直後だけ上乗せされるかたさ、relax＝上乗せ分がやわらぐ時間、same＝違いはない。\n学生の説明：「${text}」\n状態：${buildPartnerInput(view)}`,
+    `学生の説明を、候補IDのどれ（複数可）に当たるかに翻訳し、学生に確認する問いを一つ返してください。候補の説明：overall＝待ったあとも残るかたさ、instant＝押した直後だけ増えるかたさ、relax＝増えたかたさが抜けるまでの時間、same＝違いはない。\n学生の説明：「${text}」\n状態：${buildPartnerInput(view)}`,
     TRANSLATE_TOOL,
     validateTranslation,
   );
@@ -396,7 +396,7 @@ function resultTemplate(session: Session, curveId: string): Hint {
   if (v.awaitingPick)
     return {
       stage: 1,
-      text: "測りました。曲線のどこで見本Aの点線から離れ、どこで重なるかを見て、右の候補から合わなくなった説明を選び、検算しましょう。",
+      text: "測りました。曲線のどこで見本Aの点線から離れ、どこで重なるかを見て、合わなくなった説明を選び、検算しましょう。",
       suggestion: null,
       source: "template",
       evidenceIds: [...rec.evidenceIds],

@@ -68,8 +68,8 @@ export interface CandidateInfo {
 
 export const CANDIDATES: Readonly<Record<CandidateId, CandidateInfo>> = Object.freeze({
   overall: { id: "overall", label: "待ったあとも残るかたさが違う", param: "eInf", range: [0.1, 5] },
-  instant: { id: "instant", label: "押した直後だけ上乗せされるかたさが違う", param: "e1", range: [0, 10] },
-  relax: { id: "relax", label: "上乗せ分がやわらぐ時間が違う", param: "tau", range: [0.05, 20] },
+  instant: { id: "instant", label: "押した直後だけ増えるかたさが違う", param: "e1", range: [0, 10] },
+  relax: { id: "relax", label: "増えたかたさが抜けるまでの時間が違う", param: "tau", range: [0.05, 20] },
   same: { id: "same", label: "違いはない" },
 });
 

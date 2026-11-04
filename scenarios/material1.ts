@@ -14,8 +14,8 @@ export interface HiddenCauseSpec {
 }
 
 export const HIDDEN_CAUSES: readonly HiddenCauseSpec[] = Object.freeze([
-  { id: "instantUp", param: "e1", range: [1.3, 2.0], explanation: "押した直後だけ上乗せされるかたさが、Aより大きかった" },
-  { id: "instantDown", param: "e1", range: [0.5, 0.6], explanation: "押した直後だけ上乗せされるかたさが、Aより小さかった" },
-  { id: "relaxSlow", param: "tau", range: [1.6, 4.0], explanation: "上乗せ分がやわらぐのが、Aより遅かった" },
-  { id: "relaxFast", param: "tau", range: [0.3, 0.5], explanation: "上乗せ分がやわらぐのが、Aより速かった" },
+  { id: "instantUp", param: "e1", range: [1.3, 2.0], explanation: "押した直後だけ増えるかたさが、Aより大きかった" },
+  { id: "instantDown", param: "e1", range: [0.5, 0.6], explanation: "押した直後だけ増えるかたさが、Aより小さかった" },
+  { id: "relaxSlow", param: "tau", range: [1.6, 4.0], explanation: "増えたかたさが抜けるのが、Aより遅かった" },
+  { id: "relaxFast", param: "tau", range: [0.3, 0.5], explanation: "増えたかたさが抜けるのが、Aより速かった" },
 ] as const);

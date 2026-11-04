@@ -16,7 +16,7 @@ export interface StepCheck {
   readonly label: string;
 }
 
-const pointLabel = (phase: StepPhase) => `ゆっくり歩いて12歩目の${PHASE_LABEL[phase]}の沈み込み`;
+const pointLabel = (phase: StepPhase) => `ゆっくり歩いて12歩目の${PHASE_LABEL[phase]}のへこみ`;
 export const LAND_CHECK: StepCheck = { phase: "land", label: pointLabel("land") };
 export const PEAK_CHECK: StepCheck = { phase: "peak", label: pointLabel("peak") };
 
@@ -35,13 +35,13 @@ export interface DuelRound {
 }
 
 export const DUEL_ROUNDS: readonly DuelRound[] = [
-  { id: 1, robot: LAND_CHECK, hidden: PEAK_CHECK, robotLine: "走行検査を追加しました。ゆっくり歩かせて、12歩目の「着地直後」の沈み込みを見ます。すり抜けられますか？" },
+  { id: 1, robot: LAND_CHECK, hidden: PEAK_CHECK, robotLine: "走行検査を追加しました。ゆっくり歩かせて、12歩目の「着地直後」のへこみを見ます。すり抜けられますか？" },
   { id: 2, robot: PEAK_CHECK, hidden: LAND_CHECK, robotLine: "測り方を変えます。今度は12歩目の「足を上げる直前」。同じ攻略で通るかな？" },
 ];
 
 export const DUEL_SLIDERS = {
-  e1: { min: 0.2, max: 2.2, step: 0.05, label: "押した直後だけ上乗せされるかたさ" },
-  tau: { min: 0.4, max: 4, step: 0.05, label: "上乗せ分がやわらぐ時間" },
+  e1: { min: 0.2, max: 2.2, step: 0.05, label: "押した直後だけ増えるかたさ" },
+  tau: { min: 0.4, max: 4, step: 0.05, label: "増えたかたさが抜けるまでの時間" },
 } as const;
 
 export function duelMaterial(e1: number, tau: number): MaterialParams {

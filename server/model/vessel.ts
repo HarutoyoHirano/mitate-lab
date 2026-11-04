@@ -30,8 +30,8 @@ export const VESSEL_ROBOT_TOL = 2;
 export const VESSEL_SEE_DIFF = 3;
 
 export const VESSEL_SLIDERS = {
-  r: { min: 0.5, max: 2, step: 0.05, label: "末梢の流れにくさ（抵抗 R）" },
-  c: { min: 0.4, max: 3, step: 0.05, label: "血管のやわらかさ（コンデンサ C）" },
+  r: { min: 0.5, max: 2, step: 0.05, label: "血管の出口の流れにくさ（抵抗 R）" },
+  c: { min: 0.4, max: 3, step: 0.05, label: "血管のふくらみやすさ（コンデンサ C）" },
 } as const;
 
 const QMAX = (STROKE_ML * Math.PI) / (2 * EJECT_S);
@@ -107,8 +107,8 @@ export function storedVolume(m: Vessel, p: number, pMin: number): number {
 
 // ---------- 対決（仕掛けろ） ----------
 export const VESSEL_ROUNDS = [
-  { id: 1 as const, robotLabel: "一拍の平均の圧", hiddenLabel: "脈の振れ幅（最高−最低）", robotLine: "平均の圧を測ります。平均が同じなら、同じ血管です。" },
-  { id: 2 as const, robotLabel: "脈の振れ幅（最高−最低）", hiddenLabel: "一拍の平均の圧", robotLine: "規則を改訂しました。今度は脈の振れ幅を見ます。" },
+  { id: 1 as const, robotLabel: "1回の脈の平均の圧", hiddenLabel: "高い圧と低い圧の差", robotLine: "平均の圧を測ります。平均が同じなら、同じ血管です。" },
+  { id: 2 as const, robotLabel: "高い圧と低い圧の差", hiddenLabel: "1回の脈の平均の圧", robotLine: "規則を改訂しました。今度は高い圧と低い圧の差を見ます。" },
 ];
 export const VESSEL_HIDDEN_NEED = 8;
 

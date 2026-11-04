@@ -32,7 +32,7 @@ export const HIDDEN2_NEED = 2; // mV
 
 export const MEM_SLIDERS = {
   g: { min: 0.4, max: 2.5, step: 0.05, label: "イオンの通りやすさ" },
-  c: { min: 0.4, max: 2.5, step: 0.05, label: "膜の容量" },
+  c: { min: 0.4, max: 2.5, step: 0.05, label: "電気のためやすさ" },
 } as const;
 
 export function tauMs(m: Membrane): number {
@@ -78,8 +78,8 @@ export interface MemRound {
 }
 
 export const MEM_ROUNDS: readonly MemRound[] = [
-  { id: 1, robotLine: "私は「長く流した後（止める直前）」の電位を見ます。すり抜けられますか？", robotLabel: "止める直前の電位", hiddenLabel: `止めて${HIDDEN_AFTER_MS}ミリ秒後の電位` },
-  { id: 2, robotLine: "測り方を変えます。今度は「止めた時の上がり分（−70 mV からの高さ）が、半分になるまでの時間」を見ます。", robotLabel: "止めた時の上がり分が半分に戻るまでの時間", hiddenLabel: "止める直前の電位" },
+  { id: 1, robotLine: "私は「長く流した後（止める直前）」の膜の電圧を見ます。すり抜けられますか？", robotLabel: "止める直前の膜の電圧", hiddenLabel: `止めて${HIDDEN_AFTER_MS}ミリ秒後の膜の電圧` },
+  { id: 2, robotLine: "測り方を変えます。今度は「止めた時の上がり分（−70 mV からの高さ）が、半分になるまでの時間」を見ます。", robotLabel: "止めた時の上がり分が半分に戻るまでの時間", hiddenLabel: "止める直前の膜の電圧" },
 ];
 
 export interface MemDuelResult {

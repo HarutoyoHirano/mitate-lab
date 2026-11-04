@@ -301,7 +301,7 @@ describe("テスト20：判断待ちの間、手がかりとClaudeへの入力�
         for (let k = 0; k < 4; k++) {
           const h = s.nextTemplateHint();
           expect(h.text).not.toContain("絞れました");
-          for (const cand of ["上乗せ分がやわらぐ時間が違う", "押した直後だけ上乗せされるかたさが違う"]) expect(h.text).not.toContain(cand);
+          for (const cand of [CANDIDATES.relax.label, CANDIDATES.instant.label]) expect(h.text).not.toContain(cand);
         }
         // 判断した後は、比較器の結果がそのまま渡る
         s.pickExcluded("c1", "unsure");

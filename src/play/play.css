@@ -124,6 +124,9 @@ button { font: inherit; }
 .cmds { display: grid; gap: 0.5cqw; min-width: 21cqw; align-content: center; }
 .cmd { font-weight: 900; font-size: max(12px, 1.25cqw); padding: 0.4cqw 1.4cqw; border-radius: 12px; border: 3px solid var(--you); background: color-mix(in srgb, var(--you) 12%, var(--panel)); color: var(--you); text-align: left; cursor: pointer; transition: transform 0.06s; }
 .cmds.many .cmd small { display: none; }
+.cmds.many { grid-template-columns: 1fr 1fr; }
+.cmds.many .cmd:first-child { grid-column: 1 / -1; }
+.cmds.many .cmd.ghost { font-size: max(11px, 1.05cqw); padding: 0.3cqw 0.8cqw; text-align: center; }
 .cmd small { display: block; font-size: max(10px, 0.9cqw); font-weight: 700; opacity: 0.85; }
 .cmd.hot { background: var(--you); color: var(--on-you); box-shadow: 0 0 0 5px color-mix(in srgb, var(--you) 25%, transparent); }
 .cmd:active { transform: translateY(2px) scale(0.98); }
