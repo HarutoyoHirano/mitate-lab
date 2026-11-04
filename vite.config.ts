@@ -4,7 +4,7 @@ import { defineConfig, type Plugin } from "vite";
 // 開発中は、Viteの開発サーバーの中でAPI（/api/）も動かす。APIキーはサーバー側だけで読む。
 function apiPlugin(): Plugin {
   return {
-    name: "mikata-api",
+    name: "mitate-api",
     configureServer(server) {
       if (existsSync(".env")) process.loadEnvFile(".env");
       // APIのモジュールは最初の要求のときに読み込む（起動直後はまだ解決の準備ができていないため）
