@@ -682,11 +682,12 @@ function titleView(): View {
     goal: "同じに見える。でも、測り方を変えると違う。",
     svg: `<g transform="translate(60,40)">
         ${[
-          ["事件1・2", "3Dプリントの人工軟骨", "かたさと力"],
-          ["事件3", "人工血管と心臓ポンプ", "流れと圧"],
-          ["事件4", "神経の膜", "電気"],
+          ["事件1 見破れ", "3Dプリントの人工軟骨を、走らせて調べる", "かたさと力"],
+          ["事件2 仕掛けろ", "ロボの検査をすり抜ける軟骨をつくる", "かたさと力"],
+          ["事件3 脈の見落とし", "人工血管と心臓ポンプ", "流れと圧"],
+          ["事件4 膜の見落とし", "神経の膜", "電気"],
         ]
-          .map(([c, n, k], i) => `<g transform="translate(0,${i * 110})"><rect width="520" height="92" rx="14" fill="var(--paper)"/><text x="20" y="36" fill="var(--paper-soft)" font-size="16" font-weight="900">${c}</text><text x="20" y="72" fill="var(--paper-ink)" font-size="26" font-weight="900">${n}</text><text x="500" y="72" fill="var(--paper-soft)" font-size="16" font-weight="800" text-anchor="end">${k}</text></g>`)
+          .map(([c, n, k], i) => `<g transform="translate(0,${i * 76})"><rect width="560" height="66" rx="12" fill="var(--paper)"/><text x="18" y="24" fill="var(--paper-soft)" font-size="14" font-weight="900">${c}</text><text x="18" y="52" fill="var(--paper-ink)" font-size="21" font-weight="900">${n}</text><text x="542" y="52" fill="var(--paper-soft)" font-size="14" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
         <text x="0" y="346" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
         <text x="0" y="370" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN-07 が決まった手順で調べる。</text>
