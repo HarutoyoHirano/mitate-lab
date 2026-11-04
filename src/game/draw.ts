@@ -4,7 +4,7 @@ import { BASE_MEM, deltaMv, PULSE_MS, RECORD_MS, REST_MV, type Membrane } from "
 
 export type Mood = "calm" | "scan" | "shock" | "smug";
 
-/** 検査ロボ KENSA-07（定型ルールで動く。AIではない） */
+/** 検査ロボ TEJUN-07（定型ルールで動く。AIではない） */
 export function robotSvg(mood: Mood): string {
   const eye = (x: number) => {
     if (mood === "shock") return `<circle cx="${x}" cy="30" r="6.5" fill="var(--g-warn)"/><circle cx="${x}" cy="30" r="2.5" fill="var(--g-panel)"/>`;
@@ -258,7 +258,7 @@ function puck(cx: number, top: number, rx: number, height: number, label: string
  * 実在の人工関節・軟骨を描いたものではない（形は模式）。アニメーションは CSS（動きを減らす設定では止まる）。
  */
 export function factorySvg(): string {
-  return `<svg viewBox="0 0 760 290" class="factory" role="img" aria-label="再生医療ラボの検査：膝の骨と骨の間に入れる3Dプリントの人工クッションを、検査ロボKENSA-07が押して調べる">
+  return `<svg viewBox="0 0 760 290" class="factory" role="img" aria-label="再生医療ラボの検査：膝の骨と骨の間に入れる3Dプリントの人工クッションを、検査ロボTEJUN-07が押して調べる">
     <defs>
       ${hexPattern("hexF-A", "var(--g-pad-a-edge)", 5)}${hexPattern("hexF-B", "var(--g-pad-b-edge)", 5)}${hexPattern("hexF-K", "var(--g-pad-b-edge)", 3.2)}
       <linearGradient id="bone" x1="0" x2="1"><stop offset="0" stop-color="var(--g-bone-shade)"/><stop offset="0.45" stop-color="var(--g-bone)"/><stop offset="1" stop-color="var(--g-bone-shade)"/></linearGradient>
@@ -304,7 +304,7 @@ export function factorySvg(): string {
     <!-- 表示 -->
     <g transform="translate(628 36)">
       <rect width="126" height="132" rx="10" fill="var(--g-screen)"/>
-      <text x="10" y="22" font-size="11" fill="var(--g-on-screen)">KENSA-07 の検査</text>
+      <text x="10" y="22" font-size="11" fill="var(--g-on-screen)">TEJUN-07 の検査</text>
       <text x="10" y="46" font-size="12.5" font-weight="700" fill="var(--g-accent)" class="step s1">① 押す</text>
       <text x="10" y="68" font-size="12.5" font-weight="700" fill="var(--g-accent)" class="step s2">② 20秒待つ</text>
       <text x="10" y="90" font-size="12.5" font-weight="700" fill="var(--g-accent)" class="step s3">③ 力を読む</text>

@@ -1,4 +1,4 @@
-// ミカタ・ラボ「検査ロボとの対決」（新しい画面）。一画面の舞台・メッセージ窓・コマンド。
+// 見え方ラボ「検査ロボとの対決」（新しい画面）。一画面の舞台・メッセージ窓・コマンド。
 // 事件1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
 // 事件2〜4は公開の式だけの計算（誤差なし。事件3の血管B・事件4の膜Bは固定例）。検査ロボは定型ルールで動き、AIではない。
 import "./play.css";
@@ -68,7 +68,7 @@ interface View {
 const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06fb0", relax: "#b9a6ff", same: "#aab2c8" };
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "KENSA-07（決まったルールで動く・AIではない）", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
+const WHO_LABEL: Record<Who, string> = { bot: "TEJUN-07（決まったルールで動く・AIではない）", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
 
 const state = {
   scene: "title" as Scene,
@@ -648,7 +648,7 @@ function c4Duel(): View {
 
 // ---------- まとめ ----------
 function shareText(): string {
-  return ["ミカタ・ラボ「検査ロボの見落とし」", ...state.record].join("\n");
+  return ["見え方ラボ「検査ロボの見落とし」", ...state.record].join("\n");
 }
 function endView(): View {
   return {
@@ -678,7 +678,7 @@ function endView(): View {
 
 function titleView(): View {
   return {
-    chap: "ミカタ・ラボ",
+    chap: "見え方ラボ",
     goal: "同じに見える。でも、測り方を変えると違う。",
     svg: `<g transform="translate(60,40)">
         ${[
@@ -689,7 +689,7 @@ function titleView(): View {
           .map(([c, n, k], i) => `<g transform="translate(0,${i * 110})"><rect width="520" height="92" rx="14" fill="var(--paper)"/><text x="20" y="36" fill="var(--paper-soft)" font-size="16" font-weight="900">${c}</text><text x="20" y="72" fill="var(--paper-ink)" font-size="26" font-weight="900">${n}</text><text x="500" y="72" fill="var(--paper-soft)" font-size="16" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
         <text x="0" y="346" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
-        <text x="0" y="370" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ KENSA-07 が決まった手順で調べる。</text>
+        <text x="0" y="370" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN-07 が決まった手順で調べる。</text>
         <text x="0" y="394" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
@@ -740,7 +740,7 @@ function panelHtml(): string {
   const body =
     state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <table><tr><th>検査ロボ KENSA-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
+      <table><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
       <tr><th>相棒 Claude（AI）</th><td>事件1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
       <tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
       <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。事件1の記録には測るたびのぶれがあり、事件2〜4はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
@@ -761,7 +761,7 @@ function render(): void {
   app.innerHTML = `<div class="game"><div class="screen">
     <header class="hud">
       <span class="chap">${esc(v.chap)}</span><span class="goal">${esc(v.goal)}</span>
-      <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">KENSA-07 の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
+      <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN-07 の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
       <span class="ai">相棒 Claude（AI）${state.claude ? "" : "・休止中"}</span>
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
       <button class="mini-btn" data-act="panel" data-val="card">発見カード</button>
@@ -1054,7 +1054,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "copy":
       try {
-        await navigator.clipboard.writeText(["ミカタ・ラボ 発見カード", ...discovery().map((x) => `・${x}`), "", shareText()].join("\n"));
+        await navigator.clipboard.writeText(["見え方ラボ 発見カード", ...discovery().map((x) => `・${x}`), "", shareText()].join("\n"));
         say("you", "発見カードをコピーした。");
       } catch {
         state.error = "コピーできませんでした。文字を選んでコピーしてください。";
@@ -1521,7 +1521,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-say("bot", "私はKENSA-07。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
+say("bot", "私はTEJUN-07。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
 status().then((s) => {
   state.claude = s.claude;
   render();

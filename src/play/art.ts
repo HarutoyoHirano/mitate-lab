@@ -4,7 +4,7 @@ import { BEAT_S, steadyBeat, type Vessel } from "../../server/model/vessel.js";
 
 export type Mood = "calm" | "smug" | "sweat" | "shock" | "scan" | "down";
 
-/** 検査ロボ KENSA-07（定型ルールで動く。AIではない） */
+/** 検査ロボ TEJUN-07（定型ルールで動く。AIではない） */
 export function robotArt(mood: Mood, x: number, y: number, s = 1): string {
   const eyes =
     mood === "shock"

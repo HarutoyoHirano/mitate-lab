@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ミカタ・ラボ：同じに見える二つの仮想素材の違いを、測り方を考えて見抜く実験室",
+  "description": "見え方ラボ：同じに見える二つの仮想素材の違いを、測り方を考えて見抜く実験室",
   "scripts": {
     "test": "vitest run",
     "test:model": "vitest run tests/model",

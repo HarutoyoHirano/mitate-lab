@@ -1,4 +1,4 @@
-// ミカタ・ラボの画面。サーバーから受け取る公開ビューだけで描く。
+// 見え方ラボの画面。サーバーから受け取る公開ビューだけで描く。
 import { BASE, CANDIDATE_IDS, CANDIDATES, PUSH_SECONDS, TEST_TOLERANCE, judgeAgainstBase, type CandidateId, type PushSeconds } from "../server/model/public.js";
 import { forceAfterPush, forceDuringPush } from "../server/model/sls.js";
 import type { Permeability } from "../server/model/circuit.js";
@@ -115,7 +115,7 @@ const STEPS: { id: Phase[]; label: string }[] = [
 function topbar(): string {
   const cur = STEPS.findIndex((s) => s.id.includes(state.phase));
   return `<header class="topbar">
-    <div class="brand">ミカタ・ラボ <span class="sub-brand">詳しい実験室</span> <a class="to-game" href="./">ゲーム版へ</a></div>
+    <div class="brand">見え方ラボ <span class="sub-brand">詳しい実験室</span> <a class="to-game" href="./">ゲーム版へ</a></div>
     ${state.phase === "start" ? `<div class="spacer"></div>` : `<ol class="steps">${STEPS.map((s, i) => `<li class="${i < cur ? "done" : i === cur ? "now" : ""}"><span>${i + 1}</span>${s.label}</li>`).join("")}</ol>`}
     <span class="ai-badge ${state.claude ? "" : "off"}">${state.claude ? "Claude（AI）が相棒として参加中" : "Claude（AI）は休止中：定型のヒントで進めます"}</span>
   </header>`;
@@ -173,7 +173,7 @@ function renderStart(): string {
             : `<div class="actions"><button class="btn" data-act="hook" ${state.animating ? "disabled" : ""}>Aを押し込んで、深さを保つ</button></div>`
         }
       </div>
-      <p>ミカタ・ラボでは、性質が分かっている<strong>見本A</strong>と、調べたい<strong>試料B</strong>を比べます。</p>
+      <p>見え方ラボでは、性質が分かっている<strong>見本A</strong>と、調べたい<strong>試料B</strong>を比べます。</p>
       <ol class="goals">
         <li><strong>違いを見抜く</strong>：いつもの検査では区別できなくても、押し方を変えると見える違いを見つける</li>
         <li><strong>理由を説明する</strong>：何が違うのかを、曲線を証拠にして言う</li>
@@ -1084,7 +1084,7 @@ function applyDraft(r: { view: PublicSessionView }): void {
 function cardText(): string {
   const r1 = document.querySelector<HTMLInputElement>("#r1")?.value ?? "";
   const r2 = document.querySelector<HTMLInputElement>("#r2")?.value ?? "";
-  return ["ミカタ・ラボ：今回の発見", ...discovery().map((x) => `${x.label}：${x.value}`), `決め手になった理由：${r1}`, `次に確かめたいこと：${r2}`].join("\n");
+  return ["見え方ラボ：今回の発見", ...discovery().map((x) => `${x.label}：${x.value}`), `決め手になった理由：${r1}`, `次に確かめたいこと：${r2}`].join("\n");
 }
 
 app.addEventListener("input", (e) => {
