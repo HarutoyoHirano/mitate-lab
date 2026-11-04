@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "vite build",
     "start": "tsx server/index.ts",
-    "build:trial": "vite build --config vite.trial.config.ts && node scripts/trial-page.mjs"
+    "build:trial": "vite build --config vite.trial.config.ts && node scripts/trial-page.mjs",
+    "build:proto": "vite build --config vite.proto.config.ts && node scripts/trial-page.mjs dist-proto mitate-lab-proto.html つづきの謎"
   },
   "license": "UNLICENSED",
   "devDependencies": {

@@ -20,3 +20,4 @@ notes/
 spike/
 *.local.md
 dist-trial/
+dist-proto/
