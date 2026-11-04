@@ -227,7 +227,7 @@ function c1Run(): View {
     </div>`,
     who: state.line.who,
     text: state.line.text,
-    sub: `いまのテンポ：${tempoName(state.period)}（一歩 ${state.period.toFixed(2)} 秒・模型の時間）。数字＝沈み込み（試験台で押す深さを1とした割合）。赤い拍＝AとBの差が判定幅 ${STEP_TOLERANCE} を超えた一歩。`,
+    sub: `いまのテンポ：${tempoName(state.period)}（一歩 ${state.period.toFixed(2)} 秒・模型の時間）。数字＝沈み込み（クッションが縮んで薄くなった量。試験台で押す深さを1とする）。赤い拍＝AとBの差が判定幅 ${STEP_TOLERANCE} を超えた一歩。`,
     cmds: [
       { act: "go-run", label: run ? "もう一度走らせる" : "12歩、走らせる", sub: "テンポを変えてもよい", hot: !run, disabled: state.playing !== null || state.busy },
       { act: "shot", label: "この一歩を証拠に", sub: state.note !== null ? `${state.note + 1}歩目（差がいちばん大きい点）` : "拍を押して選ぶ", hot: state.note !== null, disabled: state.note === null || state.busy },
@@ -387,7 +387,7 @@ function c2(): View {
     svg: `${ruleCard(30, 20, round.id === 1 ? "検査規則 第2版（走行検査を追加）" : "検査規則 第3版", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`], 1, round.id === 2)}
       <g transform="translate(400,22)"><rect width="330" height="56" rx="28" fill="color-mix(in srgb, var(--bot) 18%, var(--panel))" stroke="var(--bot)" stroke-width="3"/>
         <circle cx="30" cy="28" r="16" fill="var(--bot)"/><circle cx="30" cy="28" r="6" fill="var(--panel)"/>
-        <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後を見る" : "足を上げる直前を見る"}</text></g>
+        <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後（体重がかかった直後）" : "足を上げる直前（体重が抜ける直前）"}</text></g>
       ${legsStage(state.dd ? { dentA: state.dd.a, dentB: state.dd.b, contact: state.dd.contact, impact: state.dd.impact, labelA: "見本 A", labelB: "あなたの試作", diff: null, hot: false, x0: 300, y0: 110, scale: 0.62 } : { dentA: show ? (ph === "land" ? a.land : a.peak) : 0.6, dentB: show ? (ph === "land" ? b.land : b.peak) : 0.6, contact: show, impact: false, labelA: "見本 A", labelB: "あなたの試作", diff: show ? r.robot.diff : null, hot: show && !r.robot.ok, x0: 300, y0: 110, scale: 0.62 })}`,
     html: `<div class="knobs" style="left:1.5%;bottom:3%;width:25%">
         ${(["e1", "tau"] as const)
@@ -551,7 +551,7 @@ function c4Say(): View {
   return {
     chap: "事件4 膜の盲点",
     goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの証言を聞こう",
-    svg: `${nerveWhole(16, 16, false)}<g transform="translate(310,206) scale(0.8)">${heartCircuit(0, 0, 1, 1, { src: "入口から入る流れ＝電流源", cap: "膜＝コンデンサ", res: "通り道＝抵抗", bat: "電池＝イオンの濃さの差" })}</g>
+    svg: `${nerveWhole(16, 16, false)}<g transform="translate(310,206) scale(0.8)">${heartCircuit(0, 0, 1, 1, { src: "入口から入る流れ＝電流源", cap: "膜＝コンデンサ", res: "通り道＝抵抗", bat: "電池＝濃さの差がつくる −70 mV" })}</g>
       <text x="310" y="190" fill="var(--soft)" font-size="14">事件3と同じ回路に、電池（静止時 −70 mV をつくる）が加わる</text>${bubble(640, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
@@ -584,8 +584,8 @@ function c4Present(): View {
 }
 function c4Why(): View {
   const cards: { id: "g" | "c"; name: string; look: string }[] = [
-    { id: "g", name: "イオンの通りやすさが違う", look: "通り道の多さ（多いほど通りやすい＝抵抗が小さい）が違う" },
-    { id: "c", name: "膜の容量が違う", look: "電位を同じだけ上げるのに要る電荷の量（水槽なら広さ）が違う" },
+    { id: "g", name: "イオンの通りやすさが違う", look: "通り道の多さ（多いほど通りやすい＝抵抗が小さい）が違う。長く流したときの高さが変わるはず" },
+    { id: "c", name: "膜の容量が違う", look: "電位を同じだけ上げるのに要る電荷の量（水槽なら広さ）が違う。上がり方と戻り方の速さが変わるはず" },
   ];
   const all = cards.every((c) => state.memWhy[c.id]);
   return {
@@ -618,7 +618,7 @@ function c4Duel(): View {
     goal: `ロボの「次の一手」をすり抜ける膜をつくれ（ラウンド${round.id}）`,
     svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "膜 A", "A", true, state.memT || 105)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105)}
       ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "膜 A", b: "あなたの膜", top: 18, notes: false })}
-      ${ruleCard(880, 20, round.id === 1 ? "膜の検査規則 第1版" : "膜の検査規則 第2版", [round.id === 1 ? "① 止める直前の電位を測る" : "① 半分に戻る時間を測る", `② 差 ±${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} 以内 → 同じ`], 0, round.id === 2)}`,
+      ${ruleCard(880, 20, round.id === 1 ? "膜の検査規則 第1版" : "膜の検査規則 第2版", [round.id === 1 ? "① 止める直前の電位を測る" : "① 上がり分が半分に戻る時間", `② 差 ±${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} 以内 → 同じ`], 0, round.id === 2)}`,
     html: `<div class="knobs" style="left:1%;top:62%;width:27%">${(["g", "c"] as const)
       .map((k) => {
         const s = MEM_SLIDERS[k];
@@ -633,7 +633,7 @@ function c4Duel(): View {
       }</div>`,
     who: state.line.who,
     text: state.line.text,
-    extra: state.duelHint ? `<p class="sub">${round.id === 1 ? "長く流すほど、止める直前の電位は「通りやすさ」で決まる高さに近づく。容量が大きいと、上がるのが遅く、まだ届いていないことがある。止めた後の戻り方の速さは「容量÷通りやすさ」で決まる。" : "戻る速さは「容量÷通りやすさ」で決まる。高さは「通りやすさ」だけで決まる。戻る速さを変えずに高さだけ変えるには？"}</p>` : "",
+    extra: state.duelHint ? `<p class="sub">${round.id === 1 ? "ロボが見るのは止める直前の高さだけ。十分長く流したときの高さは通りやすさで決まり、容量は上がり方と戻り方の速さを変える。" : "ロボが見るのは戻る時間だけ。戻るのにかかる時間は「容量÷通りやすさ」に比例する（容量が大きいほど遅く、通りやすいほど速い）。"}${state.duelHint > 1 ? (round.id === 1 ? " 通りやすさは見本のままにして、容量だけ動かすと？（容量が大きすぎると、止める直前までに上がりきらない）" : " 二つのつまみの比を保ったまま、通りやすさを変えると？") : ""}</p>` : "",
     cmds:
       state.duelPhase === "result" && state.duelCleared
         ? [{ act: round.id === 1 ? "mduel-next" : "to-end", label: round.id === 1 ? "ラウンド2へ" : "まとめへ", hot: true }]
@@ -654,7 +654,7 @@ function endView(): View {
     chap: "まとめ",
     goal: "一つの回路で書ける。見方が変わると、盲点も変わる",
     svg: `${robotArt("down", 1040, 150, 0.6)}
-      ${heartCircuit(60, 20, 1, 1, { src: "電流源（ポンプ・電極）", cap: "コンデンサ（血管のやわらかさ・膜）", res: "抵抗（出口の流れにくさ・イオンの通りにくさ）" })}
+      ${heartCircuit(60, 20, 1, 1, { src: "電流源（ポンプ・膜の入口）", cap: "コンデンサ（血管のやわらかさ・膜）", res: "抵抗（出口の流れにくさ・イオンの通りにくさ）" })}
       <text x="60" y="320" fill="var(--soft)" font-size="13">血管は式の形が同じだけ（電気は流れていない）。膜では本当に電荷がたまり、イオンが動く。</text>
       <text x="60" y="342" fill="var(--soft)" font-size="13">クッションの「上乗せ分」も、一定の速さで押すときは同じ形の式（詳しい実験室の「見方を変える」で確かめられる）。</text>
       <g transform="translate(520,30)">
@@ -912,14 +912,14 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
     render();
     await stamp("すり抜けた！", "win", 0.5);
     await damage(12);
-    say("calc", `ロボの点は通過。ロボに見えない違い（${hiddenName}）には差 ${sgn(r.hidden.diff, kind === "c2" ? 3 : 1)} が残っている。`);
+    say("calc", `ロボの点は通過。ロボに見えない違い（${hiddenName}）には差 ${sgn(r.hidden.diff, kind === "c2" ? 3 : 2)}${kind === "c2" ? "" : " mV"} が残っている。`);
   } else {
     state.mood = "smug";
     const reason = !r.robot.ok ? "見つけました。私の規則で測った点に、差があります。" : "私の規則では、区別できません。";
     say("bot", reason);
     render();
     await stamp(!r.robot.ok ? "見つかった" : "違いが残っていない", "miss");
-    if (r.robot.ok) say("calc", `ロボは通過。でも、ロボに見えない違い（${hiddenName}）の差が目標に届いていない。見本とほぼ同じ試作品になっている。`);
+    if (r.robot.ok) say("calc", `ロボは通過。でも、ロボに見えない違い（${hiddenName}）の差が目標に届いていない。${kind === "c2" ? "見本とほぼ同じ試作品" : "見本とほぼ同じ膜"}になっている。`);
   }
   render();
 }
@@ -1075,7 +1075,7 @@ app.addEventListener("click", async (e) => {
       if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の規則です。");
       else {
         state.mood = "calm";
-        say("bot", "……一回押して、20秒待っただけです。それで十分でしょう？ 膝のクッションは、一歩ごとに踏まれるそうですが。");
+        say("bot", "……一回押して、20秒待っただけです。それで十分でしょう？ 膝のクッションには、一歩ごとに体重がかかるそうですが。");
       }
       render();
       break;
@@ -1169,7 +1169,7 @@ app.addEventListener("click", async (e) => {
       state.mood = "shock";
       say(
         "bot",
-        c === 1 ? `……ぐっ。${ev.line}は、見ていなかった。私は「一回押して20秒後」しか測らない。` : c === 3 ? "……ぐっ。拍の中は、見ていなかった。私は「一拍の平均」しか測らない。" : "……ぐっ。止めた後は、見ていなかった。私は「止める直前」しか測らない。",
+        c === 1 ? `……ぐっ。${ev.line}は、見ていなかった。私は「一回押して20秒後」しか測らない。` : c === 3 ? "……ぐっ。拍の中は、見ていなかった。私は「一拍の平均」しか測らない。" : `……ぐっ。「${ev.title}」の電位は、見ていなかった。私は「止める直前」しか測らない。`,
       );
       if (c === 1) {
         state.c1Hit = true;
@@ -1398,11 +1398,11 @@ app.addEventListener("click", async (e) => {
       break;
     case "c4-next":
       state.say++;
-      say("bot", state.say === 1 ? "落ち着いた電位が同じなら、同じ膜です。" : "……止める直前を測れば十分です。止めた後のことは、見ていません。");
+      say("bot", state.say === 1 ? "止める直前の電位が同じなら、同じ膜です。" : "……止める直前を測れば十分です。止めた後のことは、見ていません。");
       render();
       break;
     case "to-watch4":
-      say("guide", "膝が押されると、神経の端の入口が開いて＋の電荷が流れ込む。離すと入口が閉じる。膜の電荷と電位のグラフを見比べよう。");
+      say("guide", "膝が押されると、神経の端の入口が開いて、＋の電気をもつイオン（＋の電荷）が流れ込む。離すと入口が閉じる。膜の電荷と電位のグラフを見比べよう。");
       go("c4-watch");
       break;
     case "m-tank":
@@ -1460,7 +1460,7 @@ app.addEventListener("click", async (e) => {
     case "m-check": {
       state.memChecked = true;
       const right = state.memWhy.g === "out" && state.memWhy.c === "match";
-      say("calc", `通りやすさが違えば、流し続けて落ち着く電位（電流×抵抗）が変わるはず。でも止める直前は同じだった。だから「通りやすさ」は合わない。膜Bは容量が ${CASE3_B.c} 倍。${right ? "あなたの札と一致。" : "あなたの札と違うところがある。"}`);
+      say("calc", `通りやすさだけが違うなら、長く流したときの上がり幅（電流×抵抗。抵抗＝通りにくさ）が変わるはず。でも記録は、止める直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは容量のほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは容量が ${CASE3_B.c} 倍。${right ? "あなたの札と一致。" : "あなたの札と違うところがある。"}`);
       state.record.push("事件4 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();
