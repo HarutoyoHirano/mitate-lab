@@ -27,9 +27,9 @@ describe("テスト39：イメージムービー", () => {
     expect(movie).not.toMatch(/CASE_VESSEL_B|CASE3_B/);
     expect(movie).not.toMatch(/\{\s*r\s*:|\{\s*g\s*:/);
   });
-  it("五つとも三つの場面と結びがあり、長さが正", async () => {
+  it("四つとも三つの場面と結びがあり、長さが正（1c-2：内部の番号は 1・2・4・5）", async () => {
     const { movieOutline, introMovie } = await import("../../src/play/art.js");
-    for (const id of [1, 2, 3, 4, 5] as const) {
+    for (const id of [1, 2, 4, 5] as const) {
       const o = movieOutline(id);
       expect(o.scenes).toBe(3);
       expect(o.length).toBeGreaterThan(10);
@@ -37,5 +37,17 @@ describe("テスト39：イメージムービー", () => {
       // 途中と結びの絵が描ける（NaN を含まない）
       for (const t of [0, o.length / 2, o.length - 0.01, o.length]) expect(introMovie(id, t)).not.toMatch(/NaN|undefined/);
     }
+  });
+  it("血管のムービーと血管の謎の画面には、電気の言葉を出さない（回路は膜で初めて出す：1c-2）", () => {
+    const art = readFileSync(new URL("../../src/play/art.ts", import.meta.url), "utf-8");
+    const m4 = art.slice(art.indexOf("  4: {\n    scenes: ["), art.indexOf("  5: {\n    scenes: ["));
+    expect(m4.length).toBeGreaterThan(100);
+    expect(m4).not.toMatch(/回路|コンデンサ|電流|電気|抵抗/);
+    const main = readFileSync(new URL("../../src/play/main.ts", import.meta.url), "utf-8");
+    const vessel = main.slice(main.indexOf("// ---------- 謎3：脈の見落とし"), main.indexOf("// ---------- 謎4：膜の見落とし"));
+    expect(vessel.length).toBeGreaterThan(1000);
+    expect(vessel).not.toMatch(/回路|コンデンサ|電流源|抵抗R|抵抗 R/);
+    // 回路を外した章が残っていない
+    expect(main).not.toMatch(/回路に見立てろ/);
   });
 });

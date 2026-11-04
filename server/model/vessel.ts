@@ -30,8 +30,8 @@ export const VESSEL_ROBOT_TOL = 2;
 export const VESSEL_SEE_DIFF = 3;
 
 export const VESSEL_SLIDERS = {
-  r: { min: 0.5, max: 2, step: 0.05, label: "血管の出口の流れにくさ（抵抗 R）" },
-  c: { min: 0.4, max: 3, step: 0.05, label: "血管のふくらみやすさ（コンデンサ C）" },
+  r: { min: 0.5, max: 2, step: 0.05, label: "血管の出口の流れにくさ" },
+  c: { min: 0.4, max: 3, step: 0.05, label: "血管のふくらみやすさ" },
 } as const;
 
 const QMAX = (STROKE_ML * Math.PI) / (2 * EJECT_S);
