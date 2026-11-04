@@ -563,7 +563,7 @@ function c4Watch(): View {
   return {
     chap: "事件4 膜の盲点",
     goal: "膜の電位に違いが見える瞬間を撮ろう",
-    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B" }) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B", revealB: false }),
+    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B" }, 14, state.memChecked) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B", revealB: state.memChecked }),
     html: `<div class="scrub narrow" style="left:62.5%;top:0.5%"><button data-act="m-run">▶ 押して、離す</button><button data-act="m-tank">${state.memTank ? "膜の図" : "水槽のたとえ"}</button>
       <label><input type="range" id="mt" min="0" max="${RECORD_MS}" step="1" value="${state.memT}" aria-label="流し始めからの時間"></label><span>${state.memT} ms</span></div>`,
     who: state.line.who,

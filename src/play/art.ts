@@ -265,7 +265,7 @@ export function syncChart(x: number, y: number, w: number, h: number, target: Ve
 }
 
 // ---------- 事件4：膜の水槽 ----------
-export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: string; b: string }, top = 14): string {
+export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: string; b: string }, top = 14, revealB = true): string {
   const floorY = 420;
   const T = 120;
   const ys = (dv: number) => floorY - ((floorY - T) * Math.max(0, Math.min(top, dv))) / top;
@@ -279,13 +279,14 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
   };
   const flowing = t <= PULSE_MS;
   const tank = (cx: number, m: Membrane, label: string, kind: "A" | "B") => {
-    const w = Math.max(40, Math.min(200, 80 * m.c));
+    const hide = kind === "B" && !revealB;
+    const w = Math.max(40, Math.min(200, 80 * (hide ? 1 : m.c)));
     const L = cx - w / 2;
     const R = cx + w / 2;
     const dv = deltaMv(m, t);
     const wy = ys(dv);
-    const door = Math.max(6, Math.min(40, 16 * m.g));
-    const out = Math.min(18, 1.4 * m.g * dv);
+    const door = Math.max(6, Math.min(40, 16 * (hide ? 1 : m.g)));
+    const out = Math.min(18, 1.4 * (hide ? 1 : m.g) * dv);
     const edge = kind === "A" ? "var(--soft)" : "var(--you)";
     return `<g>
       <text x="${cx}" y="${T - 34}" text-anchor="middle" fill="var(--ink)" font-size="18" font-weight="900">${label}</text>
@@ -295,16 +296,16 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
       <path d="M${R} ${floorY - door - 6} V${T - 10}" fill="none" stroke="${edge}" stroke-width="4"/>
       ${out > 0.5 ? `<path d="M${R + 4} ${floorY - door / 2} h${20 + out}" stroke="var(--water-edge)" stroke-width="${out.toFixed(1)}" stroke-linecap="round"/>` : ""}
       ${flowing ? `<path d="M${cx} ${T - 26} V${Math.max(T, wy - 2)}" stroke="var(--bot)" stroke-width="6" stroke-linecap="round"/>` : ""}
-      <text x="${cx}" y="${floorY + 30}" text-anchor="middle" fill="var(--soft)" font-size="13">広さ（容量）×${m.c.toFixed(2)}　出口×${m.g.toFixed(2)}</text>
+      <text x="${cx}" y="${floorY + 30}" text-anchor="middle" fill="var(--soft)" font-size="13">${hide ? "広さ（容量）×？　出口×？" : `広さ（容量）×${m.c.toFixed(2)}　出口×${m.g.toFixed(2)}`}</text>
       <path d="M${R + 6} ${wy} L${xs(t) - 8} ${ys(dv)}" stroke="${edge}" stroke-width="2" stroke-dasharray="5 5"/>
     </g>`;
   };
   return `<g>
     <rect x="40" y="${floorY}" width="520" height="10" rx="3" fill="var(--metal-edge)"/>
-    <text x="40" y="${floorY + 54}" fill="var(--soft)" font-size="13">水槽はたとえ：水位＝電位の上がり分、広さ＝容量、出口＝イオンの通りやすさ、床＝静止時 ${REST_MV} mV</text>
+    <text x="40" y="${floorY + 54}" fill="var(--soft)" font-size="13">水槽はたとえ：水位＝電位の上がり分、広さ＝容量、出口＝イオンの通りやすさ、床＝静止時 −${Math.abs(REST_MV)} mV</text>
     ${tank(180, a, labels.a, "A")}${tank(420, b, labels.b, "B")}
     <rect x="${xs(0)}" y="${T}" width="${xs(PULSE_MS) - xs(0)}" height="${floorY - T}" fill="var(--band)"/>
-    ${[0, 5, 10].map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GR}" y="${ys(v) - 4}" fill="var(--soft)" font-size="12" text-anchor="end">${REST_MV + v} mV</text>`).join("")}
+    ${[0, 5, 10].map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GR}" y="${ys(v) - 4}" fill="var(--soft)" font-size="12" text-anchor="end">−${Math.abs(REST_MV + v)} mV</text>`).join("")}
     ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${floorY + 22}" fill="var(--soft)" font-size="12" text-anchor="middle">${ms} ms</text>`).join("")}
     <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
