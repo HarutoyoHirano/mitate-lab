@@ -43,7 +43,7 @@
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #dfe6f1;
     --stage-1: #f6f8fc;
     --stage-2: #e3e9f3;
@@ -77,6 +77,40 @@
     --leak: #2f8a45;
     color-scheme: light;
   }
+}
+:root[data-theme="light"] {
+    --bg: #dfe6f1;
+    --stage-1: #f6f8fc;
+    --stage-2: #e3e9f3;
+    --panel: #ffffff;
+    --line: #c4cee0;
+    --ink: #172038;
+    --soft: #56627e;
+    --you: #0c8f84;
+    --on-you: #ffffff;
+    --bot: #d4621a;
+    --gold: #b7791f;
+    --stamp: #d7263d;
+    --chip: #e3e9f3;
+    --metal: #c9d2e6;
+    --metal-2: #b8c3db;
+    --metal-edge: #5b6a8e;
+    --screen: #172038;
+    --pad-a: #c7cfdf;
+    --pad-a-edge: #5b6a8e;
+    --pad-b: #a5e3dc;
+    --pad-b-edge: #0c8f84;
+    --vessel: #f0a7b2;
+    --vessel-edge: #c0283f;
+    --water: #9fd0f3;
+    --water-edge: #1f6fb0;
+    --band: rgba(212, 98, 26, 0.08);
+    --membrane: #e6e0fa;
+    --membrane-edge: #6a55c8;
+    --plus: #c0283f;
+    --minus: #1f6fb0;
+    --leak: #2f8a45;
+    color-scheme: light;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "BIZ UDPGothic", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", sans-serif; }

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "dev": "vite",
     "build": "vite build",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "build:trial": "vite build --config vite.trial.config.ts && node scripts/trial-page.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
