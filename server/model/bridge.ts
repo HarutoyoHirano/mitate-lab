@@ -71,3 +71,8 @@ export function judgeBridge(truth: MaterialParams, pushSeconds: number, r: numbe
     heightB,
   };
 }
+
+/** 謎3（新しい画面）の「重なった！」：一本に重なり、高さと戻る速さの二つのメーターもどちらも合っている */
+export function bridgeSolved(j: BridgeJudge): boolean {
+  return j.overlap && j.speedOk && j.heightOk;
+}

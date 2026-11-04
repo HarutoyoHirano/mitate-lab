@@ -230,3 +230,7 @@ button { font: inherit; }
   .screen.shake, .stamp-fx, .robot.shock, .pop, .puck.broken .shard, .conf .dmg { animation: none !important; }
   .conf .bar i { transition: none; }
 }
+.panel.notice { width: min(92%, 52cqw); font-size: max(14px, 1.35cqw); line-height: 1.7; }
+.panel.notice ul { margin: 0.6cqw 0 0.8cqw; padding-left: 1.3em; }
+.panel.notice li { margin-bottom: 0.5cqw; }
+.panel.notice .sub { color: var(--soft); margin: 0; font-size: max(12px, 1.05cqw); }

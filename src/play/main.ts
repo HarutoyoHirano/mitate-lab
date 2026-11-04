@@ -1,6 +1,6 @@
 // 見立てラボ「検査ロボとの対決」（新しい画面）。一画面の舞台・メッセージ窓・コマンド。
 // 謎1はサーバーのセッション（隠れた試料B・誤差つきの記録・比較器・Claude）を使う。
-// 謎2〜4は公開の式だけの計算（誤差なし。謎3の血管B・謎4の膜Bは固定例）。検査ロボは定型ルールで動き、AIではない。
+// 謎2〜5は公開の式だけの計算（誤差なし。謎4の血管B・謎5の膜Bは固定例）。検査ロボは定型ルールで動き、AIではない。
 import "./play.css";
 import { api, status, type Debrief, type Hint, type PredictionChoice, type PublicSessionView, type Translation } from "../api.js";
 import { CANDIDATES, type CandidateId } from "../../server/model/public.js";
@@ -12,7 +12,8 @@ import { clampPeriod, STEP_PHASES, STEP_TOLERANCE, TAP_TO_PERIOD, TEMPOS, type S
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
-import { answerMap, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
+import { answerMap, overlayChart, seriesCircuit, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 
 type Scene =
@@ -25,6 +26,7 @@ type Scene =
   | "c1-solved"
   | "c2"
   | "c2-map"
+  | "bridge"
   | "c3-say"
   | "c3-watch"
   | "c3-present"
@@ -79,7 +81,7 @@ const state = {
   error: "",
   conf: 100,
   mood: "smug" as Mood,
-  panel: null as null | "about" | "card",
+  panel: "notice" as null | "notice" | "about" | "card",
   line: { who: "bot" as Who, text: "", rest: [] as string[] },
   view: null as PublicSessionView | null,
   debrief: null as Debrief | null,
@@ -103,7 +105,7 @@ const state = {
   summoned: null as CandidateId | null,
   hint: null as Hint | null,
   c1Hit: false,
-  // 謎2・謎4の対決
+  // 謎2・謎5の対決
   round: 0,
   e1: 1,
   tau: 1,
@@ -111,14 +113,18 @@ const state = {
   duelCleared: false,
   duelLog: [] as string[],
   duelHint: 0,
-  // 謎3
+  // 謎4
   u: 0,
   vPlaying: false,
   vBet: null as "r" | "c" | "unknown" | null,
   syncR: 1,
   syncC: 1.5,
   syncDone: false,
-  // 謎4
+  brR: 1,
+  brC1: 1,
+  brDone: false,
+  brHint: 0,
+  // 謎5
   memT: 0,
   memRan: false,
   movieT: 0,
@@ -184,8 +190,9 @@ function movieLoop(): void {
 const MOVIE_INFO: Record<MovieId, { chap: string; goal: string; go: string; label: string; sub: string }> = {
   1: { chap: "謎1 見破れ", goal: "はじまりの話：試作品Bと検査ロボ", go: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く" },
   2: { chap: "謎2 仕掛けろ", goal: "はじまりの話：検査を鍛えなおす", go: "enter-c2", label: "設計台へ", sub: "ロボの検査規則を見る" },
-  3: { chap: "謎3 脈の見落とし", goal: "はじまりの話：人工血管と検査ロボ", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
-  4: { chap: "謎4 膜の見落とし", goal: "はじまりの話：神経の端の膜と検査ロボ", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
+  3: { chap: "謎3 回路に見立てろ", goal: "はじまりの話：印刷し直さずに試す練習台", go: "enter-bridge", label: "回路の実験台へ", sub: "つまみで回路をつくる" },
+  4: { chap: "謎4 脈の見落とし", goal: "はじまりの話：膝へ血液を運ぶ人工血管と検査ロボ", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
+  5: { chap: "謎5 膜の見落とし", goal: "はじまりの話：膝の感覚を伝える神経の膜と検査ロボ", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
 };
 function movieView(): View {
   const m = MOVIE_INFO[state.movieId];
@@ -295,7 +302,7 @@ function c1Run(): View {
 function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, goal: string): View {
   const cards = [base, ...state.evidence.filter((e) => e.case === c)];
   return {
-    chap: c === 1 ? "謎1 見破れ" : c === 3 ? "謎3 脈の見落とし" : "謎4 膜の見落とし",
+    chap: c === 1 ? "謎1 見破れ" : c === 3 ? "謎4 脈の見落とし" : "謎5 膜の見落とし",
     goal,
     svg: `${bubble(470, 80, "証言 2 / 2", testimony[0], testimony[1], 400)}${robotArt(state.mood, 960, 40, 0.95)}`,
     html: `<div class="tray">${cards
@@ -513,11 +520,55 @@ function c2Map(): View {
       <text y="206" fill="var(--soft)" font-size="13">（つまみを0.05ずつ変えたすべての組み合わせを、</text><text y="226" fill="var(--soft)" font-size="13">ロボと同じ判定で計算して塗った）</text></g>`,
     who: "bot",
     text: state.line.text,
-    cmds: [{ act: "to-c3", label: "謎3：心臓と血管へ", sub: "血液の流れと圧力を、電気回路と同じ式で", hot: true }],
+    cmds: [{ act: "to-m3", label: "謎3：回路に見立てろ", sub: "印刷し直さずに試せる練習台をつくる", hot: true }],
   };
 }
 
-// ---------- 謎3：拍動の盲点 ----------
+// ---------- 謎3：回路に見立てろ ----------
+function bridgePush(): number {
+  return state.debrief?.keyCurves[0]?.pushSeconds ?? 1;
+}
+function bridgeView(): View {
+  const d = state.debrief!;
+  const T = bridgePush();
+  const j = judgeBridge(d.truth, T, state.brR, state.brC1);
+  const c = playerCircuit(d.truth, state.brR, state.brC1);
+  const pts = bridgeTimes(T).map((t) => ({ t, f: materialForceAt(d.truth, T, t), v: circuitAt(c, T, t) }));
+  const solved = bridgeSolved(j);
+  const msg = solved ? "一本に重なった" : j.overlap ? "ほぼ重なった。二つのメーターを両方そろえよう" : j.speedOk ? "戻る速さは合った。でも高さが違う" : j.heightOk ? "高さは合った。でも戻る速さが違う" : "高さも戻る速さも、まだ違う";
+  return {
+    chap: "謎3 回路に見立てろ",
+    goal: solved || state.brDone ? "軟骨Bと同じふるまいの回路ができた" : "抵抗 R とコンデンサ C1 を動かして、軟骨Bの線に回路の点を重ねよう",
+    svg: `${overlayChart(60, 24, 700, 250, pts, T, { overlap: solved, lineLabel: "軟骨Bの押し返す力（謎1の正体の値で計算）", dotLabel: "あなたの回路の電圧" })}
+      <text x="60" y="318" fill="${solved ? "var(--gold)" : "var(--soft)"}" font-size="17" font-weight="900">${msg}</text>
+      <text x="760" y="318" fill="var(--soft)" font-size="12" text-anchor="end">式の形が同じだけ。軟骨の中に電気が流れているわけではない（計算値・ぶれなし）</text>
+      <text x="1240" y="30" fill="var(--soft)" font-size="13" text-anchor="end">軟骨のばねとダンパ → 電気の部品</text>
+      <g transform="translate(830,40) scale(0.7)">${slsModel({ hl: null })}</g>
+      <text x="990" y="64" fill="var(--soft)" font-size="12">左のばね → C∞（固定）</text>
+      <text x="990" y="84" fill="var(--soft)" font-size="12">右のばね → C1</text>
+      <text x="990" y="104" fill="var(--soft)" font-size="12">ダンパ → 抵抗 R</text>
+      ${seriesCircuit(800, 130, 0.84, state.brR, state.brC1, { cInf: "C∞（固定）", c1: `C1 ${state.brC1.toFixed(2)}`, r: `R ${state.brR.toFixed(2)}`, src: "押す速さ＝電流" })}
+`,
+    html: `<div class="knobs" style="left:1.5%;top:69%;width:30%">${(["r", "c1"] as const)
+      .map((k) => {
+        const sl = BRIDGE_SLIDERS[k];
+        const v = k === "r" ? state.brR : state.brC1;
+        return `<label><span>${k === "r" ? "抵抗 R（ダンパ）" : "コンデンサ C1（右のばね）"}<strong id="v-br${k}">${v.toFixed(2)}</strong></span><input type="range" data-br="${k}" min="${sl.min}" max="${sl.max}" step="${sl.step}" value="${v}" ${state.brDone ? "disabled" : ""}></label>`;
+      })
+      .join("")}</div>
+      <div class="meters" style="left:34%;top:69%;width:63%;grid-template-columns:1fr 1fr">
+        ${meter("押し終わりの高さ（C1 と R の並列部分）", j.heightB, j.heightPlayer, j.heightPlayer - j.heightB, j.heightOk, "pass", 0.03, 0.6, "", 2).replace("A ", "軟骨B ").replace("あなた", "回路")}
+        ${meter("戻るのにかかる時間（回路は R×C1）", j.tauB, j.tauPlayer, j.tauPlayer - j.tauB, j.speedOk, "pass", 0.05 * j.tauB, Math.max(1, j.tauB), "", 2).replace("A ", "軟骨B ").replace("あなた", "回路")}
+      </div>`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: state.brDone
+      ? [{ act: "to-m4", label: "謎4：膝へ血液を運ぶ人工血管へ", sub: "この回路の形、血管チームの試験装置と同じだ", hot: true }]
+      : [{ act: "br-hint", label: "ヒント", ghost: true }],
+  };
+}
+
+// ---------- 謎4：拍動の盲点 ----------
 const VA = summarize(BASE_VESSEL);
 const VB = summarize(CASE_VESSEL_B);
 function c3Stage(): string {
@@ -530,7 +581,7 @@ function c3Say(): View {
   ];
   const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
   return {
-    chap: "謎3 脈の見落とし",
+    chap: "謎4 脈の見落とし",
     goal: "心臓と血管のまねをした試験装置の、人工血管。ロボの証言を聞こう",
     svg: `<g transform="translate(-40,40) scale(0.72)">${c3Stage()}</g>${bubble(560, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
@@ -543,7 +594,7 @@ function c3Watch(): View {
   const marks = state.evidence.filter((e) => e.case === 3).map((e) => Number(e.id.split(":")[1]));
   const have = state.evidence.some((e) => e.case === 3 && e.ok);
   return {
-    chap: "謎3 脈の見落とし",
+    chap: "謎4 脈の見落とし",
     goal: "1回の脈の途中で、AとBの圧に違いが見える瞬間を撮ろう",
     svg: `<g transform="translate(0,-40) scale(0.8)">${c3Stage()}</g>${beatChart(860, 40, 390, 200, BASE_VESSEL, CASE_VESSEL_B, state.u, marks)}`,
     html: `<div class="scrub" style="left:2%;top:90%"><button data-act="v-play">${state.vPlaying ? "一時停止" : "▶ 脈を動かす"}</button>
@@ -568,7 +619,7 @@ function c3Sync(): View {
   const j = judgeSync(CASE_VESSEL_B, mine);
   const asked = state.vBet !== null;
   return {
-    chap: "謎3 なぜ？",
+    chap: "謎4 なぜ？",
     goal: asked ? "抵抗とコンデンサ（電気をためる部品）を動かして、血管Bの圧の波を電気回路でつくろう" : "平均は同じ。違うのはどっち？",
     svg: `${heartCircuit(40, 20, state.syncR, state.syncC)}${syncChart(500, 20, 740, 280, CASE_VESSEL_B, mine, j.both)}`,
     html: asked
@@ -593,12 +644,12 @@ function c3Sync(): View {
           { act: "v-bet", val: "unknown", label: "まだ分からない", sub: "回路で確かめる" },
         ]
       : state.syncDone
-        ? [{ act: "to-c4", label: "謎4：細胞の膜へ", sub: "同じ回路が、神経の膜の中にも", hot: true }]
+        ? [{ act: "to-m5", label: "謎5：膝の感覚を伝える神経の膜へ", sub: "この回路に電池を一つ足すと、膜の模型になる", hot: true }]
         : [{ act: "sync-hint", label: "ヒント", ghost: true }],
   };
 }
 
-// ---------- 謎4：膜の盲点 ----------
+// ---------- 謎5：膜の盲点 ----------
 function c4Say(): View {
   const a = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   const b = REST_MV + deltaMv(CASE3_B, PULSE_MS);
@@ -608,10 +659,10 @@ function c4Say(): View {
   ];
   const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
   return {
-    chap: "謎4 膜の見落とし",
+    chap: "謎5 膜の見落とし",
     goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの証言を聞こう",
     svg: `${nerveWhole(16, 16, false)}<g transform="translate(310,224) scale(0.8)">${heartCircuit(0, 0, 1, 1, { src: "電流を送りこむもの＝押されると開く入口", cap: "電気をためる部品＝膜", res: "抵抗＝いつも開いている通り道", bat: "電池＝何もしていないときの −70 mV" })}</g>
-      <text x="310" y="190" fill="var(--soft)" font-size="14">謎3と同じ回路に、電池（何もしていないときの −70 mV をつくる）が加わる。</text><text x="310" y="210" fill="var(--soft)" font-size="13">mV＝ミリボルト（1000分の1ボルト）</text>${bubble(640, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1080, 160, 0.6)}`,
+      <text x="310" y="190" fill="var(--soft)" font-size="14">謎4と同じ回路に、電池（何もしていないときの −70 mV をつくる）が加わる。</text><text x="310" y="210" fill="var(--soft)" font-size="13">mV＝ミリボルト（1000分の1ボルト）</text>${bubble(640, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
     cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
@@ -620,7 +671,7 @@ function c4Say(): View {
 function c4Watch(): View {
   const have = state.evidence.some((e) => e.case === 4 && e.ok);
   return {
-    chap: "謎4 膜の見落とし",
+    chap: "謎5 膜の見落とし",
     goal: "膜の電圧に違いが見える瞬間を撮ろう",
     svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B" }, 14, state.memChecked) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B", revealB: state.memChecked }),
     html: `<div class="scrub narrow" style="left:62.5%;top:0.5%"><button data-act="m-run">▶ 押して、離す</button><button data-act="m-tank">${state.memTank ? "膜の図" : "水槽のたとえ"}</button>
@@ -648,7 +699,7 @@ function c4Why(): View {
   ];
   const all = cards.every((c) => state.memWhy[c.id]);
   return {
-    chap: "謎4 なぜ？",
+    chap: "謎5 なぜ？",
     goal: state.memChecked ? "膜Bは、電気をためやすい膜" : "二つの説明に札をつけて、検算しよう",
     svg: `<g transform="translate(0,40) scale(0.62)">${nerveStage(BASE_MEM, CASE3_B, 60, { a: "膜 A", b: "膜 B", revealB: state.memChecked })}</g>
       ${state.memChecked ? `<text x="16" y="370" fill="var(--gold)" font-size="16" font-weight="900">金の＋：同じくらいの電圧でも、膜Bは約${CASE3_B.c}倍の電気をためている＝電気をためやすい</text><text x="16" y="394" fill="var(--soft)" font-size="14">入る電流は同じなので、Bはたまるのに時間がかかり、上がるのも戻るのもゆっくりになる</text>` : `<text x="16" y="370" fill="var(--soft)" font-size="15">膜Bの電気のためやすさと通りやすさは「？」。グラフの形から推理しよう</text>`}`,
@@ -673,7 +724,7 @@ function c4Duel(): View {
   const r = judgeMemDuel(round.id, m);
   const show = state.duelPhase !== "design";
   return {
-    chap: "謎4 仕掛けろ",
+    chap: "謎5 仕掛けろ",
     goal: `ロボの「次の一手」をすり抜ける膜をつくれ（ラウンド${round.id}）`,
     svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "膜 A", "A", true, state.memT || 105)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105)}
       ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "膜 A", b: "あなたの膜", top: 18, notes: false })}
@@ -746,24 +797,25 @@ function titleView(): View {
   return {
     chap: "見立てラボ",
     goal: "同じに見える。でも、測り方を変えると違う。",
-    svg: `<g transform="translate(60,40)">
+    svg: `<g transform="translate(60,24)">
+        <text x="0" y="0" fill="var(--soft)" font-size="15" font-weight="900">膝まわりを丸ごとつくりなおすプロジェクト（架空）</text>
         ${[
           ["謎1 見破れ", "3Dプリントの人工軟骨を、走らせて調べる", "かたさと力"],
           ["謎2 仕掛けろ", "ロボの検査をすり抜ける軟骨をつくる", "かたさと力"],
-          ["謎3 脈の見落とし", "人工血管と心臓ポンプ", "流れと圧"],
-          ["謎4 膜の見落とし", "神経の膜", "電気"],
+          ["謎3 回路に見立てろ", "軟骨と同じふるまいの電気回路をつくる", "力と電気"],
+          ["謎4 脈の見落とし", "膝へ血液を運ぶ人工血管", "流れと圧"],
+          ["謎5 膜の見落とし", "膝の感覚を脳へ伝える神経の膜", "電気"],
         ]
-          .map(([c, n, k], i) => `<g transform="translate(0,${i * 76})"><rect width="560" height="66" rx="12" fill="var(--paper)"/><text x="18" y="24" fill="var(--paper-soft)" font-size="14" font-weight="900">${c}</text><text x="18" y="52" fill="var(--paper-ink)" font-size="21" font-weight="900">${n}</text><text x="542" y="52" fill="var(--paper-soft)" font-size="14" font-weight="800" text-anchor="end">${k}</text></g>`)
+          .map(([c, n, k], i) => `<g transform="translate(0,${14 + i * 62})"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
-        <text x="0" y="346" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
-        <text x="0" y="370" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN-07 が決まった手順で調べる。</text>
-        <text x="0" y="394" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
+        <text x="0" y="356" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
+        <text x="0" y="380" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN-07 が決まった手順で調べる。</text>
+        <text x="0" y="404" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
     text: state.line.text,
     cmds: [
       { act: "start", label: "謎1を始める", sub: "人工軟骨の見落とし", hot: true, disabled: state.busy },
-      { act: "panel", val: "about", label: "このゲームについて", ghost: true },
     ],
   };
 }
@@ -779,6 +831,7 @@ const VIEWS: Record<Scene, () => View> = {
   "c1-solved": c1Solved,
   c2,
   "c2-map": c2Map,
+  bridge: bridgeView,
   "c3-say": c3Say,
   "c3-watch": c3Watch,
   "c3-present": c3Present,
@@ -797,21 +850,32 @@ function discovery(): string[] {
   if (ph) out.push(`謎1：ロボは「一回押して20秒後の力」で区別できなかった。走行テスト（${tempoName(ph.period)}）の${ph.step + 1}歩目に差 ${sgn(ph.diff)} を見つけた`);
   if (state.debrief) out.push(`謎1の正体：${state.debrief.explanation}`);
   if (state.duelLog.length) out.push(`謎2：${state.duelLog.map((s, i) => `ラウンド${i + 1}を（押した直後だけ増えるかたさ, 消えていくまでの時間）＝（${s}）で突破`).join("、")}`);
-  if (state.syncDone) out.push(`謎3：平均の圧は同じ（${VA.mean.toFixed(1)} mmHg）でも、高い圧と低い圧の差が違った（A ${VA.pulse.toFixed(0)}／B ${VB.pulse.toFixed(0)} mmHg、模型の値）。血管Bは、ふくらみやすさ（コンデンサ）が半分`);
-  if (state.memChecked) out.push(`謎4：止める直前の膜の電圧は同じでも、上がり方・戻り方が違った。膜Bは電気のためやすさが ${CASE3_B.c} 倍`);
+  if (state.brDone) out.push(`謎3：軟骨Bの押し返す力と、回路（C1 ${state.brC1.toFixed(2)}、R ${state.brR.toFixed(2)}）の電圧が一本に重なった。ばね＝コンデンサ、ダンパ＝抵抗。高さと戻る速さの両方が合ったときだけ重なる`);
+  if (state.syncDone) out.push(`謎4：平均の圧は同じ（${VA.mean.toFixed(1)} mmHg）でも、高い圧と低い圧の差が違った（A ${VA.pulse.toFixed(0)}／B ${VB.pulse.toFixed(0)} mmHg、模型の値）。血管Bは、ふくらみやすさ（コンデンサ）が半分`);
+  if (state.memChecked) out.push(`謎5：止める直前の膜の電圧は同じでも、上がり方・戻り方が違った。膜Bは電気のためやすさが ${CASE3_B.c} 倍`);
   out.push("まだ言えないこと：教材が決めた式・値の範囲・ぶれの決まりの中での結果。実物の材料・血管・膜の性質を、この模型だけで決めたわけではない");
   return out;
 }
 
 function panelHtml(): string {
   if (!state.panel) return "";
+  if (state.panel === "notice")
+    return `<div class="panel-back" id="panel-back"><div class="panel notice" role="dialog" aria-modal="true" aria-labelledby="notice-h">
+      <h2 id="notice-h">はじめる前に</h2>
+      <ul>
+        <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
+        <li>検査ロボ TEJUN-07 は決まったルールで動くプログラム（AIではない）。相棒 Claude はAIで、隠れた答えを知りません。</li>
+        <li>試す回数で減点しません。名前などは集めません。</li>
+      </ul>
+      <p class="sub">くわしい説明と先生用の設定は、右上の「？」にあります。</p>
+      <div class="row"><button class="cmd hot" data-act="panel-close" autofocus>わかった、はじめる</button></div></div></div>`;
   const body =
     state.panel === "about"
       ? `<h2>このゲームについて</h2>
       <table><tr><th>検査ロボ TEJUN-07</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
       <tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
       <tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr></table>
-      <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の記録には測るたびのぶれがあり、謎2〜4はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
+      <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の記録には測るたびのぶれがあり、謎2〜5はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
       <details><summary>先生用の設定</summary><p><label>合言葉 <input type="password" id="t-pass"></label>
         <label id="t-cause-wrap" hidden>隠れた原因 <select id="t-cause"><option value="">ランダム</option><option value="instantUp">押した直後だけ増えるかたさが大きい</option><option value="instantDown">押した直後だけ増えるかたさが小さい</option><option value="relaxSlow">増えたかたさが消えるのが遅い</option><option value="relaxFast">増えたかたさが消えるのが速い</option></select></label>
         <label>乱数の種 <input id="t-seed" inputmode="numeric" size="6"></label> <button class="mini-btn" data-act="start-teacher">先生モードで始める</button></p></details>`
@@ -833,7 +897,7 @@ function render(): void {
       <span class="ai">相棒 Claude（AI）${state.claude ? "" : "・休止中"}</span>
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
       <button class="mini-btn" data-act="panel" data-val="card">発見カード</button>
-      <button class="mini-btn" data-act="panel" data-val="about">？</button>
+      <button class="mini-btn" data-act="panel" data-val="about" aria-label="このゲームについて・先生用" title="このゲームについて・先生用">？</button>
     </header>
     <div class="stage"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
@@ -978,7 +1042,7 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
     state.mood = "shock";
     say("bot", "……私の規則では、区別できません。");
     if (kind === "c2") state.duelLog.push(`${state.e1.toFixed(2)}, ${state.tau.toFixed(2)}`);
-    state.record.push(`${kind === "c2" ? "謎2 🦵" : "謎4 ⚡"} ラウンド${state.round + 1} すり抜け ✔`);
+    state.record.push(`${kind === "c2" ? "謎2 🦵" : "謎5 ⚡"} ラウンド${state.round + 1} すり抜け ✔`);
     render();
     await stamp("すり抜けた！", "win", 0.5);
     await damage(12);
@@ -1015,6 +1079,10 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
       duelLog: [],
       record: [],
       syncDone: false,
+      brR: 1,
+      brC1: 1,
+      brDone: false,
+      brHint: 0,
       vBet: null,
       memChecked: false,
       memWhy: {},
@@ -1056,6 +1124,28 @@ app.addEventListener("input", (e) => {
       const nm = tmp.querySelector(".meters");
       if (nm) meters.innerHTML = nm.innerHTML;
     }
+  } else if (t.dataset.br) {
+    if (t.dataset.br === "r") state.brR = Number(t.value);
+    else state.brC1 = Number(t.value);
+    const j = judgeBridge(state.debrief!.truth, bridgePush(), state.brR, state.brC1);
+    if (bridgeSolved(j) && !state.brDone) {
+      state.brDone = true;
+      state.mood = "shock";
+      say("calc", `重なった。軟骨Bの押し返す力と、回路の電圧が一本の線になった。C1 ${state.brC1.toFixed(2)}、R ${state.brR.toFixed(2)}。高さと戻る速さの両方が合ったときだけ重なる。これで、印刷し直さずに回路で試せる。`);
+      state.record.push("謎3 🔌 回路で同じ線 ✔");
+      render();
+      void stamp("重なった！", "win", 0.5).then(() => damage(8));
+      return;
+    }
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS.bridge().svg;
+    const meters = app.querySelector(".meters");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = VIEWS.bridge().html ?? "";
+    const nm = tmp.querySelector(".meters");
+    if (meters && nm) meters.innerHTML = nm.innerHTML;
+    const lab = app.querySelector(`#v-br${t.dataset.br}`);
+    if (lab) lab.textContent = Number(t.value).toFixed(2);
   } else if (t.dataset.sync) {
     if (t.dataset.sync === "r") state.syncR = Number(t.value);
     else state.syncC = Number(t.value);
@@ -1064,7 +1154,7 @@ app.addEventListener("input", (e) => {
       state.syncDone = true;
       state.mood = "shock";
       say("calc", `重なった。血管Bはコンデンサ ${state.syncC.toFixed(2)}（見本 1.50）＝ふくらみやすさが半分。ポンプが送る量が同じなので、平均の圧は抵抗だけで決まり、ロボには同じに見えた。ふくらんで受け止める量はAとBでほぼ同じ。Bはふくらみにくいので、同じ量を受け止めるのに圧が大きく上下する。${state.vBet === "c" ? "予想どおり。" : state.vBet === "r" ? "予想は外れた。ここが発見。" : ""}`);
-      state.record.push("謎3 ❤️ 見落とし ✔ 回路で同じ波 ✔");
+      state.record.push("謎4 ❤️ 見落とし ✔ 回路で同じ波 ✔");
       render();
       void stamp("重なった！", "win", 0.5).then(() => damage(12));
       return;
@@ -1427,20 +1517,35 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-map":
       state.mood = "down";
-      say("bot", "測り方を変えると、通る場所も変わる……。その地図は、私には描けません。");
+      say("bot", "測り方を変えると、通る場所も変わる……。その地図は、私には描けません。それに、印刷し直すたびに検査するのは大変です。");
       go("c2-map");
       break;
-    // 謎3
-    case "to-c3":
+    // 謎4
+    case "to-m3":
       state.moviePlaying = false;
-      startMovie(3, "はじまりの話：舞台は心臓と血管へ。人工血管の試作品Bを、ロボが調べた。");
+      startMovie(3, "はじまりの話：試作品を何度も印刷し直した。印刷し直さずに試せる練習台はつくれる？");
+      break;
+    case "enter-bridge":
+      state.moviePlaying = false;
+      state.mood = "calm";
+      say("guide", `謎1の試作品Bを${SPEED[bridgePush()]}押したときの押し返す力（青い線）に、回路の電圧（金の点）を重ねよう。つまみは抵抗 R とコンデンサ C1。C∞（左のばね）はBの値で固定。`);
+      go("bridge");
+      break;
+    case "br-hint":
+      state.brHint = Math.min(2, state.brHint + 1);
+      say("guide", state.brHint === 1 ? "電流を一定に流すと、C1 と R の並列部分の電圧の高さは、おもに抵抗 R で決まる。止めたあと戻る速さは R×C1（戻るのにかかる時間）で決まる。まず高さを合わせてから、R×C1 をそろえよう。" : "置きかえの表：右のばねのかたさ → C1 ＝ 1 ÷ かたさ。ダンパのねばり（右のばねのかたさ × 消えていくまでの時間）→ R。謎1の正体の値を思い出そう。");
+      render();
+      break;
+    case "to-m4":
+      state.moviePlaying = false;
+      startMovie(4, "はじまりの話：舞台は膝へ血液を運ぶ人工血管へ。試作品Bを、ロボが調べた。");
       break;
     case "enter-c3":
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
       state.vPlaying = !reduceMotion();
-      say("bot", "ラボの、心臓と血管のまねをした試験装置です。ポンプが1回の脈ごとに液（血液のかわり）を送り、人工血管がふくらんで受け止めます。");
+      say("bot", "膝へ血液を運ぶ人工血管のチームの、心臓と血管のまねをした試験装置です。ポンプが1回の脈ごとに液（血液のかわり）を送り、人工血管がふくらんで受け止めます。");
       go("c3-say");
       vLoop();
       break;
@@ -1493,16 +1598,16 @@ app.addEventListener("click", async (e) => {
       say("guide", "ポンプが送る量が同じなら、平均の高さは抵抗Rで決まる（平均の流れ×R）。高い圧と低い圧の差は、主にコンデンサCで変わる。まず平均のメーターを合わせ、次に差のメーター。");
       render();
       break;
-    // 謎4
-    case "to-c4":
+    // 謎5
+    case "to-m5":
       state.moviePlaying = false;
-      startMovie(4, "はじまりの話：舞台は神経の膜へ。膝が押された感じを伝える膜の試作品Bを、ロボが調べた。");
+      startMovie(5, "はじまりの話：舞台は神経の膜へ。膝が押された感じを伝える膜の試作品Bを、ロボが調べた。");
       break;
     case "enter-c4":
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
-      say("bot", "最後は、膝の動きを脳へ伝える神経の端の膜の模型です。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。");
+      say("bot", "最後は神経のチーム。膝の動きを脳へ伝える神経の端の膜の模型です。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。");
       go("c4-say");
       break;
     case "c4-next":
@@ -1570,7 +1675,7 @@ app.addEventListener("click", async (e) => {
       state.memChecked = true;
       const right = state.memWhy.g === "out" && state.memWhy.c === "match";
       say("calc", `通りやすさだけが違うなら、長く流したときの上がった高さ（電流×抵抗。抵抗＝通りにくさ）が変わるはず。でも記録は、止める直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは、電気のためやすさのほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは電気のためやすさが ${CASE3_B.c} 倍。${right ? "あなたの札と一致。" : "あなたの札と違うところがある。"}`);
-      state.record.push("謎4 ⚡ 見落とし ✔ 正体 ✔");
+      state.record.push("謎5 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();
       await stamp("決着", "win", 0.5);

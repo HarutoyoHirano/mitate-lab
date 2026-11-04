@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, judgeDuel, stepCheckDiff } from "../../server/model/duel.js";
-import { BRIDGE_SLIDERS, circuitAt, judgeBridge, materialForceAt, bridgeTimes } from "../../server/model/bridge.js";
+import { BRIDGE_SLIDERS, circuitAt, judgeBridge, bridgeSolved, materialForceAt, bridgeTimes } from "../../server/model/bridge.js";
 import { toCircuit } from "../../server/model/circuit.js";
 import {
   BASE_MEM,
@@ -69,6 +69,13 @@ describe("35 橋のスライダー", () => {
     for (const { params } of representativeTruths())
       for (const T of [0.2, 1, 5]) {
         const ok = rs.some((r) => cs.some((c) => judgeBridge(params, T, r, c).overlap));
+        expect(ok, JSON.stringify({ params, T })).toBe(true);
+      }
+  });
+  it("謎3（新しい画面）：隠れた範囲の全代表値・3つの押し方で、格子に「重なり、二つのメーターも合う」組み合わせがある", () => {
+    for (const { params } of representativeTruths())
+      for (const T of [0.2, 1, 5]) {
+        const ok = rs.some((r) => cs.some((c) => bridgeSolved(judgeBridge(params, T, r, c))));
         expect(ok, JSON.stringify({ params, T })).toBe(true);
       }
   });

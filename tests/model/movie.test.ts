@@ -27,9 +27,9 @@ describe("テスト39：イメージムービー", () => {
     expect(movie).not.toMatch(/CASE_VESSEL_B|CASE3_B/);
     expect(movie).not.toMatch(/\{\s*r\s*:|\{\s*g\s*:/);
   });
-  it("四つとも三つの場面と結びがあり、長さが正", async () => {
+  it("五つとも三つの場面と結びがあり、長さが正", async () => {
     const { movieOutline, introMovie } = await import("../../src/play/art.js");
-    for (const id of [1, 2, 3, 4] as const) {
+    for (const id of [1, 2, 3, 4, 5] as const) {
       const o = movieOutline(id);
       expect(o.scenes).toBe(3);
       expect(o.length).toBeGreaterThan(10);
