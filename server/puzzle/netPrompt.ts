@@ -1,4 +1,5 @@
 // つづきの謎（CLAUDE.md 1e-2・1e-3）：模型の形そのものを Claude が部品箱から組み立て、出典とつなぎも書く指示文（v4）。
+// 置き場所：server/puzzle/（秘密を持たない共通の部品。画面の試作ページ・本体・サーバーから同じものを使う）
 // 出力は NetPuzzleSpec の JSON。正しさは server/model/partsNet.ts の verifyNetPuzzle が確かめる（AIの出力は信用しない）。
 // 指示文の見本には、すでにある謎（血管・膜）だけを入れる。心臓などの組み立て方は書かない（AIが自分で組み立てる）。
 import type { Check, NetPuzzleSpec } from "../model/partsNet.js";

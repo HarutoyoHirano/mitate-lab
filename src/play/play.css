@@ -268,3 +268,5 @@ button { font: inherit; }
 .panel.notice ul { margin: 0.6cqw 0 0.8cqw; padding-left: 1.3em; }
 .panel.notice li { margin-bottom: 0.5cqw; }
 .panel.notice .sub { color: var(--soft); margin: 0; font-size: max(12px, 1.05cqw); }
+.who.ai { background: #b9a6ff; color: #160d33; }
+.who.guide { background: var(--line); color: var(--ink); }

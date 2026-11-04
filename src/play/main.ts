@@ -15,6 +15,11 @@ import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, 
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
 import { answerMap, overlayChart, seriesCircuit, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
+import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
+import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
+import { PREPARED_NETS } from "../../server/puzzle/netPrompt.js";
+import { probeSeries, SEE_REL, type DiffType, type NetPuzzleSpec } from "../../server/model/partsNet.js";
+import { refById } from "../../server/model/refs.js";
 
 type Scene =
   | "title"
@@ -36,8 +41,13 @@ type Scene =
   | "c4-present"
   | "c4-why"
   | "c4-duel"
-  | "end";
-type Who = "bot" | "you" | "cl" | "calc" | "guide";
+  | "end"
+  | "n-pick"
+  | "n-make"
+  | "n-movie"
+  | "n-watch"
+  | "n-reveal";
+type Who = "bot" | "you" | "cl" | "calc" | "guide" | "ai";
 type Tag = "match" | "out" | "unsure";
 interface Cmd {
   act: string;
@@ -72,7 +82,7 @@ const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06f
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
+const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）", ai: "Claude（AI）・謎を組み立てる" };
 
 const state = {
   scene: "title" as Scene,
@@ -81,7 +91,7 @@ const state = {
   error: "",
   conf: 100,
   mood: "smug" as Mood,
-  panel: "notice" as null | "notice" | "about" | "card",
+  panel: "notice" as null | "notice" | "about" | "card" | "refs",
   line: { who: "bot" as Who, text: "", rest: [] as string[] },
   view: null as PublicSessionView | null,
   debrief: null as Debrief | null,
@@ -137,6 +147,24 @@ const state = {
   c: 1,
   record: [] as string[],
   dd: null as null | { a: number; b: number; contact: boolean; impact: boolean },
+  // つづきの謎（1e-4）
+  nx: {
+    prev: PREPARED_NETS[1]! as NetPuzzleSpec,
+    prevSource: "prepared" as "prepared" | "live" | "record",
+    made: null as Made | null,
+    attempts: [] as Attempt[],
+    sc: null as MachineScale | null,
+    shown: 0,
+    k: 0,
+    playing: false,
+    watch: 0,
+    ev: null as null | { ok: boolean; t: number; d: number; label: string },
+    revealed: false,
+    mt: 0,
+    mplaying: false,
+    live: false,
+    topic: "",
+  },
 };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -787,7 +815,8 @@ function endView(): View {
     who: "bot",
     text: state.line.text,
     cmds: [
-      { act: "panel", val: "card", label: "発見カードを開く", sub: "答えを書かない記録も", hot: true },
+      { act: "n-enter", label: "つづきの謎へ", sub: "AIが次の謎を組み立てる", hot: true },
+      { act: "panel", val: "card", label: "発見カードを開く", sub: "答えを書かない記録も" },
       { act: "restart", label: "別の試作品Bで、最初から", ghost: true },
     ],
   };
@@ -816,11 +845,225 @@ function titleView(): View {
     text: state.line.text,
     cmds: [
       { act: "start", label: "謎1を始める", sub: "人工軟骨の見落とし", hot: true, disabled: state.busy },
+      { act: "n-enter", label: "つづきの謎だけ見る", sub: "AIが組み立てる謎（謎1〜5の記録は残らない）", ghost: true },
     ],
   };
 }
 
 // ---------- 描画 ----------
+// ---------- つづきの謎（1e-4）：AIが組み立て、計算プログラムが確かめた謎を、同じ舞台で ----------
+const DIFF_NAME: Record<DiffType, string> = { source: "送りこむもの", store: "ためる部品", chamber: "自分で固くなる部屋", resist: "流れにくさ", valve: "一方通行の戸", battery: "電池" };
+const METRIC_NAME = { mean: "1回の平均", max: "いちばん高いところ", min: "いちばん低いところ", plateau: "送り終わる直前", halfTime: "半分に戻るまでの時間", perCycle: "1回で流れた量" } as const;
+const nxSourceLabel = () => (state.nx.made?.source === "live" ? "AIがいま組み立てた謎" : "AIが11/5に組み立てた謎（生成の記録）");
+function nxChap(): string {
+  return `つづきの謎${state.nx.made ? "：" + state.nx.made.spec.title : ""}`;
+}
+/** 題材の候補ごとに、この場でつくれるか */
+function nxTopicCmds(prev: NetPuzzleSpec): Cmd[] {
+  return prev.nextTopics.slice(0, 3).map((t) => {
+    const rec = recordFor(t, prev);
+    const can = state.nx.live || !!rec;
+    return { act: "n-topic", val: t, label: t, sub: state.nx.live ? "AIがいま組み立てる" : rec ? "AIが11/5に組み立てた記録" : "この場ではつくれない（AIを使える場所で）", hot: can, disabled: !can };
+  });
+}
+function nPick(): View {
+  const prev = state.nx.prev;
+  const topics = prev.nextTopics.slice(0, 3);
+  const guess = (t: string): IconId => iconFor({ ...prev, topic: t, title: t, icon: undefined } as unknown as NetPuzzleSpec);
+  return {
+    chap: "つづきの謎",
+    goal: `「${prev.title}」の続きを、AI（Claude）が組み立てる`,
+    svg: `<text x="640" y="40" fill="var(--soft)" font-size="16" font-weight="800" text-anchor="middle">前の謎「${esc(prev.title)}」の結び：${esc(wrapLines(prev.endLine, 40, 1)[0] ?? "")}</text>
+      ${topics.map((t, i) => {
+        const x = 640 + (i - (topics.length - 1) / 2) * 340;
+        return `<g transform="translate(${x},215)"><rect x="-150" y="-140" width="300" height="270" rx="20" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+          <g transform="translate(0,-20) scale(0.62)">${organ(guess(t), 0.5, 0)}</g>
+          <text x="0" y="104" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text></g>`;
+      }).join("")}
+      <text x="640" y="380" fill="var(--soft)" font-size="15" text-anchor="middle">候補は、前の謎でAIが出した題材。AIは部品箱から模型の形ごと組み立て、計算プログラムが本当に動き、本当に解けるかを確かめる。</text>
+      <text x="640" y="404" fill="var(--soft)" font-size="13" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録があるものだけ選べる（確かめは、いま計算する）。"}</text>`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: [...nxTopicCmds(prev), { act: "to-end-back", label: "まとめに戻る", ghost: true }],
+  };
+}
+function nMake(): View {
+  const m = state.nx.made;
+  const att = state.nx.attempts[state.nx.attempts.length - 1];
+  const spec = (m?.spec ?? (att?.spec as NetPuzzleSpec | undefined)) ?? null;
+  const used = new Set<string>(spec && Array.isArray(spec.parts) ? [...spec.parts.map((p) => p.type), ...(spec.nodes ?? []).filter((n) => typeof n.fixed === "number" && n.fixed !== 0).map(() => "battery")] : []);
+  const v = m?.verdict ?? att?.verdict;
+  const done = !!m && state.nx.shown >= (v?.checks.length ?? 0);
+  return {
+    chap: "つづきの謎",
+    goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
+    svg: `${partsBox(20, 40, used)}
+      <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : "Claude（AI）が部品を選んでいる…"}</text>
+      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,200)"><circle r="60" fill="none" stroke="var(--line)" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="var(--soft)" font-size="16" text-anchor="middle">組み立て中</text></g>`}
+      ${v ? checkBoard(850, 20, v.checks, state.nx.shown) : ""}
+      ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: done
+      ? [{ act: "n-movie", label: "はじまりの話を見る", sub: "AIが書いた三つの場面", hot: true }]
+      : !state.busy
+        ? [{ act: "n-back", label: "題材を選びなおす", ghost: true }]
+        : [{ act: "noop", label: "組み立て中…", disabled: true }],
+  };
+}
+function nMovie(): View {
+  const m = state.nx.made!;
+  return {
+    chap: nxChap(),
+    goal: `はじまりの話（${nxSourceLabel()}）`,
+    svg: nextMovie(m.spec, m.verdict.runA!, m.verdict.robotA!, state.nx.mt, state.nx.sc!),
+    who: state.line.who,
+    text: state.line.text,
+    cmds: state.nx.mplaying
+      ? [{ act: "n-mskip", label: "最後まで飛ばす", ghost: true }]
+      : [
+          { act: "n-watch", label: "試験装置へ", sub: "ロボの話を聞く", hot: true },
+          { act: "n-mreplay", label: "もう一度見る", ghost: true },
+        ],
+  };
+}
+function nxSeries(which: "a" | "b"): number[] {
+  const m = state.nx.made!;
+  return probeSeries(which === "a" ? m.verdict.runA! : m.verdict.runB!, m.spec.watch[state.nx.watch]!.probe)!;
+}
+function nxStage(lit: Set<string>): string {
+  const m = state.nx.made!;
+  const v = m.verdict;
+  const k = state.nx.k;
+  const w = m.spec.watch[state.nx.watch]!;
+  return `${machine(m.spec, v.runA!, k, state.nx.sc!, { x: 6, y: 0, w: 790, h: 232, tag: "見本A", tagColor: "var(--soft)", lit, scale: 1.3 })}
+    <line x1="20" x2="780" y1="236" y2="236" stroke="var(--line)" stroke-dasharray="4 6"/>
+    ${machine(m.spec, v.runB!, k, state.nx.sc!, { x: 6, y: 238, w: 790, h: 232, tag: "試作品B", tagColor: "var(--you)", lit, scale: 1.3 })}
+    ${lineChart(810, 14, 460, 300, v.runA!.t, nxSeries("a"), nxSeries("b"), k, w.label, unitOf(m.spec, w.probe), m.spec.clock.timeUnit, m.spec.clock.on)}
+    <text x="1040" y="338" fill="var(--soft)" font-size="13" text-anchor="middle">${m.spec.clock.kind === "beats" ? "落ち着いた1回分" : "一度送って止めたあと"}・${fmtv(v.runA!.t[k]!)} ${esc(m.spec.clock.timeUnit)}</text>
+    <text x="1270" y="470" fill="var(--soft)" font-size="11" text-anchor="end">${esc(nxSourceLabel())}。値は模型の値で、体の値や病気の判定を表さない</text>`;
+}
+function nWatch(): View {
+  const m = state.nx.made!;
+  const ev = state.nx.ev;
+  return {
+    chap: nxChap(),
+    goal: ev?.ok ? "見落としを見つけた。正体を開けよう" : "見本AとBを同じ時刻で動かし、違いが見える時刻を証拠に",
+    svg: nxStage(new Set()),
+    html: `<div class="knobs" style="left:63.5%;top:73%;width:35%"><label><span>時刻を選ぶ<strong>${fmtv(m.verdict.runA!.t[state.nx.k]!)} ${esc(m.spec.clock.timeUnit)}</strong></span><input type="range" data-nt="k" min="0" max="${m.verdict.runA!.t.length - 1}" step="1" value="${state.nx.k}"></label></div>`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: ev?.ok
+      ? [{ act: "n-reveal", label: "正体を開ける", sub: "どの部品が違った？", hot: true }]
+      : [
+          { act: "n-play", label: state.nx.playing ? "止める" : "動かす", sub: "同じ時刻でAとBを動かす" },
+          { act: "n-shot", label: "この時刻を証拠に見せる", sub: "差が「同じ」の幅を超えれば見落とし", hot: true },
+          ...(m.spec.watch.length > 1 ? [{ act: "n-watchnext", label: "見るものを変える", sub: m.spec.watch[(state.nx.watch + 1) % m.spec.watch.length]!.label, ghost: true }] : []),
+        ],
+  };
+}
+function nReveal(): View {
+  const m = state.nx.made!;
+  const lit = new Set<string>([m.spec.B.part, ...(m.spec.B.compensate ? [m.spec.B.compensate.part] : [])]);
+  return {
+    chap: nxChap(),
+    goal: "正体：赤く光った部品が見本と違った",
+    svg: nxStage(lit),
+    who: state.line.who,
+    text: state.line.text,
+    cmds: [...nxTopicCmds(m.spec), { act: "panel", val: "refs", label: "出典と部品の役わり", sub: "文献で知られている模型による", ghost: true }],
+  };
+}
+function nxRefsHtml(): string {
+  const m = state.nx.made;
+  if (!m) return "<p>まだ謎がありません。</p>";
+  const s = m.spec;
+  return `<h2>${esc(s.title)}（${esc(nxSourceLabel())}）</h2>
+    <p>計算と判定は計算プログラムが確かめた。体の何にあたるかはAIの見立てで、先生の確認前。部品の見立ては出典の文献で知られている模型により、実物を完全に表すものではない。</p>
+    <table>${s.parts.map((p) => `<tr><th>${esc(p.name)}</th><td>${esc(p.role)}<br><small>出典：${esc(refById(p.ref)?.cite ?? "—")}</small></td></tr>`).join("")}</table>
+    <p><b>見立て：</b>${esc(s.analogy)}</p>
+    <p><b>この模型で扱わないこと：</b>${s.outOfScope.map(esc).join("、")}</p>
+    ${s.missingParts?.length ? `<p><b>部品箱にないが、本当は要る部品（AIの申告）：</b>${s.missingParts.map(esc).join("、")}</p>` : ""}
+    <details><summary>確かめの記録（AIの出力とプログラムの判定）</summary>${state.nx.attempts.map((a, i) => `<p>${i + 1}回目：${a.verdict.ok ? "通った" : "通らなかった"}</p><ul>${a.verdict.checks.map((c) => `<li>${c.ok ? "✓" : "✗"} ${esc(c.label)} ${esc(c.detail)}</li>`).join("")}</ul>`).join("")}</details>`;
+}
+let nxTimer = 0;
+function nxLoop(kind: "movie" | "watch"): void {
+  cancelAnimationFrame(nxTimer);
+  const s0 = performance.now();
+  const t0 = state.nx.mt;
+  const k0 = state.nx.k;
+  const tick = () => {
+    const svg = app.querySelector("svg.st");
+    if (kind === "movie") {
+      if (!state.nx.mplaying || state.scene !== "n-movie") return;
+      state.nx.mt = t0 + (performance.now() - s0) / 1000;
+      if (state.nx.mt >= nextMovieLength()) {
+        state.nx.mt = nextMovieLength();
+        state.nx.mplaying = false;
+        render();
+        return;
+      }
+      if (svg) svg.innerHTML = nMovie().svg;
+    } else {
+      if (!state.nx.playing || state.scene !== "n-watch") return;
+      const n = state.nx.made!.verdict.runA!.t.length;
+      // 一度送るとき：約6秒で記録を一回り／くり返し：1回を約3秒で
+      const per = state.nx.made!.spec.clock.kind === "beats" ? 3000 : 6000;
+      state.nx.k = Math.floor(k0 + ((performance.now() - s0) / per) * (n - 1)) % n;
+      if (svg) svg.innerHTML = nWatch().svg;
+      const lab = app.querySelector<HTMLInputElement>('input[data-nt="k"]');
+      if (lab) lab.value = String(state.nx.k);
+    }
+    nxTimer = requestAnimationFrame(tick);
+  };
+  tick();
+}
+async function nxMake(topic: string): Promise<void> {
+  state.nx.topic = topic;
+  state.nx.made = null;
+  state.nx.attempts = [];
+  state.nx.shown = 0;
+  state.nx.sc = null;
+  say("ai", `「${topic}」の謎を組み立てます。前の謎「${state.nx.prev.title}」から、部品を足したり置きかえたりします。`);
+  go("n-make");
+  state.busy = true;
+  render();
+  try {
+    const { made, attempts } = await makeNext(topic, state.nx.prev, {
+      onStatus: (text, who) => {
+        say(who, text);
+        render();
+      },
+    });
+    state.nx.attempts = attempts;
+    if (!made) {
+      state.busy = false;
+      const last = attempts[attempts.length - 1];
+      say("calc", last ? `確かめに通らなかった。${last.verdict.checks.filter((c) => !c.ok).map((c) => c.label).slice(0, 2).join("。")}。題材を選びなおそう。` : "この題材は、この場ではつくれない。");
+      render();
+      return;
+    }
+    state.nx.made = made;
+    state.nx.sc = machineScale(made.spec, [made.verdict.runA!, made.verdict.runB!]);
+    say("calc", "計算プログラムが、組み立てた装置をそのまま計算して確かめる。");
+    render();
+    const n = made.verdict.checks.length;
+    for (let i = 1; i <= n; i++) {
+      state.nx.shown = i;
+      const svg = app.querySelector("svg.st");
+      if (svg) svg.innerHTML = nMake().svg;
+      await sleep(reduceMotion() ? 0 : 160);
+    }
+    state.busy = false;
+    say("ai", made.spec.link.story);
+  } catch (e) {
+    state.busy = false;
+    const code = (e as { code?: string }).code;
+    say("calc", code === "not_granted" ? "このページから Claude を使うことが許可されなかった。記録のある題材を選ぼう。" : code === "rate_limited" ? "呼び出しが続いた。少し待ってから選びなおそう。" : "Claude との通信がうまくいかなかった。題材を選びなおそう。");
+  }
+  render();
+}
+
 const VIEWS: Record<Scene, () => View> = {
   title: titleView,
   movie: movieView,
@@ -842,6 +1085,11 @@ const VIEWS: Record<Scene, () => View> = {
   "c4-why": c4Why,
   "c4-duel": c4Duel,
   end: endView,
+  "n-pick": nPick,
+  "n-make": nMake,
+  "n-movie": nMovie,
+  "n-watch": nWatch,
+  "n-reveal": nReveal,
 };
 
 function discovery(): string[] {
@@ -870,7 +1118,9 @@ function panelHtml(): string {
       <p class="sub">くわしい説明と先生用の設定は、右上の「？」にあります。</p>
       <div class="row"><button class="cmd hot" data-act="panel-close" autofocus>わかった、はじめる</button></div></div></div>`;
   const body =
-    state.panel === "about"
+    state.panel === "refs"
+      ? nxRefsHtml()
+      : state.panel === "about"
       ? `<h2>このゲームについて</h2>
       <table><tr><th>検査ロボ TEJUN</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
       <tr><th>相棒 Claude（AI）</th><td>謎1で参加。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
@@ -894,7 +1144,7 @@ function render(): void {
     <header class="hud">
       <span class="chap">${esc(v.chap)}</span><span class="goal">${esc(v.goal)}</span>
       <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
-      <span class="ai">相棒 Claude（AI）${state.claude ? "" : "・休止中"}</span>
+      <span class="ai">${state.scene.startsWith("n-") ? `Claude（AI）・謎を組み立てる${state.nx.live ? "" : "（11/5の記録）"}` : `相棒 Claude（AI）${state.claude ? "" : "・休止中"}`}</span>
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
       <button class="mini-btn" data-act="panel" data-val="card">発見カード</button>
       <button class="mini-btn" data-act="panel" data-val="about" aria-label="このゲームについて・先生用" title="このゲームについて・先生用">？</button>
@@ -1124,6 +1374,12 @@ app.addEventListener("input", (e) => {
       const nm = tmp.querySelector(".meters");
       if (nm) meters.innerHTML = nm.innerHTML;
     }
+  } else if (t.dataset.nt && state.nx.made) {
+    state.nx.k = Number(t.value);
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
+    const lab = t.closest("label")?.querySelector("strong");
+    if (lab) lab.textContent = `${fmtv(state.nx.made.verdict.runA!.t[state.nx.k]!)} ${state.nx.made.spec.clock.timeUnit}`;
   } else if (t.dataset.br) {
     if (t.dataset.br === "r") state.brR = Number(t.value);
     else state.brC1 = Number(t.value);
@@ -1716,6 +1972,104 @@ app.addEventListener("click", async (e) => {
       state.conf = 0;
       go("end");
       break;
+    case "n-enter":
+      state.nx.live = !!(await getSample());
+      state.nx.prev = PREPARED_NETS[1]!;
+      state.conf = 100;
+      state.mood = "smug";
+      say("bot", "新しい題材でも同じです。私の決まった手順で区別できなければ、同じとみなします。");
+      go("n-pick");
+      break;
+    case "to-end-back":
+      go("end");
+      break;
+    case "n-back":
+      go("n-pick");
+      break;
+    case "n-topic":
+      if (state.scene === "n-reveal" && state.nx.made) {
+        state.nx.prev = state.nx.made.spec;
+        state.conf = 100;
+      }
+      await nxMake(val);
+      break;
+    case "n-movie":
+      state.nx.mt = reduceMotion() ? nextMovieLength() : 0;
+      state.nx.mplaying = !reduceMotion();
+      say("ai", "はじまりの話（AIが書いた三つの場面。絵は、AIが組み立てた模型を計算プログラムが動かしたもの）。");
+      go("n-movie");
+      if (state.nx.mplaying) nxLoop("movie");
+      break;
+    case "n-mskip":
+      state.nx.mplaying = false;
+      state.nx.mt = nextMovieLength();
+      render();
+      break;
+    case "n-mreplay":
+      state.nx.mt = 0;
+      state.nx.mplaying = !reduceMotion();
+      if (!state.nx.mplaying) state.nx.mt = nextMovieLength();
+      render();
+      if (state.nx.mplaying) nxLoop("movie");
+      break;
+    case "n-watch": {
+      const m = state.nx.made!;
+      state.nx.k = 0;
+      state.nx.watch = 0;
+      state.nx.ev = null;
+      state.nx.revealed = false;
+      state.nx.playing = false;
+      state.mood = "smug";
+      const r = m.spec.robot;
+      const unit = r.metric === "halfTime" ? m.spec.clock.timeUnit : r.metric === "perCycle" ? m.spec.units.amount.unit : unitOf(m.spec, r.probe);
+      say("bot", `${r.says} ${METRIC_NAME[r.metric]}は、見本A ${fmtv(m.verdict.robotA!)}、試作品B ${fmtv(m.verdict.robotB!)} ${unit}。区別できません。`);
+      go("n-watch");
+      break;
+    }
+    case "n-play":
+      state.nx.playing = !state.nx.playing;
+      render();
+      if (state.nx.playing) nxLoop("watch");
+      break;
+    case "n-watchnext":
+      state.nx.watch = (state.nx.watch + 1) % state.nx.made!.spec.watch.length;
+      render();
+      break;
+    case "n-shot": {
+      const m = state.nx.made!;
+      const a = nxSeries("a");
+      const b = nxSeries("b");
+      const tol = SEE_REL * Math.max(1e-12, Math.max(...a) - Math.min(...a));
+      const d = b[state.nx.k]! - a[state.nx.k]!;
+      const ok = Math.abs(d) >= tol;
+      const w = m.spec.watch[state.nx.watch]!;
+      state.nx.ev = { ok, t: m.verdict.runA!.t[state.nx.k]!, d, label: w.label };
+      state.nx.playing = false;
+      if (ok) {
+        state.mood = "shock";
+        say("calc", `${w.label}、${fmtv(state.nx.ev.t)} ${m.spec.clock.timeUnit}で、差 ${fmtv(d)} ${unitOf(m.spec, w.probe)}。「同じ」の幅 ${fmtv(tol)} を超えた。ロボの一つの数字では、ここを見落としていた。`);
+        render();
+        await stamp("見落とし！", "hit");
+        await damage(34);
+      } else {
+        say("calc", `この時刻では、差 ${fmtv(d)}。「同じ」の幅 ${fmtv(tol)} の内側。別の時刻か、別の見るものを試そう（減点なし）。`);
+        render();
+      }
+      break;
+    }
+    case "n-reveal": {
+      const m = state.nx.made!;
+      state.nx.revealed = true;
+      state.mood = "down";
+      const bp = m.spec.parts.find((p) => p.id === m.spec.B.part)!;
+      const cp = m.spec.B.compensate ? m.spec.parts.find((p) => p.id === m.spec.B.compensate!.part) : undefined;
+      say("ai", `${m.spec.B.reveal}${cp ? `（ロボの数字がそろうように、計算プログラムが「${cp.name}」を見本の ${fmtv(m.verdict.compensateFactor ?? 1)} 倍に合わせた。）` : ""} 違った部品：${bp.name}。`);
+      state.record.push(`つづきの謎「${m.spec.title}」（${m.source === "live" ? "AIがいま組み立てた" : "AIが11/5に組み立てた記録"}）見落とし ✔`);
+      go("n-reveal");
+      break;
+    }
+    case "noop":
+      break;
     case "restart":
       state.scene = "title";
       state.view = null;
@@ -1734,6 +2088,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 say("bot", "私はTEJUN。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
+// 「つづきの謎」から始める（#next。発表・確認用。謎1〜5を解かずに入れるが、記録には残らない）
+if (location.hash === "#next") {
+  void (async () => {
+    state.nx.live = !!(await getSample());
+    say("bot", "新しい題材でも同じです。私の決まった手順で区別できなければ、同じとみなします。");
+    state.scene = "n-pick";
+    render();
+  })();
+}
 status().then((s) => {
   state.claude = s.claude;
   render();

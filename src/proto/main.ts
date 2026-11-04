@@ -3,7 +3,7 @@
 import "./proto.css";
 import { probeSeries, verifyNetPuzzle, type Check, type DiffType, type Metric, type NetPart, type NetPuzzleSpec, type NetVerdict, type Probe } from "../../server/model/partsNet.js";
 import { refById } from "../../server/model/refs.js";
-import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/claude/netPrompt.js";
+import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
 
 type Sample = ((input: string, opts?: Record<string, unknown>) => Promise<{ text: string }>) & { json: (input: string, opts?: Record<string, unknown>) => Promise<unknown> };
 interface Attempt { spec: unknown; verdict: NetVerdict }

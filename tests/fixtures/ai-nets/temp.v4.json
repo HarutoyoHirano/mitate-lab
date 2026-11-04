@@ -1,5 +1,5 @@
 {
- "note": "Claude（Sonnet、指示文 v4 = server/claude/netPrompt.ts。出典カタログとつなぎつき）が 2026-11-05 に出力したもの。人は手を加えない。",
+ "note": "Claude（Sonnet、指示文 v4 = server/puzzle/netPrompt.ts。出典カタログとつなぎつき）が 2026-11-05 に出力したもの。人は手を加えない。",
  "topic": "体温",
  "promptVersion": "v4",
  "previous": "prepared:1",

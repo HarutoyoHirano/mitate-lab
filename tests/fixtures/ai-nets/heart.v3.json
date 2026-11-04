@@ -1,5 +1,5 @@
 {
- "note": "Claude（Sonnet、指示文 v3 = server/claude/netPrompt.ts）が 2026-11-05 に出力したもの。人は手を加えない。",
+ "note": "Claude（Sonnet、指示文 v3 = server/puzzle/netPrompt.ts）が 2026-11-05 に出力したもの。人は手を加えない。",
  "topic": "心臓",
  "promptVersion": "v3",
  "expectOk": false,

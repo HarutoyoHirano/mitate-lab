@@ -1,7 +1,7 @@
 // テスト41（CLAUDE.md 1e-2）：部品箱と、AIが組み立てた模型の確かめ。
 import { describe, expect, it } from "vitest";
 import { metricOf, partDiff, runNet, verifyNetPuzzle, withB, type NetPuzzleSpec } from "../../server/model/partsNet.js";
-import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/claude/netPrompt.js";
+import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
 import { BASE_VESSEL, CASE_VESSEL_B, steadyBeat, summarize } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, potentialMv } from "../../server/model/membraneGame.js";
 import { readdirSync, readFileSync } from "node:fs";
