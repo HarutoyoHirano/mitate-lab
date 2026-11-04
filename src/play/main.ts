@@ -12,7 +12,7 @@ import { clampPeriod, STEP_PHASES, STEP_TOLERANCE, TAP_TO_PERIOD, TEMPOS, type S
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
-import { answerMap, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { answerMap, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 
 type Scene =
@@ -67,6 +67,7 @@ interface View {
 
 const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06fb0", relax: "#b9a6ff", same: "#aab2c8" };
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
+const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
 const WHO_LABEL: Record<Who, string> = { bot: "TEJUN-07（決まったルールで動く・AIではない）", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内・手がかり（決まった文。AIではない）" };
 
@@ -305,7 +306,8 @@ function c1Line(): View {
       return `<button class="ghost ${broken ? "broken" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" data-act="tag" data-val="${id}" ${!awaiting || prevOut ? "disabled" : ""} aria-label="影武者：${CANDIDATES[id].label}">
         <span class="gname">${CANDIDATES[id].label}</span>
         <span class="glook">${LOOK[id]}</span>
-        ${ghostPuck(COLOR[id], broken)}
+        ${broken ? ghostPuck(COLOR[id], true) : `<svg viewBox="0 0 200 110" class="model" aria-hidden="true">${slsModel({ hl: id === "same" ? null : id, color: COLOR[id], mark: "？" })}</svg>`}
+        <span class="gpart">${PART[id]}</span>
         ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 170 }) : ""}
         <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "札をつける"}</span>
         ${res}
@@ -354,10 +356,12 @@ function c1Solved(): View {
   return {
     chap: "事件1 解決",
     goal: "Bの正体が分かった",
-    svg: `${robotArt("down", 960, 60, 0.9)}
-      <g transform="translate(60,60)"><rect width="760" height="300" rx="18" fill="var(--paper)"/>
-        <text x="30" y="50" fill="var(--paper-soft)" font-size="18" font-weight="900">正体（答え合わせ）</text>
-        <foreignObject x="30" y="70" width="700" height="220"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#2a2216;font-size:22px;font-weight:800;line-height:1.6">${esc(d.explanation)}</div></foreignObject></g>`,
+    svg: `${robotArt("down", 1000, 80, 0.75)}
+      <g transform="translate(40,40)"><rect width="920" height="330" rx="18" fill="var(--paper)"/>
+        <text x="30" y="46" fill="var(--paper-soft)" font-size="18" font-weight="900">正体（答え合わせ）</text>
+        <foreignObject x="30" y="64" width="370" height="250"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#2a2216;font-size:21px;font-weight:800;line-height:1.6">${esc(d.explanation)}</div></foreignObject>
+        <text x="430" y="46" fill="var(--paper-soft)" font-size="15" font-weight="900">人工軟骨を、ばねとダンパの模型に見立てると</text>
+        ${slsModelLabeled(430, 70, state.view?.narrowedTo === "instant" || state.view?.narrowedTo === "relax" || state.view?.narrowedTo === "overall" ? state.view.narrowedTo : null, "Bは、光った部品が見本と違った")}</g>`,
     who: "bot",
     text: state.line.text,
     cmds: [{ act: "to-c2", label: "事件2：今度は、あなたが仕掛ける", hot: true }],
@@ -655,9 +659,17 @@ function endView(): View {
     chap: "まとめ",
     goal: "三つとも、同じ一つの電気回路で表せる。見方が変わると、見落とすところも変わる",
     svg: `${robotArt("down", 1040, 150, 0.6)}
-      ${heartCircuit(60, 20, 1, 1, { src: "電流を送りこむもの（ポンプ・膜の入口）", cap: "電気をためる部品（血管のふくらみやすさ・膜）", res: "抵抗（血管の出口の流れにくさ・イオンの通りにくさ）" })}
-      <text x="60" y="334" fill="var(--soft)" font-size="13">血管は式の形が同じだけ（電気は流れていない）。膜では本当に電気がたまり、イオンが動く。</text>
-      <text x="60" y="356" fill="var(--soft)" font-size="13">人工軟骨の「押した直後だけ増えるかたさ」も、同じ形の回路で表せる（この画面では扱わない）。</text>
+      <text x="40" y="34" fill="var(--ink)" font-size="17" font-weight="900">見立ての二段</text>
+      <text x="40" y="64" fill="var(--soft)" font-size="13">① 人工軟骨を、ばねとダンパの模型に</text>
+      <g transform="translate(40,74) scale(0.95)">${slsModel({ hl: null })}</g>
+      <text x="200" y="134" fill="var(--gold)" font-size="26" font-weight="900">→</text>
+      <g transform="translate(236,74) scale(0.55)">${heartCircuit(0, 0, 1, 1, { src: "", cap: "", res: "" })}</g>
+      <text x="236" y="222" fill="var(--soft)" font-size="13">② ばね＝コンデンサ、ダンパ＝抵抗</text>
+      <text x="40" y="252" fill="var(--ink)" font-size="14" font-weight="800">③ 同じ回路が、血管にも神経の膜にもなる</text>
+      <text x="40" y="276" fill="var(--soft)" font-size="13">血管：ポンプ・ふくらみやすさ・出口の流れにくさ</text>
+      <text x="40" y="298" fill="var(--soft)" font-size="13">神経の膜：押されると開く入口・膜・いつも開いている通り道</text>
+      <text x="40" y="330" fill="var(--soft)" font-size="12">軟骨（右のばね＋ダンパの組）と血管は、式の形が同じだけ（電気は流れていない）。</text>
+      <text x="40" y="350" fill="var(--soft)" font-size="12">膜では本当に電気がたまり、イオンが動く。</text>
       <g transform="translate(520,30)">
         ${[
           ["最後の値だけ見ると", "途中の違いを見落とす（軟骨・膜）"],

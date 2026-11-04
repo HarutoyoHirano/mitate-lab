@@ -168,6 +168,49 @@ export function ghostPuck(color: string, broken: boolean): string {
   </svg>`;
 }
 
+/**
+ * 人工軟骨を見立てた「ばね二つとダンパ一つ」の模型（標準線形固体）。座標は 200×110。
+ * 左のばね＝待ったあとも残るかたさ、右のばね＝押した直後だけ増えるかたさ、ダンパ＝増えたかたさが消えていくまでの時間を決めるねばり。
+ * hl で光らせる部品を選ぶ（影武者の仮説の部品・検算後の正体だけ。推理の前に答えを描かない）。
+ */
+export type ModelPart = "overall" | "instant" | "relax";
+export function slsModel(o: { hl: ModelPart | null; color?: string; mark?: string; dim?: boolean; base?: string }): string {
+  const base = o.base ?? (o.dim ? "var(--line)" : "var(--soft)");
+  const hc = o.color ?? "var(--gold)";
+  const st = (p: ModelPart) => (o.hl === p ? `stroke="${hc}" stroke-width="5"` : `stroke="${base}" stroke-width="3"`);
+  const zig = (x: number, y0: number, y1: number) => {
+    const n = 6;
+    const h = (y1 - y0 - 12) / n;
+    let d = `M${x} ${y0} v6`;
+    for (let k = 0; k < n; k++) d += ` l${k % 2 ? -9 : 9} ${h / 2} l${k % 2 ? 9 : -9} ${h / 2}`;
+    return `${d} v6`;
+  };
+  const mark = (p: ModelPart, x: number, y: number) => (o.hl === p && o.mark ? `<text x="${x}" y="${y}" fill="${hc}" font-size="20" font-weight="900" text-anchor="middle">${o.mark}</text>` : "");
+  return `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="22" y="6" width="156" height="8" rx="3" fill="${base}" stroke="none"/>
+    <rect x="22" y="98" width="156" height="8" rx="3" fill="${base}" stroke="none"/>
+    <path d="${zig(60, 14, 98)}" ${st("overall")}/>
+    <path d="${zig(140, 14, 54)}" ${st("instant")}/>
+    <path d="M140 54 V72 M128 72 H152" ${st("relax")}/>
+    <path d="M124 64 V92 H156 V64" ${st("relax")}/>
+    <path d="M140 92 V98" ${st("relax")}/>
+    ${mark("overall", 86, 62)}${mark("instant", 172, 40)}${mark("relax", 176, 86)}
+  </g>`;
+}
+
+/** 正体の画面・まとめで使う、部品の名前つきの模型（幅 460） */
+export function slsModelLabeled(x: number, y: number, hl: ModelPart | null, caption: string): string {
+  const name = (part: ModelPart, tx: number, ty: number, t1: string, t2: string) => `<text x="${tx}" y="${ty}" fill="${hl === part ? "var(--stamp)" : "var(--paper-ink)"}" font-size="14" font-weight="900">${t1}</text><text x="${tx}" y="${ty + 18}" fill="var(--paper-soft)" font-size="12">${t2}</text>`;
+  return `<g transform="translate(${x},${y})">
+    <g transform="translate(0,6) scale(1.1)">${slsModel({ hl, mark: hl ? "！" : undefined, base: "var(--paper-soft)", color: "var(--stamp)" })}</g>
+    ${name("overall", 236, 22, "左のばね", "待ったあとも残るかたさ")}
+    ${name("instant", 236, 66, "右のばね", "押した直後だけ増えるかたさ")}
+    ${name("relax", 236, 110, "ダンパ（ねばり）", "増えたかたさが消えていく時間を決める")}
+    <text x="0" y="150" fill="var(--paper-ink)" font-size="15" font-weight="900">${caption}</text>
+    <text x="0" y="172" fill="var(--paper-soft)" font-size="12">ダンパ：ドアがゆっくり閉まるときの部品のように、速く動かすほど強く押し返す</text>
+  </g>`;
+}
+
 // ---------- 事件3：模擬循環回路 ----------
 /** 心臓ポンプと二本の人工血管。血管の太さは、ふくらんで受け止めている血の量（C × 圧の上がり分）から描く */
 export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: number; minA: number; minB: number; flow: number }): string {

@@ -159,8 +159,10 @@ button { font: inherit; }
 .card-ev .big { color: #c2261d; font-weight: 900; font-size: max(14px, 1.6cqw); }
 .card-ev.dim { opacity: 0.7; }
 .lineup { position: absolute; left: 2%; right: 2%; top: 2%; bottom: 2%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; }
-.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
+.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
 .ghost .puck { width: 55%; margin: 0 auto; display: block; }
+.ghost .model { width: 46%; margin: 0 auto; display: block; }
+.ghost .gpart { font-size: max(10px, 0.9cqw); color: var(--c); font-weight: 800; }
 .ghost .glook { font-size: max(10px, 0.95cqw); color: var(--soft); }
 .ghost .gname { font-weight: 900; font-size: max(12px, 1.2cqw); color: var(--c); }
 .ghost .mini { width: 100%; height: auto; background: var(--panel); border-radius: 8px; align-self: center; }
