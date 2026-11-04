@@ -48,7 +48,7 @@ export function shake(strength: number): void {
   el.classList.add("shake");
 }
 
-/** ハンコ：一瞬止めてから、大きく押す（逆転裁判・Balatro 型の間） */
+/** ハンコ：一瞬止めてから、大きく押す */
 export async function stamp(text: string, kind: "hit" | "win" | "miss" = "hit", strength = 0.6): Promise<void> {
   const host = document.querySelector<HTMLElement>(".screen");
   if (!host) return;

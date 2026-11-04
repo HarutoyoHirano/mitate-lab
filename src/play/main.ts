@@ -173,7 +173,7 @@ function c1Say(): View {
     text: state.line.text,
     cmds: !asked
       ? [
-          { act: "c1-next", label: state.say === 0 ? "次の証言" : "ゆさぶる", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
+          { act: "c1-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
         ]
       : [
           { act: "bet", val: "midSame", label: "走っても同じ", sub: "ロボが区別できないなら" },
@@ -231,12 +231,12 @@ function c1Run(): View {
     cmds: [
       { act: "go-run", label: run ? "もう一度走らせる" : "12歩、走らせる", sub: "テンポを変えてもよい", hot: !run, disabled: state.playing !== null || state.busy },
       { act: "shot", label: "この一歩を証拠に", sub: state.note !== null ? `${state.note + 1}歩目（差がいちばん大きい点）` : "拍を押して選ぶ", hot: state.note !== null, disabled: state.note === null || state.busy },
-      { act: "to-present", label: "証言に、つきつける", sub: "証拠ファイルを開く", disabled: !have, hot: have && state.note === null },
+      { act: "to-present", label: "ロボに証拠を見せる", sub: "証拠ファイルを開く", disabled: !have, hot: have && state.note === null },
     ],
   };
 }
 
-// ---------- つきつける（事件1・3・4 共通） ----------
+// ---------- 証拠を見せる（事件1・3・4 共通） ----------
 function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, goal: string): View {
   const cards = [base, ...state.evidence.filter((e) => e.case === c)];
   return {
@@ -252,7 +252,7 @@ function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, 
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "present", val: String(c), label: "つきつける", sub: state.sel ? `選んだ証拠：${cards.find((x) => x.id === state.sel)?.title ?? ""}` : "証拠を選ぶ", hot: !!state.sel, disabled: !state.sel || state.busy },
+      { act: "present", val: String(c), label: "この証拠を見せる", sub: state.sel ? `選んだ証拠：${cards.find((x) => x.id === state.sel)?.title ?? ""}` : "証拠を選ぶ", hot: !!state.sel, disabled: !state.sel || state.busy },
       { act: "back-watch", val: String(c), label: "証拠を集めに戻る", ghost: true },
     ],
   };
@@ -266,7 +266,7 @@ function c1Present(): View {
       ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "見落としを突いた"),
       cmds: [{ act: "to-bench", label: "なぜ違う？ 試験台で調べる", sub: "押し返す力を記録して、説明ごとの予想の線（影武者）と見比べる", hot: true, disabled: state.busy }],
     };
-  return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボの証言に、証拠をつきつけろ");
+  return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
 
 // ---------- 事件1：影武者の面通し ----------
@@ -478,7 +478,7 @@ function c3Say(): View {
     who: "bot",
     text: state.line.text,
     sub: "mmHg（ミリメートル水銀柱）は、血圧に使う圧力の単位。値は模型の値で、体の血圧ではない。",
-    cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "次の証言" : "ゆさぶる", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
+    cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
   };
 }
 function c3Watch(): View {
@@ -495,13 +495,13 @@ function c3Watch(): View {
     sub: "管の太さ＝ふくらんで受け止めている液の量。mmHg は血圧に使う圧力の単位。値は模型の値で、体の血圧や、高い・低いの判定ではない。",
     cmds: [
       { act: "v-shot", label: "この瞬間を撮る", sub: `差が ${VESSEL_SEE_DIFF} mmHg を超えたら証拠`, hot: !have },
-      { act: "to-present3", label: "証言に、つきつける", disabled: !have, hot: have },
+      { act: "to-present3", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
 }
 function c3Present(): View {
   const base: Evidence = { id: "c3-base", case: 3, title: "ロボの検査", line: "1回の脈の平均の圧", big: `差 ${sgn(VB.mean - VA.mean, 1)}`, ok: false };
-  const v = presentView(3, ["「だから、AとBは", "　同じ人工血管です」"], base, "ロボの証言に、証拠をつきつけろ");
+  const v = presentView(3, ["「だから、AとBは", "　同じ人工血管です」"], base, "ロボに、違いが見えた証拠を見せよう");
   if (state.line.who === "bot" && state.mood === "shock") v.cmds = [{ act: "to-sync", label: "なぜ違う？ 電気回路で同じ波をつくる", hot: true }];
   return v;
 }
@@ -556,7 +556,7 @@ function c4Say(): View {
       <text x="310" y="190" fill="var(--soft)" font-size="14">事件3と同じ回路に、電池（何もしていないときの −70 mV をつくる）が加わる。</text><text x="310" y="210" fill="var(--soft)" font-size="13">mV＝ミリボルト（1000分の1ボルト）</text>${bubble(640, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
-    cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "次の証言" : "ゆさぶる", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
+    cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
   };
 }
 function c4Watch(): View {
@@ -571,7 +571,7 @@ function c4Watch(): View {
     text: state.line.text,
     cmds: [
       { act: "m-shot", label: "この瞬間を撮る", sub: `差が ${SEE_DIFF} mV を超えたら証拠`, hot: !have, disabled: !state.memRan },
-      { act: "to-present4", label: "証言に、つきつける", disabled: !have, hot: have },
+      { act: "to-present4", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
 }
@@ -579,7 +579,7 @@ function c4Present(): View {
   const a = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   const b = REST_MV + deltaMv(CASE3_B, PULSE_MS);
   const base: Evidence = { id: "c4-base", case: 4, title: "ロボの検査", line: "止める直前の膜の電圧", big: `差 ${sgn(b - a, 2)} mV`, ok: false };
-  const v = presentView(4, ["「だから、AとBは", "　同じ膜です」"], base, "ロボの証言に、証拠をつきつけろ");
+  const v = presentView(4, ["「だから、AとBは", "　同じ膜です」"], base, "ロボに、違いが見えた証拠を見せよう");
   if (state.line.who === "bot" && state.mood === "shock") v.cmds = [{ act: "to-why4", label: "なぜ違う？ 推理する", hot: true }];
   return v;
 }

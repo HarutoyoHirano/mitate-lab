@@ -100,7 +100,7 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
   </g>`;
 }
 
-/** 拍の列（リズム天国型）。各拍の丸は、その一歩で差がいちばん大きい点の差を色で示す */
+/** 拍の列。各拍の丸は、その一歩で差がいちばん大きい点の差を色で示す */
 export function beatLane(x: number, y: number, notes: { shown: boolean; hot: boolean; sel: boolean; shot: boolean }[], now: number | null): string {
   const w = 980;
   const gap = w / notes.length;
@@ -446,7 +446,7 @@ export function nerveStage(a: Membrane, b: Membrane, t: number, o: { a: string; 
 
 export { BASE_MEM };
 
-/** 答えの地図（Opus Magnum 型）：格子の各点が、どのラウンドで通るか（計算で塗る） */
+/** 答えの地図：格子の各点が、どのラウンドで通るか（計算で塗る） */
 export function answerMap(x: number, y: number, w: number, h: number, cells: number[][], marks: { col: number; row: number; label: string }[], axes: { x: string; y: string }): string {
   const rows = cells.length;
   const cols = cells[0]!.length;
