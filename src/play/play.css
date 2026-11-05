@@ -316,3 +316,8 @@ button { font: inherit; }
 .stage.flow { aspect-ratio: auto; min-height: 36cqw; }
 .stage.flow > svg.st { display: none; }
 .stage.flow > .lineup { position: static; padding: 1cqw 0; }
+
+/* 鍛えなおし（軟骨）：見たことのある瞬間を、グループごとに並べる */
+.picker .row.col { display: grid; gap: 0.3cqw; }
+.picker .row.col > div { display: flex; flex-wrap: wrap; gap: 0.4cqw; }
+.picker button.on { background: color-mix(in srgb, var(--gold) 22%, var(--chip)); }

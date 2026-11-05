@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { BASE } from "../../server/model/public.js";
 import { HIDDEN_CAUSES } from "../../scenarios/material1.js";
-import { CARTILAGE_POINTS, judgeRetrain, MEMBRANE_POINTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
+import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
 import { stepDents, TEMPOS, STEP_PHASES } from "../../server/model/steps.js";
 import { duelMaterial, finalCheckDiff } from "../../server/model/duel.js";
 
@@ -36,6 +36,17 @@ describe("42 検査ロボの鍛えなおし", () => {
   it("軟骨：謎2でロボが見た二点を両方足すと、すり抜けは残らない", () => {
     const r = judgeRetrain("cartilage", ["slowWalk:11:land", "slowWalk:11:peak"], BASE);
     expect(r.slipCount).toBe(0);
+  });
+
+  it("軟骨：画面で選べる8つ（謎1の走りの1歩目・謎2のゆっくり歩きの12歩目）だけでも、どのBにも鍛えなおせる組がある", () => {
+    const shown = CARTILAGE_SHOWN.flatMap((g) => g.ids);
+    expect(shown.length).toBe(8);
+    for (const id of shown) expect(CARTILAGE_POINTS.some((p) => p.id === id), id).toBe(true);
+    for (const b of reps) {
+      let ok = false;
+      for (let i = 0; i < shown.length && !ok; i++) for (let j = i + 1; j < shown.length && !ok; j++) ok = judgeRetrain("cartilage", [shown[i]!, shown[j]!], b).cleared;
+      expect(ok, JSON.stringify(b)).toBe(true);
+    }
   });
 
   it("血管と膜：一つで足りる時刻と、足りない時刻の両方がある", () => {

@@ -9,7 +9,7 @@ import { fitCandidate, predictedCurve } from "../../server/model/fit.js";
 import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
-import { CARTILAGE_POINTS, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
+import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
@@ -996,9 +996,7 @@ function rtView(): View {
   const inSlots = r.slots.includes(pick);
   const picker =
     r.c === "cartilage"
-      ? `<div class="row"><span>テンポ</span>${TEMPOS.map((t) => `<button class="${r.tempo === t.id ? "on" : ""}" data-act="rt-tempo" data-val="${t.id}">${t.label}</button>`).join("")}</div>
-         <div class="row"><span>何歩目</span>${[0, 11].map((k) => `<button class="${r.step === k ? "on" : ""}" data-act="rt-step" data-val="${k}">${k + 1}歩目</button>`).join("")}</div>
-         <div class="row"><span>一歩の中</span>${STEP_PHASES.map((ph) => `<button class="${r.phase === ph ? "on" : ""}" data-act="rt-phase" data-val="${ph}">${PHASE_LABEL[ph]}</button>`).join("")}</div>`
+      ? CARTILAGE_SHOWN.map((g) => `<div class="row col"><span>${g.group}</span><div>${g.ids.map((id, k) => `<button class="${r.slots.includes(id) ? "on" : ""}" data-act="rt-toggle" data-val="${id}" ${!r.slots.includes(id) && r.slots.length >= RETRAIN_SLOTS ? "disabled" : ""}>${PHASE_LABEL[STEP_PHASES[k]!]}</button>`).join("")}</div></div>`).join("")
       : `<div class="row"><span>${r.c === "vessel" ? "脈の中の時刻" : "押し始めから"}</span><input type="range" id="rt-t" min="0" max="${(r.c === "vessel" ? VESSEL_POINTS : MEMBRANE_POINTS).length - 1}" step="1" value="${r.t}" ${r.done ? "disabled" : ""} aria-label="足す数字の時刻"></div>`;
   return {
     chap: info.chap,
@@ -1014,8 +1012,8 @@ function rtView(): View {
     html: r.done
       ? ""
       : `<div class="picker" style="left:72%;top:3%;width:26.5%">${picker}
-        <div class="row"><span>足す数字</span><b style="color:var(--gold)">${esc(rtLabel(pick))}</b><button class="add" data-act="rt-add" ${inSlots || r.slots.length >= RETRAIN_SLOTS ? "disabled" : ""}>枠に入れる</button></div>
-        <div class="row"><span>枠</span>${r.slots.length ? r.slots.map((id, i) => `<span class="slot full">${esc(rtLabel(id))}<button data-act="rt-del" data-val="${i}" aria-label="枠から外す">×</button></span>`).join("") : `<span class="slot">まだない（二つまで足せる）</span>`}</div></div>`,
+        ${r.c === "cartilage" ? `<div class="row"><span>押すと足す・もう一度押すと外す（二つまで）</span></div>` : `<div class="row"><span>足す数字</span><b style="color:var(--gold)">${esc(rtLabel(pick))}</b><button class="add" data-act="rt-add" ${inSlots || r.slots.length >= RETRAIN_SLOTS ? "disabled" : ""}>足す</button></div>
+        <div class="row"><span>足した数字</span>${r.slots.length ? r.slots.map((id, i) => `<span class="slot full">${esc(rtLabel(id))}<button data-act="rt-del" data-val="${i}" aria-label="外す">×</button></span>`).join("") : `<span class="slot">まだない（二つまで足せる）</span>`}</div>`}</div>`,
     who: state.line.who,
     text: state.line.text,
     cmds: r.done
@@ -2226,6 +2224,10 @@ app.addEventListener("click", async (e) => {
       go("rt");
       break;
     }
+    case "rt-toggle":
+      state.rt.slots = state.rt.slots.includes(val) ? state.rt.slots.filter((x) => x !== val) : state.rt.slots.length < RETRAIN_SLOTS ? [...state.rt.slots, val] : state.rt.slots;
+      render();
+      break;
     case "rt-tempo":
       state.rt.tempo = val as TempoId;
       render();
@@ -2256,7 +2258,7 @@ app.addEventListener("click", async (e) => {
         c === "cartilage"
           ? h === 1
             ? "20秒後の力は、押した直後だけ増えるかたさにも、消えていくまでの時間にも、ほとんど左右されない。だから、いままで見ていた数字は、どちらの部品もおさえていない。数字を一つ足すだけでは、赤いますが必ず残る（計算で確かめた）。"
-            : "謎2で、ロボはゆっくり歩いた12歩目の「着地した直後」と「足を上げる直前」を、別々のラウンドで見た。あなたは片方ずつならすり抜けられた。両方見たら？ それでもBを見分けられないときは、謎1であなたが見せた証拠のテンポを思い出そう。"
+            : "謎2で、ロボはゆっくり歩いた12歩目の「着地した直後」と「足を上げる直前」を、別々のラウンドで見た。あなたは片方ずつならすり抜けられた。両方見たら？ それでもBを見分けられないときは、一つを謎1の走りの瞬間に入れかえてみよう。"
           : c === "vessel"
             ? h === 1
               ? "1回の脈の平均の圧は、ポンプが送る量が同じなら、出口の流れにくさで決まる。だから、いままで見ていた数字で、出口の流れにくさはおさえられている。残る部品は、ふくらみやすさ。それで変わる時刻を一つ足そう。"

@@ -68,8 +68,16 @@ const grid = (min: number, max: number, step: number) => {
 // ---------- 軟骨 ----------
 const CART_STEPS = [0, 11] as const;
 export const CARTILAGE_POINTS: readonly (RetrainPoint & { period: number; step: number; phase: StepPhase; tempo: string })[] = TEMPOS.flatMap((t) =>
-  CART_STEPS.flatMap((k) => STEP_PHASES.map((ph) => ({ id: `${t.id}:${k}:${ph}`, label: `${t.label}・${k + 1}歩目・${PHASE_LABEL[ph]}`, period: t.period, step: k, phase: ph, tempo: t.label }))),
+  CART_STEPS.flatMap((k) => STEP_PHASES.map((ph) => ({ id: `${t.id}:${k}:${ph}`, label: `${t.id === "jog" ? "走る" : t.label}・${k + 1}歩目・${PHASE_LABEL[ph]}`, period: t.period, step: k, phase: ph, tempo: t.label }))),
 );
+/**
+ * 新しい画面で選べる軟骨の数字（2026-11-05 夜、作者の指摘「テンポ・何歩目・一歩の中は、今は判断できるようになっていない」による）。
+ * プレイヤーが見たことのある瞬間だけ：謎1の「走る」の1歩目の4点と、謎2の「ゆっくり歩く」12歩目の4点
+ */
+export const CARTILAGE_SHOWN: readonly { group: string; ids: readonly string[] }[] = [
+  { group: "謎1の走り（1歩目）", ids: STEP_PHASES.map((ph) => `jog:0:${ph}`) },
+  { group: "謎2のゆっくり歩き（12歩目）", ids: STEP_PHASES.map((ph) => `slowWalk:11:${ph}`) },
+];
 /** 全テンポ・全歩・全時点のへこみ（違いが残るかを見る） */
 function allDents(p: MaterialParams): number[] {
   const out: number[] = [];
