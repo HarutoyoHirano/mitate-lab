@@ -33,14 +33,16 @@ describe("42 検査ロボの鍛えなおし", () => {
     for (const b of reps) expect(zero.some((pair) => judgeRetrain("cartilage", pair, b).cleared), JSON.stringify(b)).toBe(true);
   });
 
-  it("軟骨：謎2でロボが見た二点を両方足すと、すり抜けは残らない", () => {
-    const r = judgeRetrain("cartilage", ["slowWalk:11:land", "slowWalk:11:peak"], BASE);
+  it("軟骨：謎2でロボが見た二点（走って1歩目の着地した直後と足を上げた直後）を両方足すと、すり抜けは残らず、どのBも見分けられる", () => {
+    const r = judgeRetrain("cartilage", ["jog:0:land", "jog:0:lift"], BASE);
     expect(r.slipCount).toBe(0);
+    for (const b of reps) expect(judgeRetrain("cartilage", ["jog:0:land", "jog:0:lift"], b).cleared, JSON.stringify(b)).toBe(true);
   });
 
-  it("軟骨：画面で選べる8つ（謎1の走りの1歩目・謎2のゆっくり歩きの12歩目）だけでも、どのBにも鍛えなおせる組がある", () => {
+  it("軟骨：画面で選べる4つ（謎1・謎2と同じ走りの1歩目）だけでも、どのBにも鍛えなおせる組があり、一つだけではすり抜けが残る", () => {
     const shown = CARTILAGE_SHOWN.flatMap((g) => g.ids);
-    expect(shown.length).toBe(8);
+    expect(shown.length).toBe(4);
+    for (const id of shown) expect(judgeRetrain("cartilage", [id], BASE).slipCount, id).toBeGreaterThan(0);
     for (const id of shown) expect(CARTILAGE_POINTS.some((p) => p.id === id), id).toBe(true);
     for (const b of reps) {
       let ok = false;

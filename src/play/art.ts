@@ -41,6 +41,52 @@ export function ruleCard(x: number, y: number, title: string, lines: string[], h
   </g>`;
 }
 
+// ---------- 謎1 証言：いつもの検査のようす（見本Aと試作品Bを、ロボの手順どおりに押す） ----------
+/** いつもの検査の一回分（実時間の秒）。押しこむ→20秒待つ（早送り）→力を読む→くらべる */
+export const USUAL_CYCLE = 9;
+export function usualPhase(t: number): { press: number; sec: number; step: number } {
+  const u = ((t % USUAL_CYCLE) + USUAL_CYCLE) % USUAL_CYCLE;
+  const press = clamp01((u - 0.5) / 1);
+  const sec = Math.round(clamp01((u - 1.5) / 3) * 20);
+  const step = u < 1.5 ? 0 : u < 4.5 ? 1 : u < 6 ? 2 : 3;
+  return { press, sec, step };
+}
+/** 押し板・力センサ・試作品を二台並べた絵。値はロボが読んだ値（見本Aの基準と、いつもの検査で測ったB）だけ */
+export function usualTest(o: { t: number; valueA: number; valueB: number; diff: number; tol: number }): string {
+  const { press, sec, step } = usualPhase(o.t);
+  const read = step >= 2;
+  const station = (cx: number, k: "a" | "b", v: number) => {
+    const dy = 20 * press;
+    const plate = 330 + dy;
+    const sensor = 268 + dy;
+    return `<g>
+      <rect x="${cx - 110}" y="250" width="220" height="12" rx="4" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+      <rect x="${cx - 104}" y="262" width="10" height="150" fill="var(--metal-edge)"/><rect x="${cx + 94}" y="262" width="10" height="150" fill="var(--metal-edge)"/>
+      <rect x="${cx - 6}" y="262" width="12" height="${sensor - 262}" fill="var(--metal)"/>
+      <rect x="${cx - 70}" y="${sensor}" width="140" height="56" rx="8" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="2"/>
+      <text x="${cx}" y="${sensor + 20}" fill="var(--paper-soft)" font-size="14" font-weight="900" text-anchor="middle">押し返す力</text>
+      <text x="${cx}" y="${sensor + 46}" fill="${read ? "var(--paper-ink)" : "var(--paper-soft)"}" font-size="22" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${read ? `${v.toFixed(3)} [N]` : "—"}</text>
+      <rect x="${cx - 85}" y="${plate}" width="170" height="10" rx="3" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
+      <rect x="${cx - 75}" y="${plate + 10}" width="150" height="${400 - plate - 10}" rx="10" fill="var(--pad-${k})" stroke="var(--pad-${k}-edge)" stroke-width="3"/>
+      <rect x="${cx - 110}" y="400" width="220" height="12" rx="4" fill="var(--metal-edge)"/>
+    </g>`;
+  };
+  const stepName = ["① 押しこむ", "② 20秒待つ", "③ 力を読む", "④ くらべる"][step]!;
+  const ang = (sec / 20) * 360 * (Math.PI / 180);
+  return `<g>
+    ${station(180, "a", o.valueA)}${station(620, "b", o.valueB)}
+    <text x="180" y="444" fill="var(--ink)" font-size="26" font-weight="900" text-anchor="middle">見本 A</text>
+    <text x="180" y="470" fill="var(--soft)" font-size="18" font-weight="900" text-anchor="middle">いままでの人工軟骨</text>
+    <text x="620" y="444" fill="var(--ink)" font-size="26" font-weight="900" text-anchor="middle">試作品 B</text>
+    <text x="620" y="470" fill="var(--soft)" font-size="18" font-weight="900" text-anchor="middle">新しく印刷した人工軟骨</text>
+    <g transform="translate(400,296)"><circle r="28" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
+      <line x1="0" y1="0" x2="${(20 * Math.sin(ang)).toFixed(1)}" y2="${(-20 * Math.cos(ang)).toFixed(1)}" stroke="var(--paper-ink)" stroke-width="3" stroke-linecap="round"/></g>
+    <text x="400" y="352" fill="var(--ink)" font-size="20" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${sec} 秒</text>
+    <text x="400" y="384" fill="var(--gold)" font-size="20" font-weight="900" text-anchor="middle">${stepName}</text>
+    ${step === 3 ? `<g transform="translate(300,400)"><rect width="200" height="44" rx="22" fill="var(--chip)"/><text x="100" y="29" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">ちがい ${Math.abs(o.diff).toFixed(3)} → 同じ</text></g>` : ""}
+  </g>`;
+}
+
 /** ロボの証言の吹き出し */
 export function bubble(x: number, y: number, label: string, l1: string, l2 = "", w = 400, l3 = ""): string {
   return `<g transform="translate(${x},${y})">
@@ -212,6 +258,7 @@ function sceneRobot(s: number): string {
     <g transform="translate(330,46)"><circle r="26" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
       <line x1="0" y1="0" x2="${(18 * Math.sin(ang * (Math.PI / 180))).toFixed(1)}" y2="${(-18 * Math.cos(ang * (Math.PI / 180))).toFixed(1)}" stroke="var(--paper-ink)" stroke-width="3" stroke-linecap="round"/>
       <text x="0" y="46" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${sec} 秒</text></g>
+    <text x="281" y="284" fill="var(--gold)" font-size="16" font-weight="900" text-anchor="middle">${s < 0.6 ? "① 押しこむ" : !done ? "② 20秒待つ" : "③ 力を読む"}</text>
     ${done ? `<g transform="translate(170,172) rotate(-8)"><rect width="200" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="100" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}
   </g>`;
 }
@@ -260,7 +307,7 @@ function sceneRuleChange(s: number): string {
   const rev = s > 2.6;
   return frame(`
     ${robotArt(rev ? "smug" : "scan", 52, 70, 0.42)}
-    <g transform="translate(150,60) scale(0.8)">${ruleCard(0, 0, "ロボの走行検査", ["ゆっくり歩かせる", "12歩目の一点を見る", rev ? "見る点を変える" : "（見落としたら…）"], rev ? 2 : null, rev)}</g>
+    <g transform="translate(150,60) scale(0.8)">${ruleCard(0, 0, "ロボの走行検査", ["謎1と同じように走らせる", "1歩目の一点を見る", rev ? "見る点を変える" : "（見落としたら…）"], rev ? 2 : null, rev)}</g>
     `);
 }
 
@@ -424,7 +471,7 @@ export type MovieId = 1 | 2 | 4 | 5;
 const MOVIES: Record<MovieId, Movie> = {
   1: {
     scenes: [
-      { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで試作品Bができた", draw: scenePrinter },
+      { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで人工軟骨の試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は一歩ごとに押されてへこむ", draw: sceneLeg },
       { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「20秒後の力は区別できません」", draw: sceneRobot },
     ],
@@ -565,14 +612,14 @@ export function runTimeline(o: {
 }
 
 /**
- * 謎2：ゆっくり歩かせた12歩目の中のへこみ（誤差なし・公開の式）。A＝点線、あなた＝実線。
+ * 謎2：謎1と同じ「走る」の1歩目の中のへこみ（誤差なし・公開の式）。A＝点線、あなた＝実線。
  * ロボが測る点と、ロボが測らない点に、差と目標を大きく出す。判定は judgeDuel と同じ値を渡す。
  */
 export function duelStepGraph(o: {
   x: number; y: number; w: number; h: number; period: number;
   a: readonly { u: number; v: number }[]; b: readonly { u: number; v: number }[];
-  robot: { u: number; label: string; diff: number; ok: boolean; goal: string };
-  hidden: { u: number; label: string; diff: number; ok: boolean; goal: string };
+  robot: { u: number; before: boolean; label: string; diff: number; ok: boolean; goal: string };
+  hidden: { u: number; before: boolean; label: string; diff: number; ok: boolean; goal: string };
   cursor: number | null; scan: boolean;
 }): string {
   const L = 60, R = 24, T = 54, B = 46;
@@ -583,24 +630,31 @@ export function duelStepGraph(o: {
   const ys = (v: number) => T + (o.h - T - B) * ((vMax - v) / (vMax - vMin));
   const path = (pts: readonly { u: number; v: number }[]) => pts.map((p, i) => `${i ? "L" : "M"}${xs(p.u).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
   const yAt = (pts: readonly { u: number; v: number }[], u: number, before: boolean) => {
+    // 跳ぶ点（着地・足を上げる）では、跳ぶ前（before）か跳んだあとの値を選ぶ
+    const target = before ? u : u + 1e-6;
     let best = pts[0]!;
-    for (const p of pts) if ((before ? p.u <= u + 1e-9 : p.u >= u - 1e-9) && Math.abs(p.u - u) <= Math.abs(best.u - u)) best = p;
+    for (const p of pts) if ((before ? p.u <= u + 1e-9 : p.u >= u - 1e-9) && Math.abs(p.u - target) < Math.abs(best.u - target)) best = p;
     return best.v;
   };
   const marker = (m: typeof o.robot, kind: "robot" | "hidden") => {
-    const before = m.u > 0.25; // 足を上げる直前は、跳ぶ前の値
+    const before = m.before; // 足を上げる直前は跳ぶ前、足を上げた直後は跳んだあとの値
     const ya = yAt(o.a, m.u, before), yb = yAt(o.b, m.u, before);
     const col = kind === "robot" ? "var(--gold)" : "var(--stamp)";
-    const bx = Math.min(o.w - R - 250, Math.max(L + 4, xs(m.u) - (kind === "robot" ? 8 : 125)));
-    const by = kind === "robot" ? T + 4 : o.h - B - 96;
+    // 札は線の右側に出す。札の幅のあいだに線が上のほうを通るなら下へ、そうでなければ上へ置く（線と点を隠さない）
+    const BW = 232, BH = 116;
+    const bx = Math.min(o.w - R - BW, xs(m.u) + 10);
+    const span = [...o.a, ...o.b].filter((p) => xs(p.u) >= bx - 6 && xs(p.u) <= bx + BW + 6).map((p) => ys(p.v));
+    const topFree = span.every((y) => y > T + 4 + BH + 8);
+    const by = topFree ? T + 4 : o.h - B - BH - 4;
     return `<g>
       <line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${T}" y2="${o.h - B}" stroke="${col}" stroke-width="3" stroke-dasharray="${kind === "robot" ? "0" : "6 5"}"/>
       <line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${ys(ya)}" y2="${ys(yb)}" stroke="${col}" stroke-width="9" stroke-linecap="round" opacity=".55"/>
       <circle cx="${xs(m.u)}" cy="${ys(yb)}" r="8" fill="${col}"/>
-      <g transform="translate(${bx},${by})"><rect width="250" height="92" rx="12" fill="var(--panel)" stroke="${col}" stroke-width="3"/>
-        <text x="14" y="28" fill="${col}" font-size="18" font-weight="900">${kind === "robot" ? "🔍 ロボが測る" : "ロボが測らない"}：${m.label}</text>
-        <text x="14" y="58" fill="var(--ink)" font-size="22" font-weight="900" font-variant-numeric="tabular-nums">差 ${m.diff >= 0 ? "+" : "−"}${Math.abs(m.diff).toFixed(3)} ${m.ok ? "✓" : ""}</text>
-        <text x="14" y="82" fill="${m.ok ? "var(--you)" : "var(--soft)"}" font-size="15" font-weight="900">${m.goal}</text></g>
+      <g transform="translate(${bx},${by})"><rect width="${BW}" height="${BH}" rx="12" fill="var(--panel)" stroke="${col}" stroke-width="3"/>
+        <text x="14" y="26" fill="${col}" font-size="16" font-weight="900">${kind === "robot" ? "🔍 ロボが測る" : "ロボが測らない"}</text>
+        <text x="14" y="50" fill="${col}" font-size="18" font-weight="900">${m.label}</text>
+        <text x="14" y="80" fill="var(--ink)" font-size="22" font-weight="900" font-variant-numeric="tabular-nums">差 ${m.diff >= 0 ? "+" : "−"}${Math.abs(m.diff).toFixed(3)} ${m.ok ? "✓" : ""}</text>
+        <text x="14" y="104" fill="${m.ok ? "var(--you)" : "var(--soft)"}" font-size="15" font-weight="900">${m.goal}</text></g>
     </g>`;
   };
   return `<g transform="translate(${o.x},${o.y})">
@@ -608,9 +662,9 @@ export function duelStepGraph(o: {
     <rect x="${xs(0)}" y="${T}" width="${xs(0.5) - xs(0)}" height="${o.h - T - B}" fill="color-mix(in srgb, var(--bot) 10%, transparent)"/>
     <text x="${(xs(0) + xs(0.5)) / 2}" y="${T - 12}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">体重がかかっている</text>
     <text x="${(xs(0.5) + xs(1)) / 2}" y="${T - 12}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">足を上げている</text>
-    <text x="14" y="${T - 30}" fill="var(--ink)" font-size="17" font-weight="900">12歩目のへこみ</text>
+    <text x="14" y="${T - 30}" fill="var(--ink)" font-size="17" font-weight="900">走って1歩目のへこみ</text>
     ${[0, 0.5, 1].map((v) => `<line x1="${L}" x2="${o.w - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${ys(v) + 5}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="end">${v}</text>`).join("")}
-    ${[0, 0.5, 1].map((u) => `<text x="${xs(u)}" y="${o.h - B + 22}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="middle">${(u * o.period).toFixed(0)}${u === 1 ? " 秒" : ""}</text>`).join("")}
+    ${[0, 0.5, 1].map((u) => `<text x="${xs(u)}" y="${o.h - B + 22}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="middle">${+(u * o.period).toFixed(2)}${u === 1 ? " 秒" : ""}</text>`).join("")}
     <path d="${path(o.a)}" fill="none" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/>
     <path d="${path(o.b)}" fill="none" stroke="var(--you)" stroke-width="4"/>
     ${marker(o.hidden, "hidden")}${marker(o.robot, "robot")}
@@ -963,31 +1017,32 @@ export function nerveWhole(x: number, y: number, pressed: boolean): string {
     <text x="14" y="26" fill="var(--ink)" font-size="15" font-weight="900">全体：膝のまわりの神経（模式図）</text>
     <path d="M70 92 C 40 92, 38 56, 66 50 C 70 28, 110 22, 128 36 C 150 18, 196 26, 196 52 C 226 56, 224 94, 196 96 C 190 112, 150 116, 138 104 C 120 116, 84 112, 70 92 Z" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
     <path d="M92 64 q16 -12 30 0 M134 56 q14 10 32 -2 M100 88 q20 -8 40 4" stroke="var(--pad-b-edge)" stroke-width="2" fill="none"/>
-    <text x="232" y="80" fill="var(--soft)" font-size="13">脳</text>
+    <text x="226" y="80" fill="var(--soft)" font-size="16" font-weight="900">脳</text>
     <path d="M178 340 C 214 270, 226 180, 162 124" stroke="var(--you)" stroke-width="5" fill="none" stroke-linecap="round"/>
     <path d="M150 112 l22 2 l-10 18 z" fill="var(--you)"/>
-    <text x="222" y="222" fill="var(--soft)" font-size="12">神経</text>
-    <text x="196" y="142" fill="var(--you)" font-size="12" font-weight="900">脳へ伝える</text>
+    <text x="214" y="236" fill="var(--soft)" font-size="16" font-weight="900">神経</text>
+    <text x="180" y="146" fill="var(--you)" font-size="15" font-weight="900">脳へ伝える</text>
     <rect x="98" y="210" width="34" height="96" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
     <path d="M78 318 C 78 298, 152 298, 152 318 Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
     <rect x="80" y="320" width="70" height="${pressed ? 10 : 14}" rx="6" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
     <path d="M76 ${pressed ? 334 : 338} H154 C 154 352, 132 356, 130 372 V420 H100 V372 C 98 356, 76 352, 76 ${pressed ? 334 : 338} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
-    <text x="14" y="252" fill="var(--soft)" font-size="12">膝</text>
-    ${pressed ? `<path d="M115 172 v30 m-10 -10 l10 10 l10 -10" stroke="var(--gold)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="132" y="188" fill="var(--gold)" font-size="12" font-weight="900">押される</text>` : ""}
+    <text x="40" y="262" fill="var(--soft)" font-size="16" font-weight="900">膝</text>
+    ${pressed ? `<path d="M115 172 v30 m-10 -10 l10 10 l10 -10" stroke="var(--gold)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="132" y="190" fill="var(--gold)" font-size="15" font-weight="900">押される</text>` : ""}
     <path d="M178 340 l-12 14 M178 340 l2 18 M178 340 l14 12" stroke="var(--you)" stroke-width="3" fill="none" stroke-linecap="round"/>
     <g fill="var(--you)"><circle cx="166" cy="355" r="3.5"/><circle cx="180" cy="359" r="3.5"/><circle cx="192" cy="353" r="3.5"/></g>
     <rect x="156" y="318" width="44" height="44" rx="6" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="5 4"/>
     <path d="M200 324 L270 20 M200 356 L270 440" stroke="var(--gold)" stroke-width="1.5" stroke-dasharray="4 5" opacity=".7"/>
-    <text x="14" y="438" fill="var(--soft)" font-size="12">枠＝神経の端の膜（右に拡大）</text>
+    <text x="14" y="438" fill="var(--soft)" font-size="15" font-weight="900">枠＝神経の端の膜（右に拡大）</text>
   </g>`;
 }
 
 /** 膜の拡大図一枚（左上が x, y。幅 490×高さ 200 を s 倍） */
-export function membranePatch(x: number, y: number, s: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number): string {
-  return `<g transform="translate(${x},${y}) scale(${s}) translate(-300,-18)">${patchAt(18, m, label, kind, reveal, t, t <= PULSE_MS)}</g>`;
+export function membranePatch(x: number, y: number, s: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number, compact = false): string {
+  return `<g transform="translate(${x},${y}) scale(${s}) translate(-300,-18)">${patchAt(18, m, label, kind, reveal, t, t <= PULSE_MS, compact)}</g>`;
 }
 
-function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number, flowing: boolean): string {
+/** compact：縮めて並べるとき（謎4 仕掛けろ）。小さくなる部品の名前は出さず、名前と電圧を大きく */
+function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal: boolean, t: number, flowing: boolean, compact = false): string {
   const L = 300;
   const R = 790;
   const dv = deltaMv(m, t);
@@ -1016,11 +1071,10 @@ function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal
   const edge = kind === "A" ? "var(--soft)" : "var(--you)";
   return `<g>
     <rect x="${L}" y="${y0}" width="${R - L}" height="200" rx="12" fill="var(--panel)" stroke="${edge}" stroke-width="${kind === "B" ? 2.5 : 1.5}"/>
-    <text x="${L + 14}" y="${y0 + 24}" fill="var(--ink)" font-size="17" font-weight="900">${label}</text>
-    <text x="${L + 26 + 18 * label.length}" y="${y0 + 24}" fill="var(--soft)" font-size="13">${reveal ? `ためやすさ ×${m.c.toFixed(2)}　通りやすさ ×${m.g.toFixed(2)}` : "ためやすさ ×？　通りやすさ ×？"}</text>
-    <text x="${R - 14}" y="${y0 + 26}" fill="${edge}" font-size="24" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text>
-    <text x="${R - 14}" y="${y0 + 52}" fill="var(--soft)" font-size="12" text-anchor="end">細胞の外</text>
-    <text x="${L + 14}" y="${y0 + 190}" fill="var(--soft)" font-size="12">細胞の中</text>
+    <text x="${L + 14}" y="${y0 + (compact ? 34 : 24)}" fill="var(--ink)" font-size="${compact ? 26 : 17}" font-weight="900">${label}</text>
+    <text x="${R - 14}" y="${y0 + (compact ? 36 : 26)}" fill="${edge}" font-size="${compact ? 32 : 24}" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text>
+    ${compact ? "" : `<text x="${R - 14}" y="${y0 + 52}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">細胞の外</text>
+    <text x="${L + 14}" y="${y0 + 190}" fill="var(--soft)" font-size="15" font-weight="900">細胞の中</text>`}
     <rect x="${L + 10}" y="${memTop}" width="${R - L - 20}" height="${memBot - memTop}" fill="var(--membrane)"/>
     <g fill="var(--membrane-edge)" stroke="var(--membrane-edge)" stroke-width="1.5">${heads.join("")}</g>
     <g fill="var(--plus)">${restX.map((xx) => `<text x="${xx}" y="${memTop - 8}" font-size="14" font-weight="900" text-anchor="middle">＋</text>`).join("")}</g>
@@ -1030,12 +1084,12 @@ function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal
     <rect x="${entX - 18}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
     <rect x="${entX + 6}" y="${memTop - 4}" width="12" height="${memBot - memTop + 8}" rx="5" fill="var(--bot)"/>
     ${flowing ? `<path d="M${entX} ${memTop - 30} V${memBot + 22}" stroke="var(--gold)" stroke-width="7" stroke-linecap="round"/><path d="M${entX - 10} ${memBot + 12} l10 12 l10 -12" stroke="var(--gold)" stroke-width="5" fill="none" stroke-linecap="round"/>` : `<rect x="${entX - 8}" y="${memTop + 12}" width="16" height="${memBot - memTop - 24}" fill="var(--bot)"/>`}
-    <text x="${L + 14}" y="${y0 + 46}" fill="var(--bot)" font-size="12" font-weight="900">入口（膝が押されると開く）</text>
+    ${compact ? "" : `<text x="${L + 14}" y="${y0 + 46}" fill="var(--bot)" font-size="15" font-weight="900">入口（押されると開く）</text>`}
     
     ${leakX.map((lx) => `<rect x="${lx - 9}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/><rect x="${lx + 3}" y="${memTop - 3}" width="6" height="${memBot - memTop + 6}" rx="3" fill="var(--leak)"/>${out > 0.6 ? `<path d="M${lx} ${memBot + 14} V${memTop - 18}" stroke="var(--leak)" stroke-width="${Math.max(2, out / Math.sqrt(leaks)).toFixed(1)}" stroke-linecap="round"/><path d="M${lx - 7} ${memTop - 10} l7 -9 l7 9" stroke="var(--leak)" stroke-width="3" fill="none"/>` : ""}`).join("")}
-    <text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 46}" fill="var(--leak)" font-size="12" font-weight="900" text-anchor="end">いつも開いている通り道</text>
+    ${compact ? "" : `<text x="${leakX[leakX.length - 1]! + 22}" y="${y0 + 46}" fill="var(--leak)" font-size="15" font-weight="900" text-anchor="end">いつも開いている通り道</text>`}
       
-    <text x="${R - 14}" y="${y0 + 190}" fill="var(--gold)" font-size="14" font-weight="800" text-anchor="end">${plus > 0 ? "金の＋＝入ってきた＋のイオン" : ""}</text>
+    <text x="${R - 14}" y="${y0 + 190}" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="end">${plus > 0 && !compact ? "金の＋＝入ってきた＋のイオン" : ""}</text>
   </g>`;
 }
 
@@ -1052,21 +1106,21 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
   };
   return `<g>
     <rect x="${xs(0)}" y="${GT}" width="${xs(PULSE_MS) - xs(0)}" height="${GB - GT}" fill="var(--band)"/>
-    <text x="${(xs(0) + xs(PULSE_MS)) / 2}" y="${GT + 18}" fill="var(--soft)" font-size="12" text-anchor="middle">押されている間（入口が開く）</text>
-    ${[0, 5, 10].filter((v) => v <= top).map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GL - 6}" y="${ys(v) + 4}" fill="var(--soft)" font-size="12" text-anchor="end">−${Math.abs(REST_MV + v)}</text>`).join("")}
-    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${GB + 20}" fill="var(--soft)" font-size="12" text-anchor="middle">${ms} ms</text>`).join("")}
-    <text x="${GL - 30}" y="${GT - 30}" fill="var(--ink)" font-size="13" font-weight="900">膜の電圧（mV）</text>
+    <text x="${(xs(0) + xs(PULSE_MS)) / 2}" y="${GT + 18}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">押している（入口が開く）</text>
+    ${[0, 5, 10].filter((v) => v <= top).map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GL - 6}" y="${ys(v) + 5}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">−${Math.abs(REST_MV + v)}</text>`).join("")}
+    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${GB + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="${ms === 200 ? "end" : "middle"}">${ms === 100 ? "100 ms（離す）" : `${ms} ms`}</text>`).join("")}
+    <text x="${GL - 30}" y="${GT - 30}" fill="var(--ink)" font-size="16" font-weight="900">膜の電圧（mV）</text>
     
     
-    ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)) > top ? `<text x="${xs(PULSE_MS / 2)}" y="${GT + 38}" fill="var(--gold)" font-size="13" font-weight="900" text-anchor="middle">↑ 線が枠の外へ出ている（上がった高さ ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)).toFixed(1)} mV）</text>` : ""}
+    ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)) > top ? `<text x="${xs(PULSE_MS / 2)}" y="${GT + 38}" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">↑ 線が枠の外へ出ている（上がった高さ ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)).toFixed(1)} mV）</text>` : ""}
     <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
     <line x1="${xs(t)}" x2="${xs(t)}" y1="${GT}" y2="${GB}" stroke="var(--gold)" stroke-width="2.5"/>
     <circle cx="${xs(t)}" cy="${ys(deltaMv(a, t))}" r="6" fill="var(--panel)" stroke="var(--soft)" stroke-width="3"/>
     <circle cx="${xs(t)}" cy="${ys(deltaMv(b, t))}" r="7" fill="var(--you)"/>
-    ${o.notes === false ? `<text x="${GL - 30}" y="${GB + 40}" fill="var(--soft)" font-size="12">点線＝${o.a}　実線＝${o.b}</text>` : `<text x="${GL - 30}" y="${GB + 42}" fill="var(--soft)" font-size="12">点線＝${o.a}　実線＝${o.b}　ms＝ミリ秒（1000分の1秒）</text>
-    
-    <text x="${GL - 30}" y="${GB + 76}" fill="var(--soft)" font-size="14" font-weight="800">この模型は、入口で電圧が上がって戻るところだけ（脳へ送るしくみは扱わない）</text>`}
+    ${o.notes === false ? `<text x="${GL - 30}" y="${GB + 44}" fill="var(--soft)" font-size="15" font-weight="900">点線＝${o.a}　実線＝${o.b}</text>` : `<text x="${GL - 30}" y="${GB + 44}" fill="var(--soft)" font-size="15" font-weight="900">点線＝${o.a}　実線＝${o.b}　ms＝1000分の1秒</text>
+    <text x="${GL - 30}" y="${GB + 68}" fill="var(--soft)" font-size="15" font-weight="900">この模型は、電圧が上がって戻るところだけ</text>
+    <text x="${GL - 30}" y="${GB + 88}" fill="var(--soft)" font-size="15" font-weight="900">（脳へ知らせるしくみは扱わない）</text>`}
   </g>`;
 }
 
@@ -1082,6 +1136,26 @@ export function nerveStage(a: Membrane, b: Membrane, t: number, o: { a: string; 
     ${o.whole === false ? "" : nerveWhole(16, 16, flowing)}
     ${patchAt(18, a, o.a, "A", true, t, flowing)}${patchAt(248, b, o.b, "B", o.revealB, t, flowing)}
     ${membraneGraph({ GL: 830, GR: 1250, GT: 78, GB: 390 }, a, b, t, o)}
+  </g>`;
+}
+
+/** 謎4 証言：膜の検査のようす。押している 100 ms と離したあと。ロボは「離す直前」の電圧だけを読む（値は A と B の離す直前だけ） */
+export function memTestStrip(x: number, y: number, w: number, a: number, b: number): string {
+  const mid = x + w / 2;
+  return `<g>
+    <text x="${x}" y="${y}" fill="var(--ink)" font-size="19" font-weight="900">膜の検査のようす</text>
+    <rect x="${x}" y="${y + 60}" width="${w / 2}" height="46" rx="8" fill="color-mix(in srgb, var(--gold) 22%, var(--panel))" stroke="var(--gold)" stroke-width="2"/>
+    <rect x="${mid}" y="${y + 60}" width="${w / 2}" height="46" rx="8" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <text x="${x + w / 4}" y="${y + 90}" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">押している（入口が開く）</text>
+    <text x="${mid + w / 4}" y="${y + 90}" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">離した（入口が閉じる）</text>
+    <text x="${x}" y="${y + 128}" fill="var(--soft)" font-size="15" font-weight="900">0 ms</text>
+    <text x="${x + w}" y="${y + 128}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">200 ms</text>
+    <line x1="${mid}" x2="${mid}" y1="${y + 46}" y2="${y + 118}" stroke="var(--bot)" stroke-width="5"/>
+    <path d="M${mid} ${y + 46} l-9 -12 h18 z" fill="var(--bot)"/>
+    <text x="${mid}" y="${y + 26}" fill="var(--bot)" font-size="18" font-weight="900" text-anchor="middle">🔍 離す直前（押して 100 ms）</text>
+    <text x="${mid}" y="${y + 150}" fill="var(--bot)" font-size="17" font-weight="900" text-anchor="middle">ロボは、ここの電圧だけを読む</text>
+    <g transform="translate(${mid - 250},${y + 170})"><rect width="230" height="50" rx="12" fill="var(--paper)"/><text x="115" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">A：${a.toFixed(1).replace("-", "−")} mV</text></g>
+    <g transform="translate(${mid + 20},${y + 170})"><rect width="230" height="50" rx="12" fill="var(--paper)"/><text x="115" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">B：${b.toFixed(1).replace("-", "−")} mV</text></g>
   </g>`;
 }
 

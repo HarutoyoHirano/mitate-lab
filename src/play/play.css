@@ -194,7 +194,10 @@ button { font: inherit; }
 .card-ev .big { color: #c2261d; font-weight: 900; font-size: max(14px, 1.6cqw); }
 .card-ev.dim { opacity: 0.7; }
 .lineup { position: absolute; left: 2%; right: 2%; top: 2%; bottom: 2%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; }
-.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
+.ghost { position: relative; border: 3px dashed var(--c); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 0.6cqw 0.8cqw; display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 0.3cqw; cursor: pointer; text-align: center; color: var(--ink); }
+/* 結果の札（計算：合わない など）と砕けた印は、グラフの上の決まった場所に置く（グラフの赤い丸を隠さない） */
+.ghost .gres { min-height: 3.2cqw; display: flex; align-items: center; justify-content: center; gap: 0.6cqw; }
+.ghost .gres .puck { width: 26%; margin: 0; }
 .ghost .puck { width: 55%; margin: 0 auto; display: block; }
 .ghost .model { width: 46%; margin: 0 auto; display: block; }
 .ghost .gpart { font-size: max(10px, 0.9cqw); color: var(--c); font-weight: 800; }
@@ -205,10 +208,11 @@ button { font: inherit; }
 .ghost .tag.match { border-color: var(--you); color: var(--you); }
 .ghost .tag.out { border-color: var(--stamp); color: var(--stamp); }
 .ghost .tag.unsure { border-color: var(--gold); color: var(--gold); }
-.ghost .res { position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%) rotate(-10deg); font-weight: 900; font-size: max(13px, 1.5cqw); padding: 0.2cqw 0.8cqw; border-radius: 8px; background: var(--panel); border: 3px solid var(--stamp); color: var(--stamp); white-space: nowrap; }
+.ghost .res { transform: rotate(-4deg); font-weight: 900; font-size: max(13px, 1.5cqw); padding: 0.2cqw 0.8cqw; border-radius: 8px; background: var(--panel); border: 3px solid var(--stamp); color: var(--stamp); white-space: nowrap; }
 .ghost .res.back { border-color: var(--gold); color: var(--gold); }
 .ghost .res.win { border-color: var(--you); color: var(--you); }
-.ghost.broken { opacity: 0.55; cursor: default; }
+.ghost.broken { cursor: default; }
+.ghost.prev { opacity: 0.55; }
 .ghost.summoned { border-style: solid; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent); }
 .puck.broken .shard { transform-box: fill-box; transform-origin: center; animation: shard 0.5s ease-out both; }
 @keyframes shard { from { transform: translateY(-24px) scale(1.5) rotate(40deg); opacity: 1; } }

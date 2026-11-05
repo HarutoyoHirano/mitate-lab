@@ -72,11 +72,11 @@ export const CARTILAGE_POINTS: readonly (RetrainPoint & { period: number; step: 
 );
 /**
  * 新しい画面で選べる軟骨の数字（2026-11-05 夜、作者の指摘「テンポ・何歩目・一歩の中は、今は判断できるようになっていない」による）。
- * プレイヤーが見たことのある瞬間だけ：謎1の「走る」の1歩目の4点と、謎2の「ゆっくり歩く」12歩目の4点
+ * プレイヤーが見たことのある瞬間だけ：謎1・謎2と同じ「走る」の1歩目の4点
+ * （2026-11-06、謎2のロボの検査を「走る」の1歩目に変えたため、ゆっくり歩く12歩目の4点は外した）
  */
 export const CARTILAGE_SHOWN: readonly { group: string; ids: readonly string[] }[] = [
-  { group: "謎1の走り（1歩目）", ids: STEP_PHASES.map((ph) => `jog:0:${ph}`) },
-  { group: "謎2のゆっくり歩き（12歩目）", ids: STEP_PHASES.map((ph) => `slowWalk:11:${ph}`) },
+  { group: "走って1歩目（謎1・謎2と同じ走り）", ids: STEP_PHASES.map((ph) => `jog:0:${ph}`) },
 ];
 /** 全テンポ・全歩・全時点のへこみ（違いが残るかを見る） */
 function allDents(p: MaterialParams): number[] {
