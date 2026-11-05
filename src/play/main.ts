@@ -181,6 +181,27 @@ const sgn = (x: number, d = 3) => {
   const s = Math.abs(x).toFixed(d);
   return `${Number(s) === 0 ? "±" : x > 0 ? "+" : "−"}${s}`;
 };
+/**
+ * 日本語の文を文節に近い切れ目で区切り、その切れ目にだけ改行の候補（<wbr>）を置く（CSS の keep-all と組み合わせる）。
+ * 語の区切りはブラウザの Intl.Segmenter。ひらがなで始まる語（助詞・語尾）や漢字・カタカナの続きは前の語につなげ、句読点・かぎかっこの前後で区切る。
+ */
+const segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter("ja", { granularity: "word" }) : null;
+function phrase(text: string): string {
+  if (!segmenter) return esc(text);
+  const chunks: string[] = [];
+  for (const { segment } of segmenter.segment(text)) {
+    const last = chunks[chunks.length - 1];
+    // 新しい区切りを始めるのは：句点・読点のあと／かぎかっこ・かっこの始まり／ひらがな（か閉じかっこ）で終わった後に、ひらがなでない語が来たとき
+    const startsNew =
+      last === undefined ||
+      /[、。！？]$/.test(last) ||
+      (/^[「（]/.test(segment) && !/[「（]$/.test(last)) ||
+      ((/[\u3041-\u309f\u30fc」）]$/.test(last)) && !/^[\u3041-\u309f\u30fc、。！？」）・…]/.test(segment));
+    if (startsNew) chunks.push(segment);
+    else chunks[chunks.length - 1] = last + segment;
+  }
+  return chunks.map(esc).join("<wbr>");
+}
 const roll = (v: string, delay = 0) => `<span data-roll="${v}" data-delay="${delay}">${v}</span>`;
 
 /** メッセージ窓に出す。長い文は「。」の切れ目で分け、窓を押すと次へ送る（一度に一つか二つの文） */
@@ -1222,7 +1243,7 @@ function render(): void {
   const focusId = (document.activeElement as HTMLElement | null)?.dataset?.act;
   app.innerHTML = `<div class="game"><div class="screen">
     <header class="hud">
-      <span class="chap">${esc(v.chap)}</span><span class="goal">${esc(v.goal)}</span>
+      <span class="chap">${esc(v.chap)}</span><span class="goal">${phrase(v.goal)}</span>
       <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
       ${state.scene.startsWith("n-") ? `<span class="ai">Claude（AI）・謎を組み立てる${state.nx.live ? "" : "（11/5の記録）"}</span>` : state.claude && state.scene.startsWith("c1") ? `<span class="ai">相棒 Claude（AI）</span>` : ""}
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
@@ -1231,7 +1252,7 @@ function render(): void {
     </header>
     <div class="stage"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
-      <div><span class="who ${v.who}">${WHO_LABEL[v.who]}</span><p class="text ${state.line.rest.length ? "more" : ""}" aria-live="polite" ${state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${esc(v.text)}</p>${state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${v.sub ? `<p class="sub">${esc(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
+      <div><span class="who ${v.who}">${WHO_LABEL[v.who]}</span><p class="text ${state.line.rest.length ? "more" : ""}" aria-live="polite" ${state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(v.text)}</p>${state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
       <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
@@ -1252,7 +1273,7 @@ function render(): void {
       const el = app.querySelector<HTMLElement>(".text");
       if (!el) return;
       i = Math.min(full.length, i + 2);
-      el.textContent = full.slice(0, i);
+      el.innerHTML = phrase(full.slice(0, i));
       if (i < full.length) setTimeout(tick, 18);
     };
     tick();

@@ -286,3 +286,6 @@ button { font: inherit; }
 .picker input[type="range"] { flex: 1; accent-color: var(--gold); }
 .picker .slot { display: inline-flex; gap: 0.4cqw; align-items: center; border: 2px dashed var(--line); border-radius: 9px; padding: 0.2cqw 0.6cqw; }
 .picker .slot.full { border-style: solid; border-color: var(--gold); }
+
+/* 日本語の改行は、文節に近い切れ目（phrase() が置く <wbr>）でだけ入れる。長すぎる語だけは途中で折る */
+.text, .sub, .goal, .cmd, .choice, .panel li, .panel p, .panel td { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
