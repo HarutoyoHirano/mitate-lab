@@ -1503,7 +1503,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     });
     state.mood = "smug";
     const it = r.view.intro;
-    introLine = `いつもの検査の結果です。押して20秒後の力は、A：${it.base.toFixed(3)} [N]、B：${it.force.toFixed(3)} [N]。ちがいは、わずか ${Math.abs(it.force - it.base).toFixed(3)} [N]。`;
+    introLine = `いつもの検査の結果です。押して20秒後の力は　A：${it.base.toFixed(3)} [N]　　B：${it.force.toFixed(3)} [N]。ちがいは、わずか ${Math.abs(it.force - it.base).toFixed(3)} [N]。`;
     say("guide", "はじまりの話：新しい試作品Bができて、検査ロボが調べた。何が起きたのか、見てみよう。");
     state.scene = "movie";
     state.movieId = 1;
