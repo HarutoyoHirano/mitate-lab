@@ -654,9 +654,9 @@ function c1SolvedWhich(): View {
   const mB = modelState(t, tb);
   const up = hl === "relax" ? tb.tau > BASE.tau : hl === "instant" ? tb.e1 > BASE.e1 : tb.eInf > BASE.eInf;
   const lines: Record<string, [string, string]> = {
-    relax: [up ? "Bは、ダンパが重い（ねばりが強い）" : "Bは、ダンパが軽い（ねばりが弱い）", up ? "だから、増えたかたさがゆっくり消える" : "だから、増えたかたさが速く消える"],
-    instant: [up ? "Bは、右のばねが強い" : "Bは、右のばねが弱い", up ? "だから、押した直後の力が大きい（消える速さは見本と同じ）" : "だから、押した直後の力が小さい（消える速さは見本と同じ）"],
-    overall: [up ? "Bは、左のばねが強い" : "Bは、左のばねが弱い", "だから、待ったあとの力が見本と違う"],
+    relax: [up ? "Bは、ダンパにあたる性質（ねばり）が強い" : "Bは、ダンパにあたる性質（ねばり）が弱い", up ? "だから、増えたかたさがゆっくり消える" : "だから、増えたかたさが速く消える"],
+    instant: [up ? "Bは、右のばねにあたるかたさが大きい" : "Bは、右のばねにあたるかたさが小さい", up ? "だから、押した直後の力が大きい（消える速さは見本と同じ）" : "だから、押した直後の力が小さい（消える速さは見本と同じ）"],
+    overall: [up ? "Bは、左のばねにあたるかたさが大きい" : "Bは、左のばねにあたるかたさが小さい", "だから、待ったあとの力が見本と違う"],
   };
   const [l1, l2] = lines[hl ?? "relax"]!;
   const gx = 790, gy = 40, gw = 400, gh = 250;
@@ -666,7 +666,7 @@ function c1SolvedWhich(): View {
   const tx = (x: number, y: number, str: string, size: number, color = "var(--paper-ink)", anchor = "start") => `<text x="${x}" y="${y}" fill="${color}" font-size="${size}" font-weight="900" text-anchor="${anchor}">${esc(str)}</text>`;
   return {
     chap: "謎1 解決",
-    goal: "Bは、模型のどの部品が違った？",
+    goal: "Bの軟骨は、ばね・ダンパに見立てるとどこが違った？",
     svg: `<g transform="translate(30,20)"><rect width="1220" height="420" rx="18" fill="var(--paper)"/>
       ${tx(180, 40, "見本 A", 22, "var(--paper-ink)", "middle")}${tx(540, 40, "試作品 B", 22, "var(--paper-ink)", "middle")}
       <g transform="translate(20,60) scale(1.8)">${slsAnim({ x: mA.x, s1: mA.s1, e1: BASE.e1, hl: null })}</g>
@@ -708,13 +708,13 @@ function c1SolvedModel(): View {
     "しばらく待つと：左のばねだけが押し返す → 20秒後のAとBは同じ",
   ];
   const which: Record<string, string> = {
-    instant: "Bは、右のばねが見本と違った（押した直後に足されるかたさ）",
-    relax: "Bは、ダンパのねばりが見本と違った（力が抜けていく速さ）",
-    overall: "Bは、左のばねが見本と違った",
+    instant: "Bは、右のばねにあたるかたさが見本と違った（押した直後に足されるかたさ）",
+    relax: "Bは、ダンパにあたる性質（ねばり）が見本と違った（力が抜けていく速さ）",
+    overall: "Bは、左のばねにあたるかたさが見本と違った",
   };
   return {
     chap: "謎1 解決",
-    goal: step2 ? "Bは、模型のどの部品が違った？" : "人工軟骨を、ばねとダンパの模型に見立てる",
+    goal: step2 ? "Bの軟骨は、ばね・ダンパに見立てるとどこが違った？" : "人工軟骨を、ばねとダンパに見立てる（中に本物のばねがあるわけではない）",
     svg: `<g transform="translate(30,20)"><rect width="1220" height="420" rx="18" fill="var(--paper)"/>
       ${step2 ? `<g transform="translate(40,40) scale(2)">${slsModel({ hl, mark: hl ? "！" : undefined, base: "var(--paper-soft)", color: "var(--stamp)" })}</g>` : modelScene(state.modelT)}
       ${parts.map(([n, e], k) => `${t(460, 64 + k * 62, n, 23, step2 && hl === (["overall", "instant", "relax"] as const)[k] ? "var(--stamp)" : "var(--paper-ink)")}${t(580, 64 + k * 62, e, 19, "var(--paper-soft)")}`).join("")}
@@ -727,7 +727,7 @@ function c1SolvedModel(): View {
     who: "guide",
     text: state.line.text,
     cmds: [
-      step2 ? { act: "solved-back", label: "やさしい説明に戻る", ghost: true } : { act: "solved-more", label: "Bは、どの部品が違った？", sub: "模型で正体を見る" },
+      step2 ? { act: "solved-back", label: "やさしい説明に戻る", ghost: true } : { act: "solved-more", label: "Bは、どこが違った？", sub: "ばね・ダンパに見立てて見る" },
       { act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true },
     ],
   };
@@ -1265,8 +1265,8 @@ function endView(): View {
   const sm = machineScale(PREPARED_NETS[1]!, [endRuns.m]);
   return {
     chap: "まとめ",
-    goal: "並べてみると、三つとも同じ部品の組み合わせだった",
-    svg: `<text x="640" y="30" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">軟骨・血管・神経の膜。ちがう体の部分なのに、同じ部品で組み立てられる</text>
+    goal: "並べてみると、三つとも同じ見立てで書けた",
+    svg: `<text x="640" y="30" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">軟骨・血管・神経の膜。ちがう体の部分なのに、同じ見立て（ためる・流れにくさ・送りこむ）で書ける</text>
       ${endCard(26, "謎1・2 人工軟骨", "かたさと力", `<g transform="translate(120,40) scale(0.8)">${slsModel({ hl: null })}</g>`, [["ばね", "ためる"], ["ダンパ（ねばり）", "流れにくさ"], ["押す速さ", "送りこむ"]], false)}
       ${endCard(438, "謎3 人工血管", "流れと圧", machine(PREPARED_NETS[0]!, endRuns.v, 30, sv, { x: 10, y: 34, w: 384, h: 130, scale: 0.85 }), [["ふくらむ血管", "ためる"], ["出口の細い管", "流れにくさ"], ["ポンプ（心臓のかわり）", "送りこむ"]], false)}
       ${endCard(850, "謎4 神経の膜", "電気", machine(PREPARED_NETS[1]!, endRuns.m, 40, sm, { x: 10, y: 34, w: 384, h: 130, scale: 0.85 }), [["膜（あぶらの膜）", "ためる"], ["いつも開いている通り道", "流れにくさ"], ["押されると開く入口", "送りこむ"]], true)}
@@ -1274,7 +1274,7 @@ function endView(): View {
         <text x="614" y="32" fill="var(--paper-ink)" font-size="20" font-weight="900" text-anchor="middle">電気の部品で書くと：ためる＝コンデンサ　流れにくさ＝抵抗　送りこむ＝電流を送りこむもの（膜は＋電池 −70 mV）</text>
         <text x="614" y="62" fill="var(--paper-soft)" font-size="15" font-weight="800" text-anchor="middle">膜で本当に電気だった部品が、軟骨や血管の「見立て」にもなる。だから、見立てラボ。</text></g>
       <text x="640" y="438" fill="var(--soft)" font-size="14" text-anchor="middle">${esc(endNotebook())}</text>
-      <text x="640" y="462" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">同じ部品で、ほかの臓器も組み立てられる？ → つづきの謎</text>`,
+      <text x="640" y="462" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">同じ見立てで、ほかの臓器も書ける？ → つづきの謎</text>`,
     who: "bot",
     text: state.line.text,
     cmds: [
@@ -1295,7 +1295,7 @@ function titleView(): View {
           ["謎2 仕掛けろ", "見本と違うのにロボが見分けられない軟骨をつくる", "かたさと力"],
           ["謎3 脈の見落とし", "膝へ血液を運ぶ人工血管", "流れと圧"],
           ["謎4 膜の見落とし", "膝の感覚を脳へ伝える神経の膜", "電気"],
-          ["まとめ・つづきの謎", "三つは同じ部品でできていた。AIが次の謎を組み立てる", "見立て"],
+          ["まとめ・つづきの謎", "三つは同じ見立てで書けた。AIが次の謎を組み立てる", "見立て"],
         ]
           .map(([c, n, k], i) => `<g class="jump" transform="translate(0,${14 + i * 62})" data-act="jump" data-val="${i}" role="button" tabindex="0" aria-label="${c}から始める"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
@@ -2233,7 +2233,7 @@ app.addEventListener("click", async (e) => {
     // 謎2
     case "solved-more":
       state.solvedStep = Math.min(2, state.solvedStep + 1);
-      say("guide", state.solvedStep === 1 ? "人工軟骨のふるまいは、ばね二つとダンパ一つの模型で書ける。見本Aを1秒かけて押して止めると、模型はこう動く。" : "見本Aと試作品Bを、同じように押して止める。赤く光った部品が、見本と違ったところ。");
+      say("guide", state.solvedStep === 1 ? "軟骨の中に本物のばねやダンパがあるわけではない。でも、軟骨のふるまいは、ばね二つとダンパ一つに見立てると同じ式で書ける。見本Aを1秒かけて押して止めると、見立てはこう動く。" : "見本Aと試作品Bを、同じように押して止める。赤く光ったところにあたる性質が、見本と違った。");
       render();
       modelLoop();
       break;
