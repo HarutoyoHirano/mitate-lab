@@ -756,11 +756,10 @@ function c3Say(): View {
   const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   return {
     chap: "謎3 脈の見落とし",
-    goal: "心臓と血管のまねをした試験装置の、人工血管。ロボの証言を聞こう",
+    goal: "人工血管の試作品Bの検査。ロボの証言を聞こう",
     svg: `<g transform="translate(-40,40) scale(0.72)">${c3Stage()}</g>${bubble(540, 30, lab, l1, l2, 470, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
-    sub: "mmHg（ミリメートル水銀柱）は、血圧に使う圧力の単位。",
     cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
   };
 }
@@ -2044,7 +2043,7 @@ app.addEventListener("click", async (e) => {
     // 謎3（血管）
     case "to-m4":
       state.moviePlaying = false;
-      startMovie(4, "はじまりの話：軟骨には血管がない。では、膝のまわりへ血液を運ぶ血管は？ 人工血管の試作品Bを、ロボが調べた。");
+      startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
       break;
     case "enter-c3":
       state.moviePlaying = false;
@@ -2057,7 +2056,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "c3-next":
       state.say++;
-      say("bot", state.say === 1 ? "平均が同じなら、同じ血管です。それが私の検査の手順です。" : "……1回の脈の平均を測れば十分です。脈の途中まで見る必要はありません。");
+      say("bot", state.say === 1 ? "人工血管の検査では、1回の脈の平均の圧を測ります。平均が同じなら、同じ人工血管とみなします。" : "……1回の脈の平均を測れば十分です。脈の途中まで見る必要はありません。");
       render();
       break;
     case "to-watch3":

@@ -288,12 +288,15 @@ function sceneHeart(s: number): string {
   const out = (p - VA_MIN) / (VA_MAX - VA_MIN);
   return frame(`
     ${heartArt(80, 140, k)}
-    <text x="80" y="226" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">心臓</text>
+    <text x="80" y="222" fill="var(--ink)" font-size="18" font-weight="900" text-anchor="middle">心臓</text>
     ${q > 1 ? `<path d="M118 132 h40 m-10 -8 l10 8 l-10 8" stroke="var(--heart-edge)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="138" y="116" fill="var(--heart-edge)" font-size="15" font-weight="800" text-anchor="middle">ドクン</text>` : ""}
     ${vesselTube(160, 340, 140, p, "var(--pad-a-edge)", "var(--pad-a)")}
     <path d="M340 140 h30" stroke="var(--pad-a-edge)" stroke-width="6"/>
     <path d="M356 ${140 - 8 - 6 * out} l10 ${8 + 6 * out} l-10 ${8 + 6 * out}" stroke="var(--pad-a-edge)" stroke-width="${(2 + 3 * out).toFixed(1)}" fill="none" stroke-linecap="round"/>
-    <text x="250" y="206" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">血管（ふくらんで受け止める）</text>
+    <text x="250" y="206" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">血管（ふくらんで受け止める）</text>
+    <g transform="translate(364,226)"><rect x="-8" y="0" width="16" height="30" rx="4" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2"/><rect x="-14" y="30" width="28" height="8" rx="3" fill="var(--pad-a)"/><rect x="-8" y="38" width="16" height="26" rx="4" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2"/></g>
+    <text x="330" y="262" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="end">膝のまわりへ</text>
+    <path d="M370 150 C 380 180, 372 200, 366 222" stroke="var(--pad-a-edge)" stroke-width="3" fill="none" stroke-dasharray="5 4"/>
     
     `);
 }
@@ -312,10 +315,10 @@ function sceneRig(s: number): string {
   return frame(`
     <rect x="20" y="96" width="76" height="80" rx="12" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/>
     ${heartArt(58, 130, 0.36 * (1 - Math.min(0.16, q / 2400)))}
-    <text x="58" y="88" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">心臓ポンプ</text>
+    <text x="58" y="86" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">心臓ポンプ</text>
     <path d="M96 136 h24" stroke="var(--metal-edge)" stroke-width="8"/>
     ${vesselTube(120, 290, 136, p, "var(--vessel-edge)", "var(--vessel)")}
-    <text x="205" y="196" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">人工血管</text>
+    <text x="205" y="200" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">人工血管</text>
     <path d="M290 136 h30 v90 h-260 v-50" stroke="var(--metal-edge)" stroke-width="5" fill="none"/>
     
     ${gaugeArt(340, 60, p, "圧力計（mmHg）")}
@@ -437,11 +440,11 @@ const MOVIES: Record<MovieId, Movie> = {
   },
   4: {
     scenes: [
-      { dur: 6, tag: "① 軟骨から血管へ", short: "軟骨に血管はない。血液は血管が運ぶ", draw: sceneHeart },
-      { dur: 6, tag: "② 試験装置で調べる", short: "試験装置で人工血管の試作品Bを調べる", draw: sceneHeart },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「平均の圧は区別できません」", draw: sceneRobotMean },
+      { dur: 6, tag: "① 膝のまわりの血管", short: "膝のまわりには心臓が送る血液を血管が運ぶ", draw: sceneHeart },
+      { dur: 6, tag: "② 試験装置", short: "人工血管の試作品Bを心臓のまねをする装置につなぐ", draw: sceneRig },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「1回の脈の平均の圧は区別できません」", draw: sceneRobotMean },
     ],
-    end: ["でも、1回の脈の中の圧の動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+    end: ["でも、1回の脈の中で圧が上がり下がりする動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
   5: {
     scenes: [
