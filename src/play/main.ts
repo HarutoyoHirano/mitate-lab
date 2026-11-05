@@ -276,7 +276,7 @@ function startMovie(id: MovieId, line: string): void {
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string][] = [
-    ["証言 1 / 2", `「20秒後の力は、A ${r.base.toFixed(3)}・B ${r.force.toFixed(3)}」`, `「差 ${sgn(r.diff)}。『同じ』の幅 ±${r.tolerance} の内側」`],
+    ["証言 1 / 2", `「押して20秒後の力は、A ${r.base.toFixed(3)}、B ${r.force.toFixed(3)}」`, `「ちがいは ${Math.abs(r.diff).toFixed(3)}。${r.tolerance} より小さいので同じ」`],
     ["証言 2 / 2", "「だから、AとBは", "　同じ軟骨です」"],
   ];
   const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
@@ -284,8 +284,8 @@ function c1Say(): View {
   return {
     chap: "謎1 見破れ",
     goal: "ロボの証言を聞き、確かめ方を考えよう",
-    svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ 差 ±0.03 以内 → 同じ"], null, false)}
-      ${bubble(370, 70, lab, l1, l2, 500)}${robotArt(state.mood, 960, 40, 0.95)}<text x="40" y="270" fill="var(--soft)" font-size="15">力の数字は、見本Aが落ち着いたときの力を1とした数</text>
+    svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 未満 → 同じ"], null, false)}
+      ${bubble(360, 70, lab, l1, l2, 570)}${robotArt(state.mood, 960, 40, 0.95)}
       <g transform="translate(40,300)"><rect width="820" height="74" rx="12" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
         <text x="18" y="30" fill="var(--ink)" font-size="17" font-weight="900">A＝見本：いままでの人工軟骨。性質が分かっていて、比べる基準になる</text>
         <text x="18" y="58" fill="var(--ink)" font-size="17" font-weight="900">B＝試作品：新しい印刷条件でつくった人工軟骨。見本と同じか、調べたい</text></g>`,
@@ -347,7 +347,6 @@ function c1Run(): View {
     </div>`,
     who: state.line.who,
     text: state.line.text,
-    sub: `数字＝へこみ（軟骨が押されてうすくなった量）。Aは計算した値、Bは測った値（測るたびに ±0.01 ぶれる）。赤い丸＝AとBの差が「同じ」とみなす幅 ${STEP_TOLERANCE} を超えた一歩。いまのテンポ：${tempoName(state.period)}（一歩 ${state.period.toFixed(2)} 秒。計算の中の時間）。`,
     cmds: [
       { act: "go-run", label: run ? "もう一度走らせる" : "12歩、走らせる", sub: "テンポを変えてもよい", hot: !run, disabled: state.playing !== null || state.busy },
       { act: "shot", label: "この一歩を証拠に保存", sub: state.note !== null ? `${state.note + 1}歩目（差がいちばん大きい点）` : "上の赤い丸を押して選ぶ", hot: state.note !== null, disabled: state.note === null || state.busy },
@@ -827,7 +826,7 @@ function rtView(): View {
       const id = r.slots[i];
       const bd = id ? res.bDiffs.find((x) => x.id === id) : undefined;
       return `<text x="20" y="${110 + i * 46}" fill="${id ? "var(--paper-ink)" : "var(--paper-soft)"}" font-size="16" font-weight="900">${i === 0 ? "②" : "③"} ${id ? esc(rtLabel(id)) : "（空き。下で選んで入れる）"}</text>
-        ${bd ? `<text x="44" y="${132 + i * 46}" fill="${bd.seen ? "var(--stamp)" : "var(--paper-soft)"}" font-size="13.5" font-weight="800">この謎のBとの差 ${sgn(bd.diff, d)}${sp.unit}${bd.seen ? "　→ 見分けられる" : "　→「同じ」の幅の内側"}</text>` : ""}`;
+        ${bd ? `<text x="44" y="${132 + i * 46}" fill="${bd.seen ? "var(--stamp)" : "var(--paper-soft)"}" font-size="13.5" font-weight="800">この謎のBとの差 ${sgn(bd.diff, d)}${sp.unit}${bd.seen ? "　→ 見分けられる" : "　→ ちがいが小さすぎる"}</text>` : ""}`;
     }),
   ].join("");
   const ok1 = res.catchesB;
@@ -1053,7 +1052,7 @@ function nWatch(): View {
       ? [{ act: "n-reveal", label: "正体を開ける", sub: "どの部品が違った？", hot: true }]
       : [
           { act: "n-play", label: state.nx.playing ? "止める" : "動かす", sub: "同じ時刻でAとBを動かす" },
-          { act: "n-shot", label: "この時刻を証拠に見せる", sub: "差が「同じ」の幅を超えれば見落とし", hot: true },
+          { act: "n-shot", label: "この時刻を証拠に見せる", sub: "ちがいが大きければ、ロボの見落とし", hot: true },
           ...(m.spec.watch.length > 1 ? [{ act: "n-watchnext", label: "見るものを変える", sub: m.spec.watch[(state.nx.watch + 1) % m.spec.watch.length]!.label, ghost: true }] : []),
         ],
   };
@@ -1328,7 +1327,7 @@ async function playRun(): Promise<void> {
   state.playing = null;
   state.shown = run.b.length;
   const hot = Array.from({ length: run.b.length }, (_, k) => k).filter((k) => Math.abs(stepMax(run, k).diff) > STEP_TOLERANCE);
-  say("you", hot.length ? `${hot.length === 12 ? "12歩すべて" : hot.map((k) => k + 1).join("・") + "歩目"}で、AとBのへこみの差が「同じ」とみなす幅を超えた（赤い丸）。赤い丸を押して選び、「この一歩を証拠に保存」を押そう。` : "どの一歩も、差は「同じ」とみなす幅の内側。テンポを変えてみよう。");
+  say("you", hot.length ? `${hot.length === 12 ? "12歩すべて" : hot.map((k) => k + 1).join("・") + "歩目"}で、AとBのへこみがはっきり違った（赤い丸。ちがいが ${STEP_TOLERANCE} より大きい）。赤い丸を押して選び、「この一歩を証拠に保存」を押そう。` : "どの一歩も、差は「同じ」とみなす幅の内側。テンポを変えてみよう。");
   state.mood = hot.length ? "sweat" : "smug";
   render();
 }
@@ -1444,7 +1443,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     });
     state.mood = "smug";
     const it = r.view.intro;
-    introLine = `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。差は「同じ」とみなす幅の内側。`;
+    introLine = `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。ちがいは ${it.tolerance} より小さいので、同じとみなします。`;
     say("guide", "はじまりの話：新しい試作品Bができて、検査ロボが調べた。何が起きたのか、見てみよう。");
     state.scene = "movie";
     state.movieId = 1;
@@ -1672,7 +1671,7 @@ app.addEventListener("click", async (e) => {
         const id = `run:${run.id}:${k}:${m.phase}`;
         if (!state.evidence.some((x) => x.id === id))
           state.evidence.push({ id, case: 1, title: `走行テスト・${tempoName(run.period)}`, line: `${k + 1}歩目`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${k + 1}歩目を証拠ファイルに入れた。差 ${sgn(p.diff)}。「同じ」とみなす幅を超えている。` : `${k + 1}歩目を証拠に入れた。でも差 ${sgn(p.diff)} は「同じ」とみなす幅の内側。`);
+        say("you", p.distinguishable ? `${k + 1}歩目を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。` : `${k + 1}歩目を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("証拠", "win", 0.2);
@@ -1696,7 +1695,7 @@ app.addEventListener("click", async (e) => {
       const ev = state.evidence.find((x) => x.id === state.sel);
       if (!ev || !ev.ok) {
         state.mood = "smug";
-        say("bot", !ev ? "それは私の検査そのものです。違いは写っていませんよ。" : "その瞬間の差は、「同じ」とみなす幅の内側です。それでは、同じでないとは言えません。");
+        say("bot", !ev ? "それは私の検査そのものです。違いは写っていませんよ。" : "その瞬間のちがいは小さすぎます。それでは、同じでないとは言えません。");
         render();
         await stamp("その証拠では…", "miss");
         render();
@@ -2112,7 +2111,7 @@ app.addEventListener("click", async (e) => {
         await stamp("鍛えなおした！", "win", 0.5);
       } else {
         state.mood = "calm";
-        const why = [!res.catchesB ? "足した数字では、この謎のBとの差が「同じ」の幅の内側に入る。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この数字ではロボをすり抜ける。` : ""].join("");
+        const why = [!res.catchesB ? "足した数字では、この謎のBとのちがいが小さすぎる。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この数字ではロボをすり抜ける。` : ""].join("");
         say("calc", `${why}数字を選びなおそう（何度でも。減点なし）。`);
         render();
         await stamp("まだ見落とす", "miss");
@@ -2220,12 +2219,12 @@ app.addEventListener("click", async (e) => {
       state.nx.playing = false;
       if (ok) {
         state.mood = "shock";
-        say("calc", `${w.label}、${fmtv(state.nx.ev.t)} ${m.spec.clock.timeUnit}で、差 ${fmtv(d)} ${unitOf(m.spec, w.probe)}。「同じ」の幅 ${fmtv(tol)} を超えた。ロボの一つの数字では、ここを見落としていた。`);
+        say("calc", `${w.label}、${fmtv(state.nx.ev.t)} ${m.spec.clock.timeUnit}で、ちがい ${fmtv(Math.abs(d))} ${unitOf(m.spec, w.probe)}。${fmtv(tol)} より大きい。ロボの一つの数字では、ここを見落としていた。`);
         render();
         await stamp("見落とし！", "hit");
         await damage(34);
       } else {
-        say("calc", `この時刻では、差 ${fmtv(d)}。「同じ」の幅 ${fmtv(tol)} の内側。別の時刻か、別の見るものを試そう（減点なし）。`);
+        say("calc", `この時刻では、ちがい ${fmtv(Math.abs(d))}。${fmtv(tol)} より小さく、見分けられない。別の時刻か、別の見るものを試そう。`);
         render();
       }
       break;

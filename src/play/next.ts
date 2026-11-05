@@ -435,6 +435,5 @@ export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: 
     <text x="640" y="32" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">${esc(tags[i] ?? "")}</text>
     <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${nextScene(i, spec, runA, s, sc, robotA)}</g>
     ${textBlock(640, 418, wrapLines(cap, 34, 2), 19, "var(--ink)")}
-    <text x="640" y="474" fill="var(--soft)" font-size="12" text-anchor="middle">イメージ（AIが組み立て、計算プログラムが動かした模型。本物の臓器・検査機器ではない）</text>
   </g>`;
 }

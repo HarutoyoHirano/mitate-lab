@@ -407,7 +407,7 @@ export type MovieId = 1 | 2 | 4 | 5;
 const MOVIES: Record<MovieId, Movie> = {
   1: {
     scenes: [
-      { dur: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ（本物ではない）。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた", draw: scenePrinter },
+      { dur: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される", draw: sceneLeg },
       { dur: 5, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobot },
     ],
@@ -467,7 +467,6 @@ export function introMovie(id: MovieId, t: number): string {
     <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${sc.draw(s)}</g>
     <text x="640" y="420" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[0]}</text>
     <text x="640" y="450" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[1]}</text>
-    <text x="640" y="474" fill="var(--soft)" font-size="12" text-anchor="middle">イメージ（計算でつくった模型。本物の人工軟骨・人工血管・神経・検査機器ではない）</text>
   </g>`;
 }
 
