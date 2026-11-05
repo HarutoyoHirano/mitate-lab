@@ -8,13 +8,13 @@ import { compare } from "../../server/model/comparator.js";
 import { fitCandidate, predictedCurve } from "../../server/model/fit.js";
 import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
-import { clampPeriod, PHASE_LABEL, STEP_PHASES, STEP_TOLERANCE, TAP_TO_PERIOD, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
+import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
 import { CARTILAGE_POINTS, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { answerMap, retrainMap, overlayChart, seriesCircuit, beatChart, beatLane, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { answerMap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -83,7 +83,7 @@ const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06f
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "検算（計算プログラム）", guide: "案内", ai: "Claude（AI）・謎を組み立てる" };
+const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "Claude（AI）・謎を組み立てる" };
 
 const state = {
   scene: "title" as Scene,
@@ -101,12 +101,10 @@ const state = {
   // 謎1
   say: 0,
   bet: null as PredictionChoice | null,
-  period: 3,
-  taps: [] as number[],
+  cursor: 0,
   runId: "",
   shown: 0,
   playing: null as number | null,
-  dents: { a: 0.6, b: 0.6, contact: false, impact: false },
   note: null as number | null,
   curveId: "",
   tags: {} as Partial<Record<CandidateId, Tag>>,
@@ -307,50 +305,73 @@ function c1Say(): View {
 function currentRun() {
   return state.view?.runs.find((r) => r.id === state.runId) ?? null;
 }
-function stepMax(run: NonNullable<ReturnType<typeof currentRun>>, k: number): { phase: StepPhase; diff: number } {
-  let best: { phase: StepPhase; diff: number } = { phase: "land", diff: 0 };
-  for (const ph of STEP_PHASES) {
-    const d = run.b[k]![ph] - run.a[k]![ph];
-    if (Math.abs(d) > Math.abs(best.diff)) best = { phase: ph, diff: d };
-  }
-  return best;
-}
 function tempoName(p: number): string {
+  if (Math.abs(p - PLAY_RUN_PERIOD) < 1e-9) return "走る";
   let best = TEMPOS[0]!;
   for (const t of TEMPOS) if (Math.abs(Math.log(t.period / p)) < Math.abs(Math.log(best.period / p))) best = t;
   return Math.abs(best.period - p) < 1e-9 ? best.label : `${best.label}に近い`;
 }
+/** 時間のバーの測った点（最初の PLAY_RUN_STEPS 歩 × 4点）。i → 何歩目・どの時点・時刻 */
+const RUN_POINTS = Array.from({ length: PLAY_RUN_STEPS * 4 }, (_, i) => {
+  const k = Math.floor(i / 4);
+  const phase = STEP_PHASES[i % 4]!;
+  const t = k * PLAY_RUN_PERIOD + (phase === "land" ? 0 : phase === "pre" ? PLAY_RUN_PERIOD : PLAY_RUN_PERIOD / 2);
+  return { i, k, phase, t };
+});
+const RUN_T_MAX = PLAY_RUN_PERIOD * PLAY_RUN_STEPS;
+type StepRow = { land: number; peak: number; lift: number; pre: number };
+/** 一歩の中の位置 u（0〜1）の値。B は測った点を結んだ線、A は計算の式 */
+const alongB = (d: StepRow, u: number) => (u < 0.5 ? d.land + (d.peak - d.land) * (u / 0.5) : d.lift + (d.pre - d.lift) * ((u - 0.5) / 0.5));
+function runAt(run: NonNullable<ReturnType<typeof currentRun>>, t: number): { a: number; b: number; contact: boolean; u: number; k: number } {
+  const k = Math.min(PLAY_RUN_STEPS - 1, Math.floor(t / PLAY_RUN_PERIOD + 1e-9));
+  const u = Math.max(0, Math.min(1, (t - k * PLAY_RUN_PERIOD) / PLAY_RUN_PERIOD));
+  return { a: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, u), b: alongB(run.b[k]!, u), contact: u < 0.5, u, k };
+}
+const pointValue = (rows: readonly StepRow[], i: number) => rows[RUN_POINTS[i]!.k]![RUN_POINTS[i]!.phase];
+/** 時刻 t にいちばん近い測った点（同じ時刻の二点は、跳んだ後の点） */
+function nearestPoint(t: number): number {
+  let best = 0;
+  let bd = Infinity;
+  for (const p of RUN_POINTS) {
+    const d = Math.abs(p.t - t) + (p.phase === "peak" || p.phase === "pre" ? 1e-6 : 0);
+    if (d < bd) { bd = d; best = p.i; }
+  }
+  return best;
+}
+const pointLabel = (i: number) => `${RUN_POINTS[i]!.k + 1}歩目・${PHASE_LABEL[RUN_POINTS[i]!.phase]}`;
 
 function c1Run(): View {
   const run = currentRun();
   const v = state.view!;
-  const notes = Array.from({ length: 12 }, (_, k) => {
-    const shown = !!run && k < state.shown;
-    const m = run && shown ? stepMax(run, k) : null;
-    return { shown, hot: !!m && Math.abs(m.diff) > STEP_TOLERANCE, sel: state.note === k, shot: !!run && v.runPhotos.some((p) => p.runId === run.id && p.step === k) };
+  const playing = state.playing !== null;
+  const cur = state.playing ?? state.cursor;
+  const at = run ? runAt(run, cur) : null;
+  const sel = run && !playing && state.note !== null ? state.note : null;
+  // 点を選んだら、その測った点の値で描く（同じ時刻の二点は、選んだほう）
+  const dents = run && sel !== null
+    ? { a: pointValue(run.a, sel), b: pointValue(run.b, sel), contact: RUN_POINTS[sel]!.phase === "land" || RUN_POINTS[sel]!.phase === "peak", impact: false }
+    : at ? { a: at.a, b: at.b, contact: at.contact, impact: playing && at.contact && at.u < 0.06 } : { a: 0, b: 0, contact: false, impact: false };
+  const diff = run && sel !== null ? pointValue(run.b, sel) - pointValue(run.a, sel) : null;
+  const us = [...Array.from({ length: 21 }, (_, q) => q / 40), ...Array.from({ length: 21 }, (_, q) => 0.5 + 1e-6 + q / 40)];
+  const aLine = run ? Array.from({ length: PLAY_RUN_STEPS }, (_, k) => us.map((u) => ({ t: (k + Math.min(u, 1)) * PLAY_RUN_PERIOD, v: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, Math.min(u, 1)) }))).flat() : [];
+  const bPts = RUN_POINTS.map((p) => {
+    const shown = !!run && p.i < state.shown;
+    const d = run ? pointValue(run.b, p.i) - pointValue(run.a, p.i) : 0;
+    return { t: p.t, v: run ? pointValue(run.b, p.i) : 0, shown, hot: shown && Math.abs(d) > STEP_TOLERANCE, sel: sel === p.i, shot: !!run && v.runPhotos.some((x) => x.runId === run.id && x.step === p.k && x.phase === p.phase) };
   });
-  const sel = run && state.note !== null ? stepMax(run, state.note) : null;
-  const diff = state.playing !== null ? state.dents.b - state.dents.a : sel ? sel.diff : null;
   const have = state.evidence.some((e) => e.case === 1 && e.id.startsWith("run"));
   return {
     chap: "謎1 見破れ",
-    goal: run ? "AとBの差が大きかった一歩（赤い丸）を選んで、証拠に保存しよう" : "テンポを決めて、見本Aと試作品Bを12歩ずつ走らせよう",
-    svg: `${beatLane(60, 16, notes, state.playing)}
-      ${legsStage({ dentA: state.dents.a, dentB: state.dents.b, contact: state.dents.contact, impact: state.dents.impact, labelA: "見本 A", labelB: "試作品 B", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, y0: 30, scale: 0.92 })}`,
-    html: `<div class="tempo">
-      ${TEMPOS.map((t) => {
-        const runs = v.runs.filter((r) => Math.abs(r.period - t.period) < 1e-9);
-        const best = runs.length ? Math.max(...runs.flatMap((r) => r.b.map((_, k) => Math.abs(stepMax(r, k).diff)))) : null;
-        return `<button class="${Math.abs(state.period - t.period) < 1e-9 ? "on" : ""}" data-act="tempo" data-val="${t.period}" ${state.playing !== null ? "disabled" : ""}><span>${t.label}</span>${best !== null ? `<i class="tbar" style="width:${Math.min(100, (best / 0.2) * 100).toFixed(0)}%;background:${best > STEP_TOLERANCE ? "var(--stamp)" : "var(--you)"}"></i><small>いちばん大きい差 ${best.toFixed(3)}</small>` : "<small>まだ走らせていない</small>"}</button>`;
-      }).join("")}
-      <button class="drum" data-act="tap" ${state.playing !== null ? "disabled" : ""}>叩いて<br>決める</button>
-    </div>`,
+    goal: run ? "AとBの差が大きかった瞬間（赤い点）を選んで、証拠に保存しよう" : "見本Aと試作品Bを、同じように走らせてみよう",
+    svg: `${legsStage({ dentA: dents.a, dentB: dents.b, contact: dents.contact, impact: dents.impact, labelA: "見本 A", labelB: "試作品 B", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, x0: -92, y0: 34, scale: 0.76 })}
+      ${runTimeline({ x: 648, y: 14, w: 616, h: 392, period: PLAY_RUN_PERIOD, steps: PLAY_RUN_STEPS, aLine, bPts, now: run ? cur : null, tol: STEP_TOLERANCE })}`,
+    html: `<div class="timebar"><input type="range" id="c1-t" min="0" max="${RUN_T_MAX}" step="0.05" value="${cur}" ${!run || playing ? "disabled" : ""} aria-label="時間のバー（秒）"><b id="c1-t-label">${run && !playing ? (sel !== null ? pointLabel(sel) : "バーを動かすか、点を押して選ぶ") : ""}</b></div>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "go-run", label: run ? "もう一度走らせる" : "12歩、走らせる", sub: "テンポを変えてもよい", hot: !run, disabled: state.playing !== null || state.busy },
-      { act: "shot", label: "この一歩を証拠に保存", sub: state.note !== null ? `${state.note + 1}歩目（差がいちばん大きい点）` : "上の赤い丸を押して選ぶ", hot: state.note !== null, disabled: state.note === null || state.busy },
-      { act: "to-present", label: "ロボに証拠を見せる", sub: "証拠ファイルを開く", disabled: !have, hot: have && state.note === null },
+      { act: "go-run", label: run ? "もう一度走らせる" : "走らせる", hot: !run, disabled: playing || state.busy },
+      { act: "shot", label: "この瞬間を証拠に保存", sub: sel !== null ? pointLabel(sel) : "赤い点を選ぶ", hot: sel !== null, disabled: sel === null || state.busy || playing },
+      { act: "to-present", label: "ロボに証拠を見せる", sub: "証拠ファイルを開く", disabled: !have, hot: have && sel === null },
     ],
   };
 }
@@ -383,7 +404,7 @@ function c1Present(): View {
   if (state.c1Hit)
     return {
       ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "見落としを突いた"),
-      cmds: [{ act: "to-bench", label: "なぜ違う？ 試験台で調べる", sub: "押し返す力を記録して、説明ごとの予想の線（影武者）と見比べる", hot: true, disabled: state.busy }],
+      cmds: [{ act: "to-bench", label: "なぜ違う？ 試験台で調べる", sub: "押し返す力を記録して、4つの説明の予想の線と見比べる", hot: true, disabled: state.busy }],
     };
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
@@ -420,22 +441,22 @@ function c1Line(): View {
       const outNow = checked && c.excluded.includes(id);
       const back = checked && picked.includes(id) && !c.excluded.includes(id);
       const broken = prevOut || outNow;
-      const res = prevOut ? `<span class="res">前の記録で合わない</span>` : outNow ? `<span class="res">検算：合わない</span>` : back ? `<span class="res back">検算：実は記録と合う</span>` : narrowed && v.narrowedTo === id ? `<span class="res win">正体</span>` : "";
-      return `<button class="ghost ${broken ? "broken" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" data-act="tag" data-val="${id}" ${!awaiting || prevOut ? "disabled" : ""} aria-label="影武者：${CANDIDATES[id].label}">
+      const res = prevOut ? `<span class="res">前の記録で合わない</span>` : outNow ? `<span class="res">計算：合わない</span>` : back ? `<span class="res back">計算：実は記録と合う</span>` : narrowed && v.narrowedTo === id ? `<span class="res win">正体</span>` : "";
+      return `<button class="ghost ${broken ? "broken" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" data-act="tag" data-val="${id}" ${!awaiting || prevOut ? "disabled" : ""} aria-label="説明：${CANDIDATES[id].label}">
         <span class="gname">${CANDIDATES[id].label}</span>
         <span class="glook">${LOOK[id]}</span>
         ${broken ? ghostPuck(COLOR[id], true) : `<svg viewBox="0 0 200 110" class="model" aria-hidden="true">${slsModel({ hl: id === "same" ? null : id, color: COLOR[id], mark: "？" })}</svg>`}
         <span class="gpart">${PART[id]}</span>
         ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 170 }) : ""}
-        <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "札をつける"}</span>
+        <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "合う？ 合わない？"}</span>
         ${res}
       </button>`;
     })
     .join("");
   const cmds: Cmd[] = awaiting
     ? [
-        { act: "check", label: "札をつけた影武者を検算する", sub: allTagged ? "計算プログラムがまとめて確かめる" : `あと ${live.filter((id) => !state.tags[id]).length} 体`, hot: allTagged, disabled: !allTagged || state.busy },
-        { act: "words", label: state.claude ? "相棒（Claude）に相談" : "あなたの言葉に近い影武者を探す", sub: "あなたの言葉から影武者を呼ぶ", ghost: true },
+        { act: "check", label: "選んだ答えを計算で確かめる", sub: allTagged ? "計算プログラムがまとめて確かめる" : `あと ${live.filter((id) => !state.tags[id]).length} つ選ぶ`, hot: allTagged, disabled: !allTagged || state.busy },
+        { act: "words", label: state.claude ? "相棒（Claude）に相談" : "あなたの言葉に近い説明を探す", sub: "あなたの言葉から説明を選ぶ", ghost: true },
         { act: "hint", label: state.claude ? "相棒に、見どころを聞く" : "手がかりを見る", ghost: true, disabled: v.hintsLeft <= 0 || state.busy },
       ]
     : narrowed
@@ -445,7 +466,7 @@ function c1Line(): View {
         ];
   return {
     chap: "謎1 なぜ？",
-    goal: awaiting ? `${SPEED[c.pushSeconds]}押した記録。影武者すべてに札をつけたら、検算できる` : narrowed ? "正体が一つに絞れた" : "まだ影武者が残る。別の速さで押そう",
+    goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
     svg: "",
     html: `<div class="lineup">${ghosts}</div>`,
     who: state.line.who,
@@ -505,8 +526,8 @@ function c2(): View {
   const ph = round.robot.phase;
   return {
     chap: "謎2 仕掛けろ",
-    goal: `ロボの「次の一手」をすり抜け、別の点に違いを残す試作品をつくれ（ラウンド${round.id}）`,
-    svg: `${ruleCard(30, 20, round.id === 1 ? "検査の手順（走らせて調べるを追加）" : "検査の手順", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
+    goal: `ロボの「次の一手」では見本と同じ、別の点では違う試作品をつくれ（ラウンド${round.id}）`,
+    svg: `${ruleCard(30, 20, round.id === 1 ? "検査の手順（走らせて調べるを追加）" : "検査の手順", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差が ${ROBOT_PASS} より小さい → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
       <g transform="translate(330,22)"><rect width="470" height="56" rx="28" fill="color-mix(in srgb, var(--bot) 18%, var(--panel))" stroke="var(--bot)" stroke-width="3"/>
         <circle cx="30" cy="28" r="16" fill="var(--bot)"/><circle cx="30" cy="28" r="6" fill="var(--panel)"/>
         <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後（体重がかかった直後）" : "足を上げる直前（体重が抜ける直前）"}</text></g>
@@ -518,13 +539,13 @@ function c2(): View {
             return `<label><span>${s.label}<strong id="v-${key}">${state[key].toFixed(2)}</strong></span><input type="range" data-knob="${key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[key]}" ${state.duelPhase === "judge" ? "disabled" : ""}></label>`;
           })
           .join("")}
-        <span style="color:var(--soft);font-size:max(10px,0.9cqw)">待ったあとも残るかたさは1に固定。見本Aは二つとも1.00</span>
+        <span style="color:var(--ink);font-weight:900;font-size:max(14px,1.1cqw)">見本Aは、どちらも 1.00</span>
       </div>
       <div class="meters" style="right:1.5%;top:3%;width:28%">${
         show
-          ? meter(`ロボが見る点（${ph === "land" ? "着地直後" : "足を上げる直前"}）：差を ${ROBOT_PASS} 以内に`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", ROBOT_PASS, 0.3, "", 4) +
-            meter(`ロボに見えない違い（${round.hidden.phase === "land" ? "着地直後" : "足を上げる直前"}）：差を ${HIDDEN_NEED} 以上に`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", HIDDEN_NEED, 0.3, "", 4) +
-            meter("第1版の検査（1秒かけて押し、20秒後の力）：差を 0.03 以内に", r.final.a, r.final.b, r.final.diff, r.final.ok, "pass", 0.03, 0.3, "", 4)
+          ? meter(`ロボが測る：12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}（差を ${ROBOT_PASS} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", ROBOT_PASS, 0.3, "", 4) +
+            meter(`ロボが測らない：12歩目の${round.hidden.phase === "land" ? "着地直後" : "足を上げる直前"}（差を ${HIDDEN_NEED} より大きく）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", HIDDEN_NEED, 0.3, "", 4) +
+            meter("ロボが測る：押して20秒後の力（差を 0.03 より小さく）", r.final.a, r.final.b, r.final.diff, r.final.ok, "pass", 0.03, 0.3, "", 4)
           : ""
       }</div>`,
     who: state.line.who,
@@ -722,7 +743,7 @@ function c4Why(): View {
   const all = cards.every((c) => state.memWhy[c.id]);
   return {
     chap: "謎4 なぜ？",
-    goal: state.memChecked ? "膜Bは、電気をためやすい膜" : "二つの説明に札をつけて、検算しよう",
+    goal: state.memChecked ? "膜Bは、電気をためやすい膜" : "二つの説明が、記録と合うか選ぼう",
     svg: `<g transform="translate(0,40) scale(0.62)">${nerveStage(BASE_MEM, CASE3_B, 60, { a: "膜 A", b: "膜 B", revealB: state.memChecked })}</g>
       ${state.memChecked ? `<text x="16" y="370" fill="var(--gold)" font-size="16" font-weight="900">金の＋：同じくらいの電圧でも、膜Bは約${CASE3_B.c}倍の電気をためている＝電気をためやすい</text><text x="16" y="394" fill="var(--soft)" font-size="14">入る電流は同じなので、Bはたまるのに時間がかかり、上がるのも戻るのもゆっくりになる</text>` : `<text x="16" y="370" fill="var(--soft)" font-size="15">膜Bの電気のためやすさと通りやすさは「？」。グラフの形から推理しよう</text>`}`,
     html: `<div class="lineup" style="grid-template-columns:1fr;left:63%;right:2%;top:3%;bottom:3%">${cards
@@ -731,13 +752,13 @@ function c4Why(): View {
         const truthOut = c.id === "g";
         return `<button class="ghost ${state.memChecked && truthOut ? "broken" : ""}" style="--c:${c.id === "g" ? "#7bd88f" : "#4fe0d0"}" data-act="mtag" data-val="${c.id}" ${state.memChecked ? "disabled" : ""}>
           <span class="gname">${c.name}</span><span style="font-size:max(11px,1cqw);color:var(--soft)">${c.look}</span>
-          <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "札をつける"}</span>
-          ${state.memChecked ? (truthOut ? `<span class="res">検算：合わない</span>` : `<span class="res win">正体</span>`) : ""}</button>`;
+          <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "合う？ 合わない？"}</span>
+          ${state.memChecked ? (truthOut ? `<span class="res">計算：合わない</span>` : `<span class="res win">正体</span>`) : ""}</button>`;
       })
       .join("")}</div>`,
     who: state.line.who,
     text: state.line.text,
-    cmds: state.memChecked ? [{ act: "to-duel4", label: "膜に、仕掛けろ", hot: true }] : [{ act: "m-check", label: "検算する", sub: all ? "計算プログラムが確かめる" : `あと ${cards.filter((c) => !state.memWhy[c.id]).length} 枚`, hot: all, disabled: !all }],
+    cmds: state.memChecked ? [{ act: "to-duel4", label: "膜に、仕掛けろ", hot: true }] : [{ act: "m-check", label: "選んだ答えを計算で確かめる", sub: all ? "計算プログラムが確かめる" : `あと ${cards.filter((c) => !state.memWhy[c.id]).length} 枚`, hot: all, disabled: !all }],
   };
 }
 function c4Duel(): View {
@@ -747,10 +768,10 @@ function c4Duel(): View {
   const show = state.duelPhase !== "design";
   return {
     chap: "謎4 仕掛けろ",
-    goal: `ロボの「次の一手」をすり抜ける膜をつくれ（ラウンド${round.id}）`,
+    goal: `ロボの「次の一手」では見本と同じ、別の時刻では違う膜をつくれ（ラウンド${round.id}）`,
     svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "膜 A", "A", true, state.memT || 105)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105)}
       ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "膜 A", b: "あなたの膜", top: 18, notes: false })}
-      ${ruleCard(880, 20, "膜の検査の手順", [round.id === 1 ? "① 止める直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差 ±${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} 以内 → 同じ`], 0, round.id === 2)}`,
+      ${ruleCard(880, 20, "膜の検査の手順", [round.id === 1 ? "① 止める直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差が ${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} より小さい → 同じ`], 0, round.id === 2)}`,
     html: `<div class="knobs" style="left:1%;top:62%;width:27%">${(["g", "c"] as const)
       .map((k) => {
         const s = MEM_SLIDERS[k];
@@ -759,8 +780,8 @@ function c4Duel(): View {
       .join("")}</div>
       <div class="meters" style="left:30%;top:60%;width:37%">${
         show
-          ? meter(`ロボが見る点（${round.robotLabel}）：小さく`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
-            meter(`ロボに見えない違い（${round.hiddenLabel}）：大きく`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
+          ? meter(`ロボが測る：${round.robotLabel}（差を ${round.id === 1 ? `${ROBOT_STEADY_TOL} mV` : `${HALF_TIME_TOL} ms`} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
+            meter(`ロボが測らない：${round.hiddenLabel}（差を ${round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED} mV より大きく）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
           : ""
       }</div>`,
     who: state.line.who,
@@ -921,7 +942,7 @@ function titleView(): View {
     svg: `<g transform="translate(60,24)">
         ${[
           ["謎1 見破れ", "3Dプリントの人工軟骨を、走らせて調べる", "かたさと力"],
-          ["謎2 仕掛けろ", "ロボの検査をすり抜ける軟骨をつくる", "かたさと力"],
+          ["謎2 仕掛けろ", "見本と違うのにロボが見分けられない軟骨をつくる", "かたさと力"],
           ["謎3 脈の見落とし", "膝へ血液を運ぶ人工血管", "流れと圧"],
           ["謎4 膜の見落とし", "膝の感覚を脳へ伝える神経の膜", "電気"],
           ["まとめ・つづきの謎", "三つは同じ部品でできていた。AIが次の謎を組み立てる", "見立て"],
@@ -1222,7 +1243,7 @@ function panelHtml(): string {
       ? `<h2>このゲームについて</h2>
       <table><tr><th>検査ロボ TEJUN</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
       <tr><th>相棒 Claude（AI）</th><td>謎1で参加（使えない場所では休み、上の段に表示しない）。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
-      <tr><th>検算</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr>
+      <tr><th>計算プログラム</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr>
       <tr><th>案内</th><td>あらかじめ書いた決まった文（AIではない）。手がかりも、Claude が休んでいるときは決まった文</td></tr>
       <tr><th>Claude（AI）・謎を組み立てる</th><td>つづきの謎で、次の謎を組み立てる。式と判定は計算プログラムが確かめる</td></tr></table>
       <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の記録には測るたびのぶれがあり、謎2〜4はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
@@ -1307,27 +1328,31 @@ async function playRun(): Promise<void> {
   const reduce = reduceMotion();
   state.shown = 0;
   state.note = null;
-  const stepMs = reduce ? 0 : Math.min(900, Math.max(260, (run.period / TAP_TO_PERIOD) * 1000));
-  const at = (d: { land: number; peak: number; lift: number; pre: number }, u: number) => (u < 0.5 ? d.land + (d.peak - d.land) * (u / 0.5) : d.lift + (d.pre - d.lift) * ((u - 0.5) / 0.5));
-  for (let k = 0; k < run.b.length; k++) {
+  const dur = reduce ? 0 : 5200;
+  const s0 = performance.now();
+  let lastK = -1;
+  for (;;) {
     if (state.scene !== "c1-run") break;
-    state.playing = k;
-    beep("step", k);
-    const s0 = performance.now();
-    for (;;) {
-      const u = stepMs === 0 ? 1 : Math.min(1, (performance.now() - s0) / stepMs);
-      state.dents = { a: at(run.a[k]!, Math.min(u, 0.999)), b: at(run.b[k]!, Math.min(u, 0.999)), contact: u < 0.5, impact: u < 0.12 };
-      state.shown = k + (u >= 0.5 ? 1 : 0);
-      const svg = app.querySelector("svg.st");
-      if (svg) svg.innerHTML = VIEWS["c1-run"]().svg;
-      if (u >= 1) break;
-      await sleep(33);
+    const f = dur === 0 ? 1 : Math.min(1, (performance.now() - s0) / dur);
+    const t = f * RUN_T_MAX;
+    state.playing = t;
+    const k = Math.min(PLAY_RUN_STEPS - 1, Math.floor(t / PLAY_RUN_PERIOD));
+    if (k !== lastK && f < 1) {
+      beep("step", k);
+      lastK = k;
     }
+    state.shown = RUN_POINTS.filter((p) => p.t <= t + 1e-9).length;
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS["c1-run"]().svg;
+    if (f >= 1) break;
+    await sleep(33);
   }
   state.playing = null;
-  state.shown = run.b.length;
-  const hot = Array.from({ length: run.b.length }, (_, k) => k).filter((k) => Math.abs(stepMax(run, k).diff) > STEP_TOLERANCE);
-  say("you", hot.length ? `${hot.length === 12 ? "12歩すべて" : hot.map((k) => k + 1).join("・") + "歩目"}で、AとBのへこみがはっきり違った（赤い丸。ちがいが ${STEP_TOLERANCE} より大きい）。赤い丸を押して選び、「この一歩を証拠に保存」を押そう。` : "どの一歩も、差は「同じ」とみなす幅の内側。テンポを変えてみよう。");
+  state.cursor = RUN_T_MAX;
+  state.shown = RUN_POINTS.length;
+  const hot = RUN_POINTS.filter((p) => Math.abs(pointValue(run.b, p.i) - pointValue(run.a, p.i)) > STEP_TOLERANCE);
+  const steps = [...new Set(hot.map((p) => p.k + 1))];
+  say("you", hot.length ? `赤い点では、AとBのへこみのちがいが ${STEP_TOLERANCE} より大きい。赤い点を選んで、証拠に保存しよう。` : `どの瞬間も、ちがいは ${STEP_TOLERANCE} より小さい。もう一度走らせてみよう。`);
   state.mood = hot.length ? "sweat" : "smug";
   render();
 }
@@ -1422,6 +1447,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
       bet: null,
       runId: "",
       shown: 0,
+      cursor: 0,
       note: null,
       curveId: "",
       tags: {},
@@ -1461,6 +1487,22 @@ app.addEventListener("input", (e) => {
   if (t.id === "t-pass") {
     const w = app.querySelector<HTMLElement>("#t-cause-wrap");
     if (w) w.hidden = t.value.length === 0;
+    return;
+  }
+  if (t.id === "c1-t") {
+    state.cursor = Number(t.value);
+    state.note = nearestPoint(state.cursor);
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS["c1-run"]().svg;
+    const lb = app.querySelector("#c1-t-label");
+    if (lb) lb.textContent = pointLabel(state.note);
+    const shot = app.querySelector<HTMLButtonElement>('button[data-act="shot"]');
+    if (shot) {
+      shot.disabled = false;
+      shot.classList.add("hot");
+      const sub = shot.querySelector("small, .sub");
+      if (sub) sub.textContent = pointLabel(state.note);
+    }
     return;
   }
   if (t.id === "rt-t") {
@@ -1619,59 +1661,40 @@ app.addEventListener("click", async (e) => {
       say("you", val === "midSame" ? "予想：走っても同じ。確かめよう。" : val === "midDiffer" ? "予想：どこかで違う。走らせて見つけよう。" : "まだ分からない。走らせてから考える。");
       go("c1-run");
       break;
-    case "tempo":
-      state.period = Number(val);
-      state.taps = [];
-      render();
-      break;
-    case "tap": {
-      const now = performance.now();
-      const last = state.taps[state.taps.length - 1];
-      if (last !== undefined && now - last > 3000) state.taps = [];
-      state.taps = [...state.taps, now].slice(-5);
-      if (state.taps.length >= 2) {
-        const iv = (state.taps[state.taps.length - 1]! - state.taps[0]!) / (state.taps.length - 1) / 1000;
-        state.period = Math.round(clampPeriod(iv * TAP_TO_PERIOD) * 100) / 100;
-      }
-      render();
-      break;
-    }
     case "go-run":
       if (!v) return;
       await guard(async () => {
-        const r = await api.run(v.sessionId, state.period);
+        const r = await api.run(v.sessionId, PLAY_RUN_PERIOD);
         state.view = r.view;
         state.runId = r.runId;
       });
       if (state.runId) {
-        say("you", `${tempoName(state.period)}で走らせる。`);
+        say("you", "AとBを、同じように走らせる。");
         await playRun();
       }
       break;
     case "note": {
-      const k = Number(val);
-      if (k >= state.shown || state.playing !== null) return;
-      state.note = k;
-      const run = currentRun()!;
-      const m = stepMax(run, k);
-      state.dents = { a: run.a[k]![m.phase], b: run.b[k]![m.phase], contact: true, impact: false };
+      const n = Number(val);
+      if (n >= state.shown || state.playing !== null) return;
+      state.note = n;
+      state.cursor = RUN_POINTS[n]!.t;
       render();
       break;
     }
     case "shot": {
       if (!v || state.note === null) return;
       const run = currentRun()!;
-      const k = state.note;
-      const m = stepMax(run, k);
+      const { k, phase } = RUN_POINTS[state.note]!;
       await guard(async () => {
-        state.view = (await api.runPhoto(v.sessionId, run.id, k, m.phase)).view;
+        state.view = (await api.runPhoto(v.sessionId, run.id, k, phase)).view;
       });
-      const p = state.view!.runPhotos.find((x) => x.runId === run.id && x.step === k && x.phase === m.phase);
+      const p = state.view!.runPhotos.find((x) => x.runId === run.id && x.step === k && x.phase === phase);
       if (p) {
-        const id = `run:${run.id}:${k}:${m.phase}`;
+        const id = `run:${run.id}:${k}:${phase}`;
+        const where = `${k + 1}歩目の「${PHASE_LABEL[phase]}」`;
         if (!state.evidence.some((x) => x.id === id))
-          state.evidence.push({ id, case: 1, title: `走行テスト・${tempoName(run.period)}`, line: `${k + 1}歩目`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${k + 1}歩目を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。` : `${k + 1}歩目を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
+          state.evidence.push({ id, case: 1, title: "走行テスト（走る）", line: `${k + 1}歩目・${PHASE_LABEL[phase]}`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
+        say("you", p.distinguishable ? `${where}を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。` : `${where}を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("証拠", "win", 0.2);
@@ -1726,7 +1749,7 @@ app.addEventListener("click", async (e) => {
       if (state.curveId) {
         state.tags = {};
         state.mood = "calm";
-        say("guide", "試験台で、1秒かけて押しこみ（ふつう）、その深さで止めて力を記録した。影武者＝「この説明が正しいとしたら、Bはこう動くはず」という線。どれも押し終わった瞬間の高さはBに合わせてある。違いが出るとしたら、その後。");
+        say("guide", "試験台でBを1秒かけて押しこみ（ふつう）、その深さで止めて力を記録した（点）。色の線は「この説明が正しければ、Bはこう動くはず」という予想。どの線も押し終わった瞬間の高さはBに合わせてある。違いが出るとしたら、その後。");
         go("c1-line");
       }
       break;
@@ -1764,7 +1787,7 @@ app.addEventListener("click", async (e) => {
         say("you", "Bがどう違うと思うか、一言で書いてみよう。");
         render();
         const win = app.querySelector(".win > div");
-        win?.insertAdjacentHTML("beforeend", `<div class="words"><input id="words" maxlength="200" placeholder="例：Bの方がねばっこい" aria-label="あなたの説明"><button class="choice" data-act="words">近い影武者を探す</button></div>`);
+        win?.insertAdjacentHTML("beforeend", `<div class="words"><input id="words" maxlength="200" placeholder="例：Bの方がねばっこい" aria-label="あなたの説明"><button class="choice" data-act="words">近い説明を探す</button></div>`);
         app.querySelector<HTMLInputElement>("#words")?.focus();
         return;
       }
@@ -1785,7 +1808,7 @@ app.addEventListener("click", async (e) => {
         state.view = (await api.confirm(v.sessionId, id)).view;
         state.translation = null;
         state.summoned = id;
-        say("you", `「${CANDIDATES[id].label}」の影武者を前に呼んだ。記録と合っている？`);
+        say("you", `「${CANDIDATES[id].label}」の説明を前に出した。記録と合っている？`);
       });
       break;
     }
@@ -1812,7 +1835,7 @@ app.addEventListener("click", async (e) => {
         state.curveId = r.curveId;
         state.tags = {};
         state.nextSpeed = null;
-        say("guide", "新しい記録。影武者の線も、この押し方に合わせ直した。残った影武者に札をつけよう。");
+        say("guide", "新しい記録。説明の線も、この押し方に合わせ直した。残った説明が合うか選ぼう。");
       });
       break;
     case "reveal":
@@ -1824,7 +1847,7 @@ app.addEventListener("click", async (e) => {
       });
       if (state.debrief) {
         state.mood = "down";
-        state.record.push("謎1 🔍 影武者の見比べ → 正体 ✔");
+        state.record.push("謎1 🔍 4つの説明の見比べ → 正体 ✔");
         say("bot", "私の検査は、20秒後しか見ていなかった。走る人の膝は、20秒も待ってくれないのに。");
         go("c1-solved");
         await damage(10);
@@ -1997,7 +2020,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-why4":
       state.mood = "calm";
-      say("you", "止める直前は同じ。違うのは、イオンの通りやすさ？ 電気のためやすさ？ 札をつけよう。");
+      say("you", "止める直前は同じ。違うのは、イオンの通りやすさ？ 電気のためやすさ？ 合うか選ぼう。");
       go("c4-why");
       break;
     case "mtag": {

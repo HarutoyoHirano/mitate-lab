@@ -30,6 +30,9 @@ export function clampPeriod(p: number): number {
 
 export type StepPhase = "land" | "peak" | "lift" | "pre";
 export const STEP_PHASES: readonly StepPhase[] = ["land", "peak", "lift", "pre"];
+/** 新しい画面（1c）の謎1の走行テスト：テンポは「走る」だけ、最初の4歩を見せる（CLAUDE.md 1c・第3章） */
+export const PLAY_RUN_PERIOD = 1.5;
+export const PLAY_RUN_STEPS = 4;
 export const PHASE_LABEL: Record<StepPhase, string> = { land: "着地した直後", peak: "足を上げる直前", lift: "足を上げた直後", pre: "次の着地の直前" };
 
 export interface StepDents {

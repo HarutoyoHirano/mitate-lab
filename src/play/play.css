@@ -292,3 +292,8 @@ button { font: inherit; }
 
 /* 日本語の改行は、文節に近い切れ目（phrase() が置く <wbr>）でだけ入れる。長すぎる語だけは途中で折る */
 .text, .sub, .goal, .cmd, .choice, .panel li, .panel p, .panel td { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+
+/* 謎1 走行テストの時間のバー（グラフの横軸にそろえる） */
+.timebar { position: absolute; left: calc(100% * (648 + 66) / 1280); width: calc(100% * (616 - 92) / 1280); top: calc(100% * 412 / 480); display: grid; gap: 2px; }
+.timebar input { width: 100%; accent-color: var(--gold); }
+.timebar b { font-size: max(14px, 1.3cqw); font-weight: 900; color: var(--ink); text-align: center; }

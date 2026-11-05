@@ -365,7 +365,7 @@ export function partsBox(x: number, y: number, used: Set<string>): string {
 export function checkBoard(x: number, y: number, checks: Check[], shown: number): string {
   const rows = checks.slice(0, 16);
   return `<g transform="translate(${x},${y})"><rect width="400" height="${40 + rows.length * 25}" rx="14" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
-    <text x="16" y="26" fill="var(--ink)" font-size="15" font-weight="900">検算（計算プログラム）の確かめ</text>
+    <text x="16" y="26" fill="var(--ink)" font-size="15" font-weight="900">計算プログラムの確かめ</text>
     ${rows
       .map((c, i) => {
         const on = i < shown;

@@ -23,7 +23,7 @@ import {
 } from "../../server/model/membraneGame.js";
 import { Session } from "../../server/session/session.js";
 import { BASE } from "../../server/model/public.js";
-import { DUTY, STEP_ERROR, STEP_PHASES, STEP_TOLERANCE, stepDents, TEMPOS } from "../../server/model/steps.js";
+import { DUTY, STEP_ERROR, STEP_PHASES, STEP_TOLERANCE, stepDents, TEMPOS, PLAY_RUN_PERIOD, PLAY_RUN_STEPS } from "../../server/model/steps.js";
 import { representativeTruths } from "./helpers.js";
 
 function grid(min: number, max: number, step: number): number[] {
@@ -206,6 +206,15 @@ describe("34 走行テスト", () => {
         for (let k = 0; k < a.length; k++) for (const ph of STEP_PHASES) best = Math.max(best, Math.abs(b[k]![ph] - a[k]![ph]));
       }
       expect(best - STEP_ERROR).toBeGreaterThan(STEP_TOLERANCE);
+    }
+  });
+  it("「走る」（新しい画面の謎1）の最初の4歩だけでも、どのBにも最悪の誤差で判定幅を超える点がある", () => {
+    for (const t of representativeTruths()) {
+      const a = stepDents(BASE, PLAY_RUN_PERIOD).slice(0, PLAY_RUN_STEPS);
+      const b = stepDents(t.params, PLAY_RUN_PERIOD).slice(0, PLAY_RUN_STEPS);
+      let best = 0;
+      for (let k = 0; k < a.length; k++) for (const ph of STEP_PHASES) best = Math.max(best, Math.abs(b[k]![ph] - a[k]![ph]));
+      expect(best - STEP_ERROR, JSON.stringify(t.params)).toBeGreaterThan(STEP_TOLERANCE);
     }
   });
   it("同じ一歩・同じ点の証拠は一枚。記録した値から判定する", () => {

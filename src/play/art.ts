@@ -99,7 +99,7 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
     <rect x="150" y="104" width="760" height="16" rx="6" fill="var(--metal)"/>
     
     ${lane(330, o.labelA, o.dentA, "A")}${lane(760, o.labelB, o.dentB, "B")}
-    ${o.diff !== null ? `<g transform="translate(470,200)"><rect width="140" height="40" rx="20" fill="${o.hot ? "var(--stamp)" : "var(--chip)"}"/><text x="70" y="27" fill="${o.hot ? "#fff" : "var(--ink)"}" font-size="18" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">差 ${o.diff >= 0 ? "+" : "−"}${Math.abs(o.diff).toFixed(3)}</text></g>` : ""}
+    ${o.diff !== null ? `<g transform="translate(470,44)"><rect width="140" height="40" rx="20" fill="${o.hot ? "var(--stamp)" : "var(--chip)"}"/><text x="70" y="27" fill="${o.hot ? "#fff" : "var(--ink)"}" font-size="18" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">差 ${o.diff >= 0 ? "+" : "−"}${Math.abs(o.diff).toFixed(3)}</text></g>` : ""}
   </g>`;
 }
 
@@ -250,7 +250,7 @@ function sceneDesign(s: number): string {
     <rect x="196" y="236" width="170" height="10" rx="3" fill="var(--metal-edge)"/>
     <rect x="233" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--you)" opacity=".35" stroke="var(--you)" stroke-width="3"/>
     <text x="280" y="20" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">3Dプリンタ</text>
-    <text x="280" y="280" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">試験用の軟骨</text>
+    <text x="280" y="280" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">あなたの試作品</text>
     
     
     `);
@@ -260,7 +260,7 @@ function sceneRuleChange(s: number): string {
   const rev = s > 2.6;
   return frame(`
     ${robotArt(rev ? "smug" : "scan", 52, 70, 0.42)}
-    <g transform="translate(150,60) scale(0.8)">${ruleCard(0, 0, "ロボの走行検査", ["ゆっくり歩かせる", "12歩目の一点を見る", rev ? "見る点を変える" : "（すり抜けられたら…）"], rev ? 2 : null, rev)}</g>
+    <g transform="translate(150,60) scale(0.8)">${ruleCard(0, 0, "ロボの走行検査", ["ゆっくり歩かせる", "12歩目の一点を見る", rev ? "見る点を変える" : "（見落としたら…）"], rev ? 2 : null, rev)}</g>
     `);
 }
 
@@ -416,10 +416,10 @@ const MOVIES: Record<MovieId, Movie> = {
   2: {
     scenes: [
       { dur: 5, tag: "① 検査の見落とし", short: "謎1でロボの見落としが見つかった", draw: sceneMiss },
-      { dur: 6, tag: "② わざとすり抜けてみる", short: "すり抜ける軟骨をつくって見落としを探す", draw: sceneDesign },
-      { dur: 6, tag: "③ ロボも負けていない", short: "ロボはすり抜けられると見る場所を変える", draw: sceneRuleChange },
+      { dur: 6, tag: "② わざと見落とさせる", short: "見本と違うのにロボが見分けられない軟骨をつくる", draw: sceneDesign },
+      { dur: 6, tag: "③ ロボも負けていない", short: "見落とすとロボは見る場所を変える", draw: sceneRuleChange },
     ],
-    end: ["ロボの検査はすり抜けて、ほかのところには違いを残せ。", "二回戦では、ロボの測り方が変わる。"],
+    end: ["ロボには「区別できません」と言わせて、ほかのところには違いを残せ。", "二回戦では、ロボの見る場所が変わる。"],
   },
   4: {
     scenes: [
@@ -489,6 +489,62 @@ export function beatLane(x: number, y: number, notes: { shown: boolean; hot: boo
       })
       .join("")}
     ${now !== null ? `<rect x="${gap / 2 + now * gap - 4}" y="-10" width="8" height="90" rx="4" fill="var(--gold)" opacity=".85"/>` : ""}
+  </g>`;
+}
+
+/**
+ * 謎1 走行テストの時間のバー（CLAUDE.md 1c・第3章）：最初の数歩のへこみ。
+ * A＝計算の線（点線）、B＝測った点とそれを結んだ線（誤差のない B の線は描かない）。差が幅を超えた点は赤。
+ */
+export function runTimeline(o: {
+  x: number; y: number; w: number; h: number; period: number; steps: number;
+  aLine: readonly { t: number; v: number }[];
+  bPts: readonly { t: number; v: number; shown: boolean; hot: boolean; sel: boolean; shot: boolean }[];
+  now: number | null; tol: number;
+}): string {
+  const L = 66, R = 26, T = 40, B = 70;
+  const tMax = o.period * o.steps;
+  const vals = [...o.aLine.map((p) => p.v), ...o.bPts.filter((p) => p.shown).map((p) => p.v)];
+  const vMin = Math.min(-0.05, ...vals) - 0.03;
+  const vMax = Math.max(1.0, ...vals) + 0.05;
+  const xs = (t: number) => L + ((o.w - L - R) * t) / tMax;
+  const ys = (v: number) => T + (o.h - T - B) * ((vMax - v) / (vMax - vMin));
+  const bands = Array.from({ length: o.steps }, (_, k) => {
+    const x0 = xs(k * o.period), x1 = xs(k * o.period + o.period / 2), x2 = xs((k + 1) * o.period);
+    return `<rect x="${x0}" y="${T}" width="${x1 - x0}" height="${o.h - T - B}" fill="color-mix(in srgb, var(--bot) 10%, transparent)"/>
+      <text x="${(x0 + x2) / 2}" y="${T - 12}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">${k + 1}歩目</text>`;
+  }).join("");
+  const ticks = Array.from({ length: Math.floor(tMax) + 1 }, (_, i) => `<text x="${xs(i)}" y="${o.h - B + 22}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="middle">${i}${i === Math.floor(tMax) ? " 秒" : ""}</text>`).join("");
+  const yt = [0, 0.5, 1].map((v) => `<line x1="${L}" x2="${o.w - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${ys(v) + 5}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="end">${v}</text>`).join("");
+  const aPath = o.aLine.map((p, i) => `${i ? "L" : "M"}${xs(p.t).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
+  const shown = o.bPts.filter((p) => p.shown);
+  const bPath = shown.map((p, i) => `${i ? "L" : "M"}${xs(p.t).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
+  const dots = o.bPts
+    .map((p, i) =>
+      !p.shown
+        ? ""
+        : `<g class="note hit" data-act="note" data-val="${i}" role="button" aria-label="${Math.floor(i / 4) + 1}歩目の点">
+        <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="16" fill="transparent"/>
+        ${p.sel ? `<circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="15" fill="none" stroke="var(--gold)" stroke-width="4"/>` : ""}
+        <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="${p.hot ? 9 : 6}" fill="${p.hot ? "var(--stamp)" : "var(--pad-b-edge)"}" stroke="var(--panel)" stroke-width="2"/>
+        ${p.shot ? `<text x="${xs(p.t)}" y="${ys(p.v) - 18}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="middle">証拠</text>` : ""}
+      </g>`,
+    )
+    .join("");
+  return `<g transform="translate(${o.x},${o.y})">
+    <rect width="${o.w}" height="${o.h}" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    ${bands}${yt}
+    <text x="14" y="${T - 12}" fill="var(--ink)" font-size="15" font-weight="900">へこみ</text>
+    ${ticks}
+    <path d="${aPath}" fill="none" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/>
+    ${bPath ? `<path d="${bPath}" fill="none" stroke="var(--pad-b-edge)" stroke-width="2" opacity=".7"/>` : ""}
+    ${dots}
+    ${o.now !== null ? `<line x1="${xs(o.now)}" x2="${xs(o.now)}" y1="${T}" y2="${o.h - B}" stroke="var(--gold)" stroke-width="3"/>` : ""}
+    <g font-size="14" font-weight="900" fill="var(--ink)" transform="translate(${L},${o.h - 22})">
+      <line x1="0" x2="28" y1="-5" y2="-5" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/><text x="36" y="0">見本 A</text>
+      <circle cx="120" cy="-5" r="6" fill="var(--pad-b-edge)"/><text x="132" y="0">試作品 B（測った点）</text>
+      <circle cx="306" cy="-5" r="8" fill="var(--stamp)"/><text x="320" y="0">ちがいが ${o.tol} より大きい</text>
+    </g>
   </g>`;
 }
 
