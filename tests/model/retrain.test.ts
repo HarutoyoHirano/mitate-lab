@@ -10,7 +10,7 @@ const reps = HIDDEN_CAUSES.flatMap((h) => [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1].map(
 const ids = (c: RetrainCase) => retrainSpec(c).points.map((p) => p.id);
 
 describe("42 検査ロボの鍛えなおし", () => {
-  it("最初の規則だけでは、どのページもBを見分けられず、すり抜ける試作品が残る", () => {
+  it("いままでの数字だけでは、どの検査もBを見分けられず、すり抜ける試作品が残る", () => {
     for (const c of ["cartilage", "vessel", "membrane"] as const) {
       const r = judgeRetrain(c, [], reps[0]!);
       expect(r.catchesB, c).toBe(false);

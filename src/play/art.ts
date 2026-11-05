@@ -960,11 +960,11 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
     <rect y="${oy}" width="${w}" height="${H}" fill="var(--panel)" stroke="var(--line)"/>${rects}
     ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${(col(m.x) + 0.5) * cw + 12}" y="${cy(row(m.y)) - 10 - (zoom ? k * 16 : 0)}" fill="var(--ink)" font-size="14" font-weight="900">${m.label}</text>`).join("")}
     <text x="${w / 2}" y="${oy + H + 22}" fill="var(--soft)" font-size="13" text-anchor="middle">${axes.x} →</text>
-    ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">最初の規則を通る試作品だけ（${axes.y}が見本に近いもの）を拡大。左の数字＝${axes.y}</text>` : `<text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>`}
+    ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>`}
     <g transform="translate(0,${h + 36})" font-size="12" font-weight="800">
       <rect width="14" height="14" fill="var(--stamp)"/><text x="20" y="12" fill="var(--ink)">すり抜ける</text>
       <rect x="110" width="14" height="14" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="130" y="12" fill="var(--ink)">見分けられる</text>
-      <rect x="232" width="14" height="14" fill="var(--chip)"/><text x="252" y="12" fill="var(--ink)">最初の規則で見分けられる</text>
+      <rect x="232" width="14" height="14" fill="var(--chip)"/><text x="252" y="12" fill="var(--ink)">いままでの数字で見分けられる</text>
     </g>
   </g>`;
 }

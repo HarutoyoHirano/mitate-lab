@@ -224,7 +224,7 @@ function movieLoop(): void {
 }
 const MOVIE_INFO: Record<MovieId, { chap: string; goal: string; go: string; label: string; sub: string }> = {
   1: { chap: "謎1 見破れ", goal: "はじまりの話：試作品Bと検査ロボ", go: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く" },
-  2: { chap: "謎2 仕掛けろ", goal: "はじまりの話：検査を鍛えなおす", go: "enter-c2", label: "設計台へ", sub: "ロボの検査規則を見る" },
+  2: { chap: "謎2 仕掛けろ", goal: "はじまりの話：検査を鍛えなおす", go: "enter-c2", label: "設計台へ", sub: "ロボの検査の手順を見る" },
   4: { chap: "謎3 脈の見落とし", goal: "はじまりの話：膝へ血液を運ぶ人工血管と検査ロボ", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
   5: { chap: "謎4 膜の見落とし", goal: "はじまりの話：膝の感覚を伝える神経の膜と検査ロボ", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
 };
@@ -263,7 +263,7 @@ function c1Say(): View {
   return {
     chap: "謎1 見破れ",
     goal: "ロボの証言を聞き、確かめ方を考えよう",
-    svg: `${ruleCard(40, 40, "検査規則 第1版", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ 差 ±0.03 以内 → 同じ"], null, false)}
+    svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ 差 ±0.03 以内 → 同じ"], null, false)}
       ${bubble(370, 70, lab, l1, l2, 500)}${robotArt(state.mood, 960, 40, 0.95)}<text x="40" y="270" fill="var(--soft)" font-size="15">力の数字は、見本Aが落ち着いたときの力を1とした数</text>
       <g transform="translate(40,300)"><rect width="820" height="74" rx="12" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
         <text x="18" y="30" fill="var(--ink)" font-size="17" font-weight="900">A＝見本：いままでの人工軟骨。性質が分かっていて、比べる基準になる</text>
@@ -486,7 +486,7 @@ function c2(): View {
   return {
     chap: "謎2 仕掛けろ",
     goal: `ロボの「次の一手」をすり抜け、別の点に違いを残す試作品をつくれ（ラウンド${round.id}）`,
-    svg: `${ruleCard(30, 20, round.id === 1 ? "検査規則 第2版（走行検査を追加）" : "検査規則 第3版", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
+    svg: `${ruleCard(30, 20, round.id === 1 ? "検査の手順（走らせて調べるを追加）" : "検査の手順", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差 ±${ROBOT_PASS} 以内 → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
       <g transform="translate(330,22)"><rect width="470" height="56" rx="28" fill="color-mix(in srgb, var(--bot) 18%, var(--panel))" stroke="var(--bot)" stroke-width="3"/>
         <circle cx="30" cy="28" r="16" fill="var(--bot)"/><circle cx="30" cy="28" r="6" fill="var(--panel)"/>
         <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後（体重がかかった直後）" : "足を上げる直前（体重が抜ける直前）"}</text></g>
@@ -517,7 +517,7 @@ function c2(): View {
         ? [{ act: round.id === 1 ? "duel-next" : "to-map", label: round.id === 1 ? "ラウンド2へ" : "答えの地図を開く", hot: true }]
         : [
             { act: "duel-test", label: "ためしに走らせる", sub: "何度でも。減点なし", hot: state.duelPhase === "design", disabled: state.duelPhase === "judge" },
-            { act: "duel-go", label: "設計を固定して挑む", sub: "ロボが規則どおりに測る", hot: state.duelPhase === "test", disabled: state.duelPhase === "judge" },
+            { act: "duel-go", label: "設計を固定して挑む", sub: "ロボが手順どおりに測る", hot: state.duelPhase === "test", disabled: state.duelPhase === "judge" },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
   };
@@ -557,7 +557,7 @@ function c2Map(): View {
       <text y="206" fill="var(--soft)" font-size="13">（つまみを0.05ずつ変えたすべての組み合わせを、</text><text y="226" fill="var(--soft)" font-size="13">ロボと同じ判定で計算して塗った）</text></g>`,
     who: "bot",
     text: state.line.text,
-    cmds: [{ act: "rt-enter", val: "cartilage", label: "TEJUN を鍛えなおす", sub: "軟骨のページの規則を、あなたが書きなおす", hot: true }],
+    cmds: [{ act: "rt-enter", val: "cartilage", label: "TEJUN を鍛えなおす", sub: "人工軟骨の検査で見る数字を、あなたが足す", hot: true }],
   };
 }
 
@@ -646,7 +646,7 @@ function c3Sync(): View {
           { act: "v-bet", val: "unknown", label: "まだ分からない", sub: "試験装置で確かめる" },
         ]
       : state.syncDone
-        ? [{ act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "血管のページの規則を、あなたが書きなおす", hot: true }]
+        ? [{ act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す", hot: true }]
         : [{ act: "sync-hint", label: "ヒント", ghost: true }],
   };
 }
@@ -730,7 +730,7 @@ function c4Duel(): View {
     goal: `ロボの「次の一手」をすり抜ける膜をつくれ（ラウンド${round.id}）`,
     svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "膜 A", "A", true, state.memT || 105)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105)}
       ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "膜 A", b: "あなたの膜", top: 18, notes: false })}
-      ${ruleCard(880, 20, round.id === 1 ? "膜の検査規則 第1版" : "膜の検査規則 第2版", [round.id === 1 ? "① 止める直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差 ±${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} 以内 → 同じ`], 0, round.id === 2)}`,
+      ${ruleCard(880, 20, "膜の検査の手順", [round.id === 1 ? "① 止める直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差 ±${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} 以内 → 同じ`], 0, round.id === 2)}`,
     html: `<div class="knobs" style="left:1%;top:62%;width:27%">${(["g", "c"] as const)
       .map((k) => {
         const s = MEM_SLIDERS[k];
@@ -748,7 +748,7 @@ function c4Duel(): View {
     extra: state.duelHint ? `<p class="sub">${round.id === 1 ? "ロボが見るのは止める直前の高さだけ。十分長く流したときの高さは通りやすさで決まり、電気のためやすさは、上がり方と戻り方の速さを変える。" : "ロボが見るのは戻る時間だけ。戻るのにかかる時間は「ためやすさ÷通りやすさ」に比例する（ためやすいほど遅く、通りやすいほど速い）。"}${state.duelHint > 1 ? (round.id === 1 ? " 通りやすさは見本のままにして、ためやすさだけ動かすと？（大きすぎると、止める直前までに上がりきらない）" : " ためやすさと通りやすさを、同じ倍だけ（たとえばどちらも2倍に）変えると？") : ""}</p>` : "",
     cmds:
       state.duelPhase === "result" && state.duelCleared
-        ? [round.id === 1 ? { act: "mduel-next", label: "ラウンド2へ", hot: true } : { act: "rt-enter", val: "membrane", label: "TEJUN を鍛えなおす", sub: "膜のページの規則を、あなたが書きなおす", hot: true }]
+        ? [round.id === 1 ? { act: "mduel-next", label: "ラウンド2へ", hot: true } : { act: "rt-enter", val: "membrane", label: "TEJUN を鍛えなおす", sub: "膜の検査で見る数字を、あなたが足す", hot: true }]
         : [
             { act: "mduel-test", label: "テスト", sub: "何度でも", hot: state.duelPhase === "design" },
             { act: "mduel-go", label: "設計を固定して挑む", hot: state.duelPhase === "test" },
@@ -758,10 +758,10 @@ function c4Duel(): View {
 }
 
 // ---------- 検査ロボを鍛えなおす（1c-3。規則を書きなおすのはあなた。確かめは retrain.ts） ----------
-const RT_PAGE: Record<RetrainCase, { page: string; chap: string; version: string; next: Cmd }> = {
-  cartilage: { page: "人工軟骨", chap: "謎2 鍛えなおす", version: "第4版", next: { act: "to-m4", label: "謎3：膝へ血液を運ぶ人工血管へ", sub: "軟骨には血管がない。では、血液は？", hot: true } },
-  vessel: { page: "人工血管", chap: "謎3 鍛えなおす", version: "第2版", next: { act: "to-m5", label: "謎4：膝の感覚を伝える神経の膜へ", sub: "膝が押された感じは、神経で脳へ伝わる", hot: true } },
-  membrane: { page: "神経の膜", chap: "謎4 鍛えなおす", version: "第3版", next: { act: "to-end", label: "まとめへ", sub: "三つのページを並べる", hot: true } },
+const RT_PAGE: Record<RetrainCase, { page: string; chap: string; next: Cmd }> = {
+  cartilage: { page: "人工軟骨", chap: "謎2 鍛えなおす", next: { act: "to-m4", label: "謎3：膝へ血液を運ぶ人工血管へ", sub: "軟骨には血管がない。では、血液は？", hot: true } },
+  vessel: { page: "人工血管", chap: "謎3 鍛えなおす", next: { act: "to-m5", label: "謎4：膝の感覚を伝える神経の膜へ", sub: "膝が押された感じは、神経で脳へ伝わる", hot: true } },
+  membrane: { page: "神経の膜", chap: "謎4 鍛えなおす", next: { act: "to-end", label: "まとめへ", sub: "三つの検査を並べる", hot: true } },
 };
 function rtTruth() {
   return state.debrief ? { eInf: state.debrief.truth.eInf, e1: state.debrief.truth.e1, tau: state.debrief.truth.tau } : null;
@@ -801,7 +801,7 @@ function rtView(): View {
   const res = judgeRetrain(r.c, r.slots, r.c === "cartilage" ? rtTruth() : null);
   const d = r.c === "membrane" ? 2 : r.c === "vessel" ? 1 : 3;
   const rows = [
-    `<text x="20" y="74" fill="var(--paper-ink)" font-size="16" font-weight="900">① ${esc(sp.firstRule)}（最初の規則）</text>`,
+    `<text x="20" y="74" fill="var(--paper-ink)" font-size="16" font-weight="900">① ${esc(sp.firstRule)}（いままで見ていた数字）</text>`,
     ...Array.from({ length: RETRAIN_SLOTS }, (_, i) => {
       const id = r.slots[i];
       const bd = id ? res.bDiffs.find((x) => x.id === id) : undefined;
@@ -822,10 +822,10 @@ function rtView(): View {
       : `<div class="row"><span>${r.c === "vessel" ? "脈の中の時刻" : "流し始めから"}</span><input type="range" id="rt-t" min="0" max="${(r.c === "vessel" ? VESSEL_POINTS : MEMBRANE_POINTS).length - 1}" step="1" value="${r.t}" ${r.done ? "disabled" : ""} aria-label="足す数字の時刻"></div>`;
   return {
     chap: info.chap,
-    goal: r.done ? `検査規則 ${info.version}。${info.page}のページを書きなおした` : "ロボの検査手帳を書きなおそう（Bを見分け、すり抜けを0に）",
+    goal: r.done ? `${info.page}の検査で見る数字が ${1 + r.slots.length} つになった` : `${info.page}の検査で、ロボが見る数字を足そう（Bを見分け、すり抜けを0に）`,
     svg: `<g transform="translate(16,14)"><rect width="470" height="${100 + RETRAIN_SLOTS * 46}" rx="12" fill="var(--paper)"/>
-        <text x="20" y="34" fill="var(--paper-soft)" font-size="15" font-weight="900">TEJUN の検査手帳 ── ${info.page}のページ</text>
-        ${r.done ? `<g class="pop" transform="translate(356,8) rotate(-8)"><rect width="100" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="50" y="24" fill="var(--stamp)" font-size="16" font-weight="900" text-anchor="middle">${info.version}</text></g>` : ""}
+        <text x="20" y="34" fill="var(--paper-soft)" font-size="15" font-weight="900">TEJUN が${info.page}の検査で見る数字</text>
+        ${r.done ? `<g class="pop" transform="translate(356,8) rotate(-8)"><rect width="100" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="50" y="24" fill="var(--stamp)" font-size="16" font-weight="900" text-anchor="middle">数字 ${1 + r.slots.length} つ</text></g>` : ""}
         ${rows}</g>
       ${badge(222, ok1, ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
       ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（地図の赤）`)}
@@ -838,11 +838,11 @@ function rtView(): View {
         <div class="row"><span>枠</span>${r.slots.length ? r.slots.map((id, i) => `<span class="slot full">${esc(rtLabel(id))}<button data-act="rt-del" data-val="${i}" aria-label="枠から外す">×</button></span>`).join("") : `<span class="slot">まだ空き（二つまで）</span>`}</div></div>`,
     who: state.line.who,
     text: state.line.text,
-    sub: `地図＝${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}と同じつまみで、0.05 ずつ変えたすべての試作品。赤＝書きなおした規則の数字をすべて「同じ」の幅に収めながら、ほかのところに違いを残す（すり抜ける）。`,
+    sub: `地図＝${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}のつまみでつくれる試作品。赤＝ロボが見る数字はどれも見本と「同じ」なのに、ほかのところで違う（ロボをすり抜ける）。`,
     cmds: r.done
       ? [info.next]
       : [
-          { act: "rt-go", label: "この規則で鍛えなおす", sub: r.slots.length ? "計算プログラムが確かめる" : "数字を一つ以上入れる", hot: r.slots.length > 0, disabled: r.slots.length === 0 },
+          { act: "rt-go", label: "この数字で鍛えなおす", sub: r.slots.length ? "計算プログラムが確かめる" : "数字を一つ以上入れる", hot: r.slots.length > 0, disabled: r.slots.length === 0 },
           { act: "rt-hint", label: "ヒント", ghost: true },
         ],
   };
@@ -861,12 +861,12 @@ function endCard(x: number, title: string, sub: string, pic: string, rows: [stri
     ${rows.map(([a, b], k) => `<text x="16" y="${178 + k * 23}" fill="var(--ink)" font-size="14" font-weight="800">${a}</text><text x="388" y="${178 + k * 23}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="end">${b}</text>`).join("")}
     <text x="16" y="262" fill="${electric ? "var(--you)" : "var(--soft)"}" font-size="12" font-weight="800">${electric ? "本当に電気がたまり、イオンが流れる" : "式の形が同じだけ（電気は流れていない）"}</text></g>`;
 }
-/** まとめの一行：ロボの検査手帳（1c-3）。足した数字の数は記録から */
+/** まとめの一行：ロボが見る数字（1c-3）。足した数字の数は記録から */
 function endNotebook(): string {
   const n = (c: RetrainCase) => state.rtLog[c]?.length;
   const pages = (["cartilage", "vessel", "membrane"] as const).filter((c) => n(c));
   if (!pages.length) return "ロボの見落とし：最後の値だけ（軟骨・膜）／平均だけ（血管）。見る数字が一つだと、ほかの違いを見落とす。";
-  return `TEJUN の手帳：${pages.map((c) => `${RT_PAGE[c].page}は数字を${n(c)}つ足した`).join("・")}。わからない部品の数だけ、効く数字がいる（最初の規則がおさえていた部品の数による）。`;
+  return `TEJUN が見る数字：${pages.map((c) => `${RT_PAGE[c].page}の検査は ${1 + n(c)!} つ`).join("・")}。わからない部品の数だけ、効く数字がいる（いままでの数字が、どの部品をおさえていたかによる）。`;
 }
 function endView(): View {
   if (!endRuns) endRuns = { v: runNet(PREPARED_NETS[0]!, 120), m: runNet(PREPARED_NETS[1]!, 120) };
@@ -1182,7 +1182,7 @@ function discovery(): string[] {
   if (state.memChecked) out.push(`謎4：止める直前の膜の電圧は同じでも、上がり方・戻り方が違った。膜Bは電気のためやすさが ${CASE3_B.c} 倍`);
   for (const c of ["cartilage", "vessel", "membrane"] as const) {
     const l = state.rtLog[c];
-    if (l) out.push(`鍛えなおし（${RT_PAGE[c].page}）：最初の規則「${retrainSpec(c).firstRule}」に、${l.map((x) => `「${x}」`).join("と")}を足して、すり抜ける試作品をなくした（つまみの範囲で計算）`);
+    if (l) out.push(`鍛えなおし（${RT_PAGE[c].page}の検査）：いままで見ていた「${retrainSpec(c).firstRule}」に、${l.map((x) => `「${x}」`).join("と")}を足して、すり抜ける試作品をなくした（つまみの範囲で計算）`);
   }
   out.push("まだ言えないこと：教材が決めた式・値の範囲・ぶれの決まりの中での結果。実物の材料・血管・膜の性質を、この模型だけで決めたわけではない");
   return out;
@@ -1195,9 +1195,9 @@ function panelHtml(): string {
       <h2 id="notice-h">はじめる前に</h2>
       <ul>
         <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
-        <li>試す回数で減点しません。名前などは集めません。</li>
+        <li>うまくいかなくても、何度でも試せます。点数や順位はつけません。</li>
+        <li>名前などの個人の情報は、入力も保存もしません。</li>
       </ul>
-      <p class="sub">登場する役割（検査ロボ・Claude など）と先生用の設定は、右上の「？」にあります。</p>
       <div class="row"><button class="cmd hot" data-act="panel-close" autofocus>わかった、はじめる</button></div></div></div>`;
   const body =
     state.panel === "refs"
@@ -1374,7 +1374,7 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
   const hiddenName = kind === "c2" ? (DUEL_ROUNDS[state.round]!.hidden.phase === "land" ? "着地直後" : "足を上げる直前") : MEM_ROUNDS[state.round]!.hiddenLabel;
   if (r.cleared) {
     state.mood = "shock";
-    say("bot", "……私の規則では、区別できません。");
+    say("bot", "……私の手順では、区別できません。");
     if (kind === "c2") state.duelLog.push(`${state.e1.toFixed(2)}, ${state.tau.toFixed(2)}`);
     else state.memLog.push(`${state.g.toFixed(2)}, ${state.c.toFixed(2)}`);
     state.record.push(`${kind === "c2" ? "謎2 🦵" : "謎4 ⚡"} ラウンド${state.round + 1} すり抜け ✔`);
@@ -1384,7 +1384,7 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
     say("calc", `ロボの点は通過。ロボに見えない違い（${hiddenName}）には差 ${sgn(r.hidden.diff, kind === "c2" ? 3 : 2)}${kind === "c2" ? "" : " mV"} が残っている。`);
   } else {
     state.mood = "smug";
-    const reason = !r.robot.ok ? "見つけました。私の規則で測った点に、差があります。" : "私の規則では、区別できません。";
+    const reason = !r.robot.ok ? "見つけました。私が測った点に、差があります。" : "私の手順では、区別できません。";
     say("bot", reason);
     render();
     await stamp(!r.robot.ok ? "見つかった" : "違いが残っていない", "miss");
@@ -1591,7 +1591,7 @@ app.addEventListener("click", async (e) => {
     // 謎1 証言
     case "c1-next":
       state.say++;
-      if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の規則です。");
+      if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の検査の手順です。");
       else {
         state.mood = "calm";
         say("bot", "……一回押して、20秒待っただけです。それで十分でしょう？ 膝の軟骨には、一歩ごとに体重がかかるそうですが。");
@@ -1865,13 +1865,13 @@ app.addEventListener("click", async (e) => {
       state.say = 0;
       state.mood = "smug";
       state.vPlaying = !reduceMotion();
-      say("bot", `${state.rtLog.cartilage ? "軟骨のページは、あなたに鍛えなおしてもらいました。でも、血管のページは、ラボが決めた最初の規則だけです。" : ""}膝へ血液を運ぶ人工血管のチームの、心臓と血管のまねをした試験装置です。ポンプが1回の脈ごとに液（血液のかわり）を送り、人工血管がふくらんで受け止めます。`);
+      say("bot", `${state.rtLog.cartilage ? "人工軟骨の検査では、見る数字をあなたに足してもらいました。でも、人工血管の検査では、まだ「1回の脈の平均の圧」しか見ません。" : ""}膝へ血液を運ぶ人工血管のチームの、心臓と血管のまねをした試験装置です。ポンプが1回の脈ごとに液（血液のかわり）を送り、人工血管がふくらんで受け止めます。`);
       go("c3-say");
       vLoop();
       break;
     case "c3-next":
       state.say++;
-      say("bot", state.say === 1 ? "平均が同じなら、同じ血管です。それが私の規則です。" : "……1回の脈の平均を測れば十分です。脈の途中まで見る必要はありません。");
+      say("bot", state.say === 1 ? "平均が同じなら、同じ血管です。それが私の検査の手順です。" : "……1回の脈の平均を測れば十分です。脈の途中まで見る必要はありません。");
       render();
       break;
     case "to-watch3":
@@ -1927,7 +1927,7 @@ app.addEventListener("click", async (e) => {
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
-      say("bot", `${state.rtLog.vessel ? "血管のページも鍛えなおしました。でも、膜のページは、まだ最初の規則だけです。" : ""}最後は神経のチーム。膝の動きを脳へ伝える神経の端の膜の模型です。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
+      say("bot", `${state.rtLog.vessel ? "人工血管の検査でも、見る数字を足してもらいました。でも、膜の検査では、まだ「止める直前の膜の電圧」しか見ません。" : ""}最後は神経のチーム。膝の動きを脳へ伝える神経の端の膜の模型です。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
       go("c4-say");
       break;
     case "c4-next":
@@ -2035,7 +2035,7 @@ app.addEventListener("click", async (e) => {
       const c = val as RetrainCase;
       state.rt = { c, slots: [], tempo: "walk", step: 0, phase: "pre", t: c === "vessel" ? 10 : 0, hint: 0, done: false };
       state.mood = "calm";
-      say("bot", `私は決まったルールで動くので、自分では規則を書きなおせません。${RT_PAGE[c].page}のページを、あなたが書きなおしてください。最初の規則は残したまま、見る数字を二つまで足せます。`);
+      say("bot", `私は、決められた数字しか見られません。${RT_PAGE[c].page}の検査で見る数字を、あなたが足してください。いままでの「${retrainSpec(c).firstRule}」に、二つまで足せます。`);
       go("rt");
       break;
     }
@@ -2068,14 +2068,14 @@ app.addEventListener("click", async (e) => {
       const text =
         c === "cartilage"
           ? h === 1
-            ? "20秒後の力は、押した直後だけ増えるかたさにも、消えていくまでの時間にも、ほとんど左右されない。だから最初の規則は、どちらの部品もおさえていない。数字を一つ足すだけでは、赤いますが必ず残る（計算で確かめた）。"
+            ? "20秒後の力は、押した直後だけ増えるかたさにも、消えていくまでの時間にも、ほとんど左右されない。だから、いままで見ていた数字は、どちらの部品もおさえていない。数字を一つ足すだけでは、赤いますが必ず残る（計算で確かめた）。"
             : "謎2で、ロボはゆっくり歩いた12歩目の「着地した直後」と「足を上げる直前」を、別々のラウンドで見た。あなたは片方ずつならすり抜けられた。両方見たら？ それでもBを見分けられないときは、謎1であなたが見せた証拠のテンポを思い出そう。"
           : c === "vessel"
             ? h === 1
-              ? "1回の脈の平均の圧は、ポンプが送る量が同じなら、出口の流れにくさで決まる。だから最初の規則は、出口の流れにくさをおさえている。残る部品は、ふくらみやすさ。それで変わる時刻を一つ足そう。"
+              ? "1回の脈の平均の圧は、ポンプが送る量が同じなら、出口の流れにくさで決まる。だから、いままで見ていた数字で、出口の流れにくさはおさえられている。残る部品は、ふくらみやすさ。それで変わる時刻を一つ足そう。"
               : "ふくらみやすさが違うと、高い圧のころと低い圧のころ（脈のはじまり）が変わる。平均とほとんど同じ圧になる時刻では、差が出にくい。"
             : h === 1
-              ? "止める直前の膜の電圧は、イオンの通りやすさで決まる。だから最初の規則は、通りやすさをおさえている。残る部品は、電気のためやすさ。それで変わる時刻を一つ足そう。"
+              ? "止める直前の膜の電圧は、イオンの通りやすさで決まる。だから、いままで見ていた数字で、通りやすさはおさえられている。残る部品は、電気のためやすさ。それで変わる時刻を一つ足そう。"
               : "ためやすさが違うと、上がる途中と戻る途中が変わる。流し始めの瞬間や、止めてずっとあとの時刻は、どの膜でも差がほとんどない。";
       say("guide", text);
       render();
@@ -2089,13 +2089,13 @@ app.addEventListener("click", async (e) => {
         state.rtLog[c] = state.rt.slots.map(rtLabel);
         state.conf = 100;
         state.mood = "smug";
-        state.record.push(`鍛えなおし 🛠 ${RT_PAGE[c].page}のページ：数字を${state.rt.slots.length}つ足して ${RT_PAGE[c].version} ✔`);
-        say("bot", `検査規則 ${RT_PAGE[c].version}。${RT_PAGE[c].page}の試作品は、このつまみの範囲では、もう見落としません。……ただし、違いうる部品が二つの範囲での話です。部品が三つ違えば、また数字が要ります。`);
+        state.record.push(`鍛えなおし 🛠 ${RT_PAGE[c].page}の検査：見る数字を${state.rt.slots.length}つ足した ✔`);
+        say("bot", `これからは、${RT_PAGE[c].page}の検査で、数字を ${1 + state.rt.slots.length} つ見ます。このつまみの範囲の試作品なら、もう見落としません。……ただし、違いうる部品が二つの範囲での話です。部品が三つ違えば、また数字を足す必要があります。`);
         render();
         await stamp("鍛えなおした！", "win", 0.5);
       } else {
         state.mood = "calm";
-        const why = [!res.catchesB ? "足した数字では、この謎のBとの差が「同じ」の幅の内側に入る。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この規則をすり抜ける。` : ""].join("");
+        const why = [!res.catchesB ? "足した数字では、この謎のBとの差が「同じ」の幅の内側に入る。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この数字ではロボをすり抜ける。` : ""].join("");
         say("calc", `${why}数字を選びなおそう（何度でも。減点なし）。`);
         render();
         await stamp("まだ見落とす", "miss");
@@ -2104,7 +2104,7 @@ app.addEventListener("click", async (e) => {
     }
     case "to-end":
       state.mood = "down";
-      say("bot", "三つのページを、あなたに鍛えなおしてもらいました。でも、私は手帳に書いてあることしかできません。新しい試作品のページは、また最初の規則一つから始まります。");
+      say("bot", "三つの検査で、見る数字を足してもらいました。でも、私は教わった数字しか見られません。新しい試作品の検査は、また数字一つから始まります。");
       go("end");
       break;
     case "n-enter":
@@ -2112,7 +2112,7 @@ app.addEventListener("click", async (e) => {
       state.nx.prev = PREPARED_NETS[1]!;
       state.conf = 100;
       state.mood = "smug";
-      say("bot", "新しい題材のページは、まだ最初の規則一つだけです。私の決まった手順で区別できなければ、同じとみなします。");
+      say("bot", "新しい試作品の検査では、まだ数字を一つしか見ません。その数字で区別できなければ、同じとみなします。");
       go("n-pick");
       break;
     case "to-end-back":
@@ -2249,7 +2249,7 @@ if (location.hash === "#rt-vessel" || location.hash === "#rt-membrane") {
   const c = location.hash.slice(4) as RetrainCase;
   state.rt = { c, slots: [], tempo: "walk", step: 0, phase: "pre", t: c === "vessel" ? 10 : 0, hint: 0, done: false };
   state.panel = null;
-  say("bot", `私は決まったルールで動くので、自分では規則を書きなおせません。${RT_PAGE[c].page}のページを、あなたが書きなおしてください。最初の規則は残したまま、見る数字を二つまで足せます。`);
+  say("bot", `私は、決められた数字しか見られません。${RT_PAGE[c].page}の検査で見る数字を、あなたが足してください。いままでの「${retrainSpec(c).firstRule}」に、二つまで足せます。`);
   state.scene = "rt";
 }
 // 「つづきの謎」から始める（#next。発表・確認用。謎1〜5を解かずに入れるが、記録には残らない）
