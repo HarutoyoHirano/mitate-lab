@@ -864,19 +864,22 @@ function vesselRigView(): View {
   const { sa, sb, ra, rb, sc } = vesselRigs();
   const k = Math.round(((state.u % BEAT_S) / BEAT_S) * 120);
   const lit = new Set(sb.parts.filter((p) => p.type === "store").map((p) => p.id));
-  const line = (yy: number, t: string, col = "var(--ink)") => `<text x="660" y="${yy}" fill="${col}" font-size="17" font-weight="900">${t}</text>`;
+  // 左の図の部品に番号を付け、右の説明は番号で照らし合わせる（2026-11-06、作者の指摘「説明が小さくて長い。左の図と照らし合わせて」）
+  const badge = (x: number, y: number, n: string, hot = false) => `<g transform="translate(${x},${y})"><circle r="17" fill="${hot ? "var(--gold)" : "var(--paper)"}" stroke="${hot ? "var(--stamp)" : "var(--metal-edge)"}" stroke-width="${hot ? 3 : 2}"/><text y="7" fill="var(--paper-ink)" font-size="19" font-weight="900" text-anchor="middle">${n}</text></g>`;
+  const marks = (dy: number, hot: boolean) => `${badge(122, 112 + dy, "①")}${badge(214, 112 + dy, "②", hot)}${badge(330, 160 + dy, "③")}`;
+  const row = (yy: number, n: string, t: string, col = "var(--ink)") => `${badge(676, yy - 7, n, n === "②")}<text x="704" y="${yy}" fill="${col}" font-size="20" font-weight="900">${t}</text>`;
   return {
     chap: "謎3 正体",
-    goal: "試験装置の見立てで見る：Bはどの部品が違った？",
+    goal: "試験装置で見ると：Bは ② ふくらむ袋（人工血管）が違った",
     svg: `${machine(sa, ra, k, sc, { x: 16, y: 10, w: 610, h: 220, scale: 1.2, tag: "見本の血管 A" })}${machine(sb, rb, k, sc, { x: 16, y: 244, w: 610, h: 220, scale: 1.2, tag: "試作品の血管 B", tagColor: "var(--vessel-edge)", lit })}
-      ${beatChart(660, 30, 580, 170, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
-      ${line(252, "ポンプ（心臓のかわり）：1回の脈で同じ量を送る")}
-      ${line(278, "ふくらむ袋（血管）：ふくらんで受け止める")}
-      ${line(304, "細い管（出口）：その先へ流れ出す")}
-      ${line(346, "Bの袋はふくらみにくい（見本の半分）", "var(--gold)")}
-      ${line(372, "→ 同じ量を受け止めると、圧が高く上がる")}
-      ${line(398, "→ 流れ出すと、圧が低く下がる")}
-      ${line(440, "平均は出口の細い管で決まるので、同じ", "var(--soft)")}`,
+      ${marks(0, false)}${marks(232, true)}
+      <text x="238" y="351" fill="var(--gold)" font-size="18" font-weight="900">ふくらみにくい</text>
+      ${beatChart(660, 30, 580, 150, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
+      ${row(236, "①", "ポンプ（心臓のかわり）：AもBも同じ")}
+      ${row(282, "②", "ふくらむ袋（人工血管）：Bは見本の半分", "var(--gold)")}
+      ${row(328, "③", "細い管（出口）：AもBも同じ")}
+      <text x="660" y="384" fill="var(--ink)" font-size="20" font-weight="900">②がふくらみにくいと、同じ量でも</text>
+      <text x="660" y="414" fill="var(--ink)" font-size="20" font-weight="900">圧が高く上がり、低く下がる</text>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
@@ -2427,7 +2430,7 @@ app.addEventListener("click", async (e) => {
     // 検査ロボを鍛えなおす（1c-3）
     case "v-more":
       state.vExplain = Math.min(2, state.vExplain + 1);
-      say("guide", state.vExplain === 1 ? "試験装置で見ると、ポンプ・ふくらむ袋・細い管の三つ。見本Aと試作品Bを同じ時刻で動かした。光っている袋が、Bで違った部品。" : "同じ三つを電気の部品で書くこともできる。ポンプは電流を送りこむもの、ふくらむ血管は電気をためるコンデンサ、細い管は抵抗。圧を電圧と読みかえると、同じ式になる。");
+      say("guide", state.vExplain === 1 ? "試験装置の三つの部品に番号を付けた。見本Aと試作品Bを同じ時刻で動かしている。Bで違うのは ② の袋。" : "同じ三つを電気の部品で書くこともできる。ポンプは電流を送りこむもの、ふくらむ血管は電気をためるコンデンサ、細い管は抵抗。圧を電圧と読みかえると、同じ式になる。");
       state.vPlaying = !reduceMotion();
       render();
       if (state.vPlaying) vLoop();
