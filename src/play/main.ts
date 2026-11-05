@@ -150,6 +150,7 @@ const state = {
   rtLog: {} as Partial<Record<RetrainCase, string[]>>,
   memLog: [] as string[],
   c2cursor: null as number | null,
+  solvedStep: 0,
   // つづきの謎（1e-4）
   nx: {
     prev: PREPARED_NETS[1]! as NetPuzzleSpec,
@@ -538,6 +539,7 @@ function c1Line(): View {
 
 function c1Solved(): View {
   const d = state.debrief!;
+  if (state.solvedStep > 0) return c1SolvedModel();
   const c = curve();
   const win = state.view?.narrowedTo ?? null;
   const fit = win ? fitFor(win) : null;
@@ -556,7 +558,56 @@ function c1Solved(): View {
       </g>`,
     who: "bot",
     text: state.line.text,
-    cmds: [{ act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true }],
+    cmds: [
+      { act: "solved-more", label: "もう少しくわしく", sub: "軟骨を、ばねとダンパの模型に見立てる" },
+      { act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true },
+    ],
+  };
+}
+
+/**
+ * 正体の解説の二段目・三段目（2026-11-05 夜、作者の提案「やさしいところから始めて、少しずつ専門的な話に」）。
+ * 二段目：模型の見立て（部品と、押した瞬間・待つあいだ・20秒後のはたらき）。三段目：Bはどの部品が違ったか（比較器が絞った説明）と、工学での名前。
+ */
+function c1SolvedModel(): View {
+  const d = state.debrief!;
+  const win = state.view?.narrowedTo;
+  const hl = win === "instant" || win === "relax" || win === "overall" ? win : null;
+  const step2 = state.solvedStep >= 2;
+  const t = (x: number, y: number, str: string, size = 21, color = "var(--paper-ink)") => `<text x="${x}" y="${y}" fill="${color}" font-size="${size}" font-weight="900">${esc(str)}</text>`;
+  const parts = [
+    ["左のばね", "ずっと押し返す。待ったあとも残るかたさ"],
+    ["右のばね", "押した直後だけ、かたさを足す"],
+    ["ダンパ", "ゆっくり閉まるドアの部品。速く動かすほど強く押し返す"],
+  ] as const;
+  const story = [
+    "押した瞬間：ダンパは急には動けない。右のばねも押し返す → かたい",
+    "待つあいだ：ダンパがゆっくりのびて、右のばねの力が抜けていく",
+    "20秒後：左のばねだけが残る → AとBは同じ",
+  ];
+  const which: Record<string, string> = {
+    instant: "Bは、右のばねが見本と違った（押した直後に足されるかたさ）",
+    relax: "Bは、ダンパのねばりが見本と違った（力が抜けていく速さ）",
+    overall: "Bは、左のばねが見本と違った",
+  };
+  return {
+    chap: "謎1 解決",
+    goal: step2 ? "Bは、模型のどの部品が違った？" : "人工軟骨を、ばねとダンパの模型に見立てる",
+    svg: `<g transform="translate(30,20)"><rect width="1220" height="420" rx="18" fill="var(--paper)"/>
+      <g transform="translate(40,40) scale(2)">${slsModel({ hl: step2 ? hl : null, mark: step2 && hl ? "！" : undefined, base: "var(--paper-soft)", color: "var(--stamp)" })}</g>
+      ${parts.map(([n, e], k) => `${t(460, 64 + k * 62, n, 23, step2 && hl === (["overall", "instant", "relax"] as const)[k] ? "var(--stamp)" : "var(--paper-ink)")}${t(580, 64 + k * 62, e, 19, "var(--paper-soft)")}`).join("")}
+      ${step2
+        ? `${t(40, 300, which[hl ?? ""] ?? d.explanation, 24, "var(--stamp)")}
+           ${t(40, 340, hl === "relax" ? "力が抜けていく時間 ＝ ダンパのねばり ÷ 右のばねのかたさ" : "力が抜けていく時間は、ダンパのねばり ÷ 右のばねのかたさ で決まる", 19)}
+           ${t(40, 376, "この模型は、工学では「標準線形固体」と呼ばれる。実物の軟骨を完全に表すものではない", 17, "var(--paper-soft)")}`
+        : story.map((l, k) => t(40, 300 + k * 38, l, 20)).join("")}
+    </g>`,
+    who: "guide",
+    text: state.line.text,
+    cmds: [
+      step2 ? { act: "solved-back", label: "やさしい説明に戻る", ghost: true } : { act: "solved-more", label: "Bは、どの部品が違った？", sub: "模型で正体を見る" },
+      { act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true },
+    ],
   };
 }
 
@@ -1808,10 +1859,10 @@ app.addEventListener("click", async (e) => {
       const why = after.excluded
         .map((x) => {
           const m = mismatchOf(x);
-          return m ? `「${CANDIDATES[x].label}」は、${m.where}で点が線より${m.diff > 0 ? "上" : "下"}（ずれ ${Math.abs(m.diff).toFixed(2)} [N]）` : `「${CANDIDATES[x].label}」は記録と合わない`;
+          return m ? `「${CANDIDATES[x].label}」のカード：グラフの${m.where === "長く待ったあと" ? "右のほう（長く待ったあと）" : m.where === "押している途中" ? "左のほう（押している途中）" : `山のすぐ右（${m.where}）`}で、Bの点が予想の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある（赤い丸）` : `「${CANDIDATES[x].label}」は記録と合わない`;
         })
         .join("。");
-      say("calc", `${after.excluded.length ? `${why}。赤い丸のところを見よう。測るたびのぶれ（0.02）より大きくずれる線は、記録と合わない` : "この記録で合わなくなった説明はない"}。${allUnsure ? "" : same ? "あなたの答えと一致。" : "あなたの答えと違うところがある。どこを見た？"}`);
+      say("calc", `${after.excluded.length ? `${why}。点は測るたびに 0.02 [N] までぶれるが、それより大きくずれる線は、記録と合わない` : "この記録で合わなくなった説明はない"}。${allUnsure ? "" : same ? "あなたの答えと一致。" : "あなたの答えと違うところがある。どこを見た？"}`);
       if (after.excluded.length) beep("shatter");
       if (state.view!.overall === "narrowed") {
         state.mood = "shock";
@@ -1879,6 +1930,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "reveal":
       if (!v) return;
+      state.solvedStep = 0;
       await guard(async () => {
         const r = await api.finish(v.sessionId);
         state.view = r.view;
@@ -1893,6 +1945,15 @@ app.addEventListener("click", async (e) => {
       }
       break;
     // 謎2
+    case "solved-more":
+      state.solvedStep = Math.min(2, state.solvedStep + 1);
+      say("guide", state.solvedStep === 1 ? "人工軟骨のふるまいは、ばね二つとダンパ一つの模型で書ける。部品ごとのはたらきを見よう。" : "計算で絞れた説明を、模型の部品で見ると、光ったところがBの正体。");
+      render();
+      break;
+    case "solved-back":
+      state.solvedStep = 0;
+      render();
+      break;
     case "to-c2":
       state.moviePlaying = false;
       startMovie(2, "はじまりの話：謎1でロボの見落としが分かった。次は、検査を鍛えなおす番。");
