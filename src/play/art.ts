@@ -718,7 +718,7 @@ export const SLS_ANIM_K = 16;
  * 右のばねの縮み＝σ1/E1、ダンパののび＝x−σ1/E1（標準線形固体の式そのまま）。力＝E∞·x＋σ1。
  * 幅 200×高さ 110 の座標（slsModel と同じ配置）。
  */
-export function slsAnim(o: { x: number; s1: number; e1: number; color?: string; ink?: string; base?: string }): string {
+export function slsAnim(o: { x: number; s1: number; e1: number; color?: string; ink?: string; base?: string; hl?: "overall" | "instant" | "relax" | null }): string {
   const K = SLS_ANIM_K;
   const dx = o.x * K;
   const cs = Math.max(0, Math.min(K, (o.s1 / o.e1) * K));
@@ -735,10 +735,10 @@ export function slsAnim(o: { x: number; s1: number; e1: number; color?: string; 
   return `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
     <rect x="22" y="${top}" width="156" height="8" rx="3" fill="${o.ink ?? "var(--paper-ink)"}" stroke="none"/>
     <rect x="22" y="98" width="156" height="8" rx="3" fill="${base}" stroke="none"/>
-    <path d="${zig(60, top + 8, 98)}" stroke="${base}" stroke-width="3"/>
-    <path d="${zig(140, top + 8, sb)}" stroke="${o.color ?? "var(--you)"}" stroke-width="4"/>
-    <path d="M140 ${sb} V${piston} M128 ${piston} H152" stroke="${base}" stroke-width="3"/>
-    <path d="M124 64 V92 H156 V64" stroke="${base}" stroke-width="3"/>
+    <path d="${zig(60, top + 8, 98)}" stroke="${o.hl === "overall" ? "var(--stamp)" : base}" stroke-width="${o.hl === "overall" ? 5 : 3}"/>
+    <path d="${zig(140, top + 8, sb)}" stroke="${o.hl === "instant" ? "var(--stamp)" : o.hl ? base : o.color ?? "var(--you)"}" stroke-width="${o.hl === "instant" ? 5 : 4}"/>
+    <path d="M140 ${sb} V${piston} M128 ${piston} H152" stroke="${o.hl === "relax" ? "var(--stamp)" : base}" stroke-width="${o.hl === "relax" ? 5 : 3}"/>
+    <path d="M124 64 V92 H156 V64" stroke="${o.hl === "relax" ? "var(--stamp)" : base}" stroke-width="${o.hl === "relax" ? 5 : 3}"/>
     <path d="M140 92 V98" stroke="${base}" stroke-width="3"/>
   </g>`;
 }

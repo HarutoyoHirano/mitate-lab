@@ -572,10 +572,11 @@ function c1Solved(): View {
  */
 // 見本Aを「ふつう（1秒）」で押して止めたときの模型（第3章の式。E∞=E1=τ=1）
 const MODEL_T_END = 8;
-function modelState(t: number): { x: number; s1: number; f: number } {
+function modelState(t: number, p: { eInf: number; e1: number; tau: number } = BASE): { x: number; s1: number; f: number } {
+  // 1秒かけて深さ1まで押して止める（第3章の解析解。r＝1）
   const x = Math.min(t, 1);
-  const s1 = t <= 1 ? 1 - Math.exp(-t) : (1 - Math.exp(-1)) * Math.exp(-(t - 1));
-  return { x, s1, f: BASE.eInf * x + s1 };
+  const s1 = t <= 1 ? p.e1 * p.tau * (1 - Math.exp(-t / p.tau)) : p.e1 * p.tau * (1 - Math.exp(-1 / p.tau)) * Math.exp(-(t - 1) / p.tau);
+  return { x, s1, f: p.eInf * x + s1 };
 }
 const modelPhase = (t: number) => (t <= 1.05 ? 0 : t < 5 ? 1 : 2);
 function modelScene(t: number): string {
@@ -607,7 +608,7 @@ function modelLoop(): void {
   }
   const s0 = performance.now();
   const tick = () => {
-    if (state.scene !== "c1-solved" || state.solvedStep !== 1) return;
+    if (state.scene !== "c1-solved" || state.solvedStep === 0) return;
     const e = (performance.now() - s0) / 1000;
     const cyc = e % (MODEL_T_END + 2); // 8秒動かして2秒止める
     state.modelT = Math.min(MODEL_T_END, cyc);
@@ -618,7 +619,55 @@ function modelLoop(): void {
   tick();
 }
 
+/** 三段目：見本Aと試作品B（開けた正体の値）の模型を同じ時刻で動かし、違った部品を光らせる */
+function c1SolvedWhich(): View {
+  const d = state.debrief!;
+  const tb = d.truth;
+  const win = state.view?.narrowedTo;
+  const hl = win === "instant" || win === "relax" || win === "overall" ? win : null;
+  const t = state.modelT;
+  const mA = modelState(t, BASE);
+  const mB = modelState(t, tb);
+  const up = hl === "relax" ? tb.tau > BASE.tau : hl === "instant" ? tb.e1 > BASE.e1 : tb.eInf > BASE.eInf;
+  const lines: Record<string, [string, string]> = {
+    relax: [up ? "Bは、ダンパが重い（ねばりが強い）" : "Bは、ダンパが軽い（ねばりが弱い）", up ? "だから、増えたかたさがゆっくり消える" : "だから、増えたかたさが速く消える"],
+    instant: [up ? "Bは、右のばねが強い" : "Bは、右のばねが弱い", up ? "だから、押した直後の力が大きい（消える速さは見本と同じ）" : "だから、押した直後の力が小さい（消える速さは見本と同じ）"],
+    overall: [up ? "Bは、左のばねが強い" : "Bは、左のばねが弱い", "だから、待ったあとの力が見本と違う"],
+  };
+  const [l1, l2] = lines[hl ?? "relax"]!;
+  const gx = 790, gy = 40, gw = 400, gh = 250;
+  const xs = (u: number) => gx + 44 + ((gw - 60) * u) / MODEL_T_END;
+  const ys = (f: number) => gy + gh - 34 - ((gh - 64) * f) / Math.max(1.9, mB.f, ...Array.from({ length: 41 }, (_, k) => modelState(k / 5, tb).f));
+  const path = (p: { eInf: number; e1: number; tau: number }) => Array.from({ length: 161 }, (_, k) => (k / 160) * MODEL_T_END).filter((u) => u <= t + 1e-9).map((u, k) => `${k ? "L" : "M"}${xs(u).toFixed(1)} ${ys(modelState(u, p).f).toFixed(1)}`).join(" ");
+  const tx = (x: number, y: number, str: string, size: number, color = "var(--paper-ink)", anchor = "start") => `<text x="${x}" y="${y}" fill="${color}" font-size="${size}" font-weight="900" text-anchor="${anchor}">${esc(str)}</text>`;
+  return {
+    chap: "謎1 解決",
+    goal: "Bは、模型のどの部品が違った？",
+    svg: `<g transform="translate(30,20)"><rect width="1220" height="420" rx="18" fill="var(--paper)"/>
+      ${tx(180, 40, "見本 A", 22, "var(--paper-ink)", "middle")}${tx(540, 40, "試作品 B", 22, "var(--paper-ink)", "middle")}
+      <g transform="translate(20,60) scale(1.8)">${slsAnim({ x: mA.x, s1: mA.s1, e1: BASE.e1, hl: null })}</g>
+      <g transform="translate(380,60) scale(1.8)">${slsAnim({ x: mB.x, s1: mB.s1, e1: tb.e1, hl })}</g>
+      ${tx(180, 290, `押し返す力 ${mA.f.toFixed(2)} [N]`, 18, "var(--paper-soft)", "middle")}${tx(540, 290, `押し返す力 ${mB.f.toFixed(2)} [N]`, 18, "var(--stamp)", "middle")}
+      <rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="10" fill="var(--panel)"/>
+      <path d="${path(BASE)}" fill="none" stroke="var(--soft)" stroke-width="3" stroke-dasharray="7 6"/>
+      <path d="${path(tb)}" fill="none" stroke="var(--stamp)" stroke-width="4"/>
+      <text x="${gx + 14}" y="${gy + 26}" fill="var(--ink)" font-size="15" font-weight="900">押し返す力　点線＝A　線＝B</text>
+      <text x="${xs(MODEL_T_END)}" y="${gy + gh - 10}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${t.toFixed(1)} 秒</text>
+      ${tx(40, 340, l1, 26, "var(--stamp)")}
+      ${tx(40, 376, l2, 21)}
+      ${tx(40, 406, "この模型は、工学では「標準線形固体」と呼ばれる。実物の軟骨を完全に表すものではない", 16, "var(--paper-soft)")}
+    </g>`,
+    who: "guide",
+    text: state.line.text,
+    cmds: [
+      { act: "solved-back", label: "やさしい説明に戻る", ghost: true },
+      { act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true },
+    ],
+  };
+}
+
 function c1SolvedModel(): View {
+  if (state.solvedStep >= 2) return c1SolvedWhich();
   const d = state.debrief!;
   const win = state.view?.narrowedTo;
   const hl = win === "instant" || win === "relax" || win === "overall" ? win : null;
@@ -775,7 +824,7 @@ function c3Watch(): View {
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "v-shot", label: "この瞬間を撮る", sub: `差が ${VESSEL_SEE_DIFF} mmHg を超えたら証拠`, hot: !have },
+      { act: "v-shot", label: "この瞬間を証拠に保存", sub: "AとBの圧の差が大きい瞬間を選ぶ", hot: !have },
       { act: "to-present3", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
@@ -860,7 +909,7 @@ function c4Watch(): View {
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "m-shot", label: "この瞬間を撮る", sub: `差が ${SEE_DIFF} mV を超えたら証拠`, hot: !have, disabled: !state.memRan },
+      { act: "m-shot", label: "この瞬間を証拠に保存", sub: "AとBの電圧の差が大きい瞬間を選ぶ", hot: !have, disabled: !state.memRan },
       { act: "to-present4", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
@@ -1992,9 +2041,9 @@ app.addEventListener("click", async (e) => {
     // 謎2
     case "solved-more":
       state.solvedStep = Math.min(2, state.solvedStep + 1);
-      say("guide", state.solvedStep === 1 ? "人工軟骨のふるまいは、ばね二つとダンパ一つの模型で書ける。見本Aを1秒かけて押して止めると、模型はこう動く。" : "計算で絞れた説明を、模型の部品で見ると、光ったところがBの正体。");
+      say("guide", state.solvedStep === 1 ? "人工軟骨のふるまいは、ばね二つとダンパ一つの模型で書ける。見本Aを1秒かけて押して止めると、模型はこう動く。" : "見本Aと試作品Bを、同じように押して止める。赤く光った部品が、見本と違ったところ。");
       render();
-      if (state.solvedStep === 1) modelLoop();
+      modelLoop();
       break;
     case "solved-back":
       state.solvedStep = 0;
@@ -2079,7 +2128,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(pb - pa) > VESSEL_SEE_DIFF;
       const id = `v:${u}`;
       if (!state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
-      say("you", ok ? `${u.toFixed(2)} 秒の圧：A ${pa.toFixed(0)}、B ${pb.toFixed(0)}。差 ${sgn(pb - pa, 1)}。` : `${u.toFixed(2)} 秒では、差 ${sgn(pb - pa, 1)}。この瞬間では区別できない。`);
+      say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${Math.abs(pb - pa).toFixed(1)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。証拠に保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${Math.abs(pb - pa).toFixed(1)} [mmHg]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
       break;
@@ -2154,7 +2203,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(b - a) > SEE_DIFF;
       const id = `m:${t}`;
       if (!state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
-      say("you", ok ? `差 ${sgn(b - a, 2)} mV。証拠に入れた。` : `差 ${sgn(b - a, 2)} mV。この瞬間では区別できない。`);
+      say("you", ok ? `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。証拠に保存した。` : `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
       break;
