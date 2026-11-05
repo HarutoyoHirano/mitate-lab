@@ -677,7 +677,7 @@ export function duelStepGraph(o: {
 }
 
 /** 小さな曲線（影武者の札・力の記録）：Bの記録の点と、説明の線。押している間は横に広げる */
-export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number; legend?: boolean; mark?: { t: number; force: number } | null }): string {
+export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number; legend?: boolean; mark?: { t: number; force: number } | null; big?: boolean }): string {
   const L = 8;
   const R = 6;
   const T = 8;
@@ -710,9 +710,16 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
     ${o.line ? `<polyline points="${poly(o.line)}" fill="none" stroke="${o.lineColor ?? "var(--gold)"}" stroke-width="3.5" stroke-dasharray="9 5"/>` : ""}
     ${o.b
       .filter((p) => p.t <= until + 1e-9)
-      .map((p, i) => (i % 2 === 0 ? `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="3.6" fill="var(--you)"/>` : ""))
+      .map((p, i) => (i % 2 === 0 || o.big ? `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="${o.big ? 6 : 3.6}" fill="var(--you)"/>` : ""))
       .join("")}
-    ${o.mark ? `<circle cx="${xs(o.mark.t).toFixed(1)}" cy="${ys(o.mark.force).toFixed(1)}" r="13" fill="none" stroke="var(--stamp)" stroke-width="4"/><text x="${Math.min(o.w - 70, xs(o.mark.t) + 4).toFixed(1)}" y="${(ys(o.mark.force) + (o.mark.force > o.yMax * 0.6 ? 34 : -18)).toFixed(1)}" fill="var(--stamp)" font-size="15" font-weight="900">ずれる</text>` : ""}
+    ${o.mark && o.line ? (() => {
+      // ずれの大きさを、点から予想の線までの赤い縦線で見せる（2026-11-06、作者の指摘「一番左が合わないと言われても分からない」）
+      const ln = o.line;
+      let lv = ln[ln.length - 1]!.force;
+      for (let i = 1; i < ln.length; i++) if (ln[i]!.t >= o.mark!.t) { const p = ln[i - 1]!, q = ln[i]!; lv = p.force + ((q.force - p.force) * (o.mark!.t - p.t)) / (q.t - p.t || 1); break; }
+      return `<line x1="${xs(o.mark!.t).toFixed(1)}" x2="${xs(o.mark!.t).toFixed(1)}" y1="${ys(lv).toFixed(1)}" y2="${ys(o.mark!.force).toFixed(1)}" stroke="var(--stamp)" stroke-width="${o.big ? 6 : 4}"/><circle cx="${xs(o.mark!.t).toFixed(1)}" cy="${ys(lv).toFixed(1)}" r="${o.big ? 7 : 4}" fill="var(--stamp)"/>`;
+    })() : ""}
+    ${o.mark ? `<circle cx="${xs(o.mark.t).toFixed(1)}" cy="${ys(o.mark.force).toFixed(1)}" r="${o.big ? 18 : 13}" fill="none" stroke="var(--stamp)" stroke-width="4"/><text x="${Math.min(o.w - 70, xs(o.mark.t) + 4).toFixed(1)}" y="${(ys(o.mark.force) + (o.mark.force > o.yMax * 0.6 ? 34 : -18)).toFixed(1)}" fill="var(--stamp)" font-size="15" font-weight="900">ずれる</text>` : ""}
   </svg>`;
 }
 

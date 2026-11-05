@@ -108,6 +108,8 @@ const state = {
   note: null as number | null,
   curveId: "",
   tags: {} as Partial<Record<CandidateId, Tag>>,
+  /** 確かめたあと、一枚のカードのグラフを大きく見る */
+  zoom: null as CandidateId | null,
   boardView: null as PublicSessionView | null,
   nextSpeed: null as number | null,
   translation: null as Translation | null,
@@ -455,6 +457,25 @@ function mismatchOf(id: CandidateId): { t: number; force: number; diff: number; 
   return { ...best, where };
 }
 
+/** 一枚のカードのグラフを大きく見る（確かめたあと） */
+function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checked: boolean, win: CandidateId | null): string {
+  const id = state.zoom;
+  if (!checked || !id) return "";
+  const fit = fitFor(id);
+  if (!fit) return "";
+  const out = c.excluded.includes(id);
+  const why = out ? mismatchText(id) : win === id ? "Bの点が、予想の線の上にのっている。これが正体" : "まだ記録と合っている";
+  return `<div class="zoom" role="dialog" aria-label="グラフを大きく見る：${CANDIDATES[id].label}" style="--c:${COLOR[id]}">
+    <div class="zhead"><b>${CANDIDATES[id].label}</b><span class="${out ? "zout" : "zok"}">${out ? "計算：合わない" : win === id ? "正体" : ""}</span><button data-act="zoom" data-val="">カードに戻る</button></div>
+    <p class="zwhy">${why}</p>
+    ${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 1000, h: 320, legend: true, mark: out ? mismatchOf(id) : null, big: true })}
+  </div>`;
+}
+/** 合わない説明の、ずれの場所と大きさを一文で（計算プログラムの文と、大きく見る画面で同じ文を使う） */
+function mismatchText(x: CandidateId): string {
+  const m = mismatchOf(x);
+  return m ? `グラフの${m.where === "長く待ったあと" ? "右のほう（長く待ったあと）" : m.where === "押している途中" ? "左のほう（押している途中）" : `山のすぐ右（${m.where}）`}で、Bの点が予想の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある（赤い丸と赤い縦線）` : "記録と合わない";
+}
 function c1Line(): View {
   const v = state.view!;
   const c = curve()!;
@@ -482,6 +503,7 @@ function c1Line(): View {
         <div class="gres">${broken ? ghostPuck(COLOR[id], true) : ""}${res}</div>
         ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 260, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
         ${awaiting && !prevOut ? tagButtons("tag", id, tag, false) : ""}
+        ${checked && fit && !prevOut ? `<button class="zoom-btn" data-act="zoom" data-val="${id}">グラフを大きく見る</button>` : ""}
       </div>`;
     })
     .join("");
@@ -500,7 +522,7 @@ function c1Line(): View {
     chap: "謎1 なぜ？",
     goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
     svg: "",
-    html: `<div class="lineup">${ghosts}</div>`,
+    html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null)}`,
     who: state.line.who,
     text: state.line.text,
     extra:
@@ -2098,6 +2120,10 @@ app.addEventListener("click", async (e) => {
         go("c1-line");
       }
       break;
+    case "zoom":
+      state.zoom = val ? (val as CandidateId) : null;
+      render();
+      break;
     case "tag": {
       const [id, t] = val.split(":") as [CandidateId, Tag];
       state.tags = { ...state.tags, [id]: t };
@@ -2105,6 +2131,7 @@ app.addEventListener("click", async (e) => {
       break;
     }
     case "check": {
+      state.zoom = null;
       if (!v) return;
       const c = curve()!;
       const outs = (Object.entries(state.tags) as [CandidateId, Tag][]).filter(([, t]) => t === "out").map(([id]) => id);
@@ -2118,7 +2145,7 @@ app.addEventListener("click", async (e) => {
       const why = after.excluded
         .map((x) => {
           const m = mismatchOf(x);
-          return m ? `「${CANDIDATES[x].label}」のカード：グラフの${m.where === "長く待ったあと" ? "右のほう（長く待ったあと）" : m.where === "押している途中" ? "左のほう（押している途中）" : `山のすぐ右（${m.where}）`}で、Bの点が予想の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある（赤い丸）` : `「${CANDIDATES[x].label}」は記録と合わない`;
+          return `「${CANDIDATES[x].label}」のカード：${mismatchText(x)}`;
         })
         .join("。");
       say("calc", `${after.excluded.length ? `${why}。点は測るたびに 0.02 [N] までぶれるが、それより大きくずれる線は、記録と合わない` : "この記録で合わなくなった説明はない"}。${allUnsure ? "" : same ? "あなたの答えと一致。" : "あなたの答えと違うところがある。どこを見た？"}`);
