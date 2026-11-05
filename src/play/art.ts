@@ -842,8 +842,7 @@ export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: 
       <text y="10" fill="#fff" font-size="16" font-weight="900" text-anchor="middle">ポンプ</text>
     </g>
     <path d="M200 250 C 230 200, 240 190, 262 190 M200 310 C 230 360, 240 370, 262 370" stroke="var(--heart-edge)" stroke-width="10" fill="none"/>
-    ${tube(190, o.a, o.pa, o.minA, "見本の血管 A", "A")}${tube(370, o.b, o.pb, o.minB, "新しい血管 B", "B")}
-    <text x="150" y="400" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">1回の脈 ${BEAT_S} 秒（${(beatPhase * 100).toFixed(0)}%）</text>
+    ${tube(190, o.a, o.pa, o.minA, "見本の血管 A", "A")}${tube(370, o.b, o.pb, o.minB, "試作品の血管 B", "B")}
   </g>`;
 }
 
@@ -1140,5 +1139,25 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
       <rect y="24" width="16" height="16" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="22" y="38" fill="var(--ink)">緑：ロボが見分けられる（または、見本とほぼ同じ）</text>
       <rect y="48" width="16" height="16" fill="var(--chip)"/><text x="22" y="62" fill="var(--ink)">灰：いままでの数字で見分けられる</text>
     </g>
+  </g>`;
+}
+
+/**
+ * 謎3 なぜ？のあと：脈の上がり下がりと、血管のふくらみやすさの関係（たとえの絵。数字は計算値）。
+ * 同じ量を送りこむと、ふくらみやすい血管は少しの圧でたくさん受け止め、ふくらみにくい血管は圧が大きく上がる。
+ */
+export function balloonWhy(x: number, y: number, a: { max: number; min: number }, b: { max: number; min: number }): string {
+  const one = (cx: number, label: string, r: number, v: { max: number; min: number }, col: string, edge: string, l1: string) => `
+    <text x="${cx}" y="34" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${label}</text>
+    <ellipse cx="${cx}" cy="130" rx="${r}" ry="${r * 0.62}" fill="${col}" stroke="${edge}" stroke-width="4"/>
+    <ellipse cx="${cx}" cy="130" rx="${r * 0.72}" ry="${r * 0.45}" fill="none" stroke="${edge}" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="${cx}" y="228" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${l1}</text>
+    <text x="${cx}" y="256" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">高い圧 ${v.max.toFixed(0)}　低い圧 ${v.min.toFixed(0)}</text>`;
+  return `<g transform="translate(${x},${y})">
+    <rect width="470" height="350" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    ${one(120, "見本の血管 A", 92, a, "var(--pad-a)", "var(--pad-a-edge)", "よくふくらむ → 圧は少し")}
+    ${one(350, "血管 B", 62, b, "var(--vessel)", "var(--vessel-edge)", "ふくらみにくい → 圧が大きく")}
+    <text x="235" y="292" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">1回の脈で、同じ量の液が入って出ていく（点線＝脈のあいだ）</text>
+    <text x="235" y="322" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">平均は同じでも、圧の上がり下がりの幅が違う</text>
   </g>`;
 }

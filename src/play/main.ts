@@ -14,7 +14,7 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -374,9 +374,9 @@ function c1Run(): View {
   const aLine = run ? Array.from({ length: PLAY_RUN_STEPS }, (_, k) => us.map((u) => ({ t: (k + Math.min(u, 1)) * PLAY_RUN_PERIOD, v: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, Math.min(u, 1)) }))).flat() : [];
   const bPts = RUN_POINTS.map((p) => {
     const shown = !!run && p.i < state.shown;
-    return { t: p.t, v: run ? pointValue(run.b, p.i) : 0, shown, hot: false, sel: sel === p.i, shot: !!run && v.runPhotos.some((x) => x.runId === run.id && x.step === p.k && x.phase === p.phase) };
+    return { t: p.t, v: run ? pointValue(run.b, p.i) : 0, shown, hot: false, sel: sel === p.i, shot: !!run && v.runPhotos.some((x) => x.runId === run.id && x.step === p.k && x.phase === p.phase && x.distinguishable) };
   });
-  const have = state.evidence.some((e) => e.case === 1 && e.id.startsWith("run"));
+  const have = state.evidence.some((e) => e.case === 1 && e.id.startsWith("run") && e.ok);
   return {
     chap: "謎1 見破れ",
     goal: run ? "AとBの差が大きい瞬間を選んで、証拠に保存しよう" : "見本Aと試作品Bを、同じように走らせてみよう",
@@ -388,7 +388,7 @@ function c1Run(): View {
     cmds: [
       { act: "go-run", label: run ? "もう一度走らせる" : "走らせる", hot: !run, disabled: playing || state.busy },
       { act: "shot", label: "この瞬間を証拠に保存", sub: sel !== null ? pointLabel(sel) : "グラフの点を選ぶ", hot: sel !== null, disabled: sel === null || state.busy || playing },
-      { act: "to-present", label: "ロボに証拠を見せる", sub: "証拠ファイルを開く", disabled: !have, hot: have && sel === null },
+      { act: "to-present", label: "ロボに証拠を見せる", disabled: !have, hot: have && sel === null },
     ],
   };
 }
@@ -851,15 +851,15 @@ function c3Sync(): View {
   return {
     chap: "謎3 なぜ？",
     goal: asked ? "ふくらみやすさと出口の流れにくさのつまみで、血管Bと同じ脈をつくろう" : "平均は同じ。違うのはどっち？",
-    svg: `${syncRig(mine)}${syncChart(500, 20, 740, 280, CASE_VESSEL_B, mine, j.both)}`,
+    svg: `${state.syncDone ? balloonWhy(16, 14, VA, VB) : syncRig(mine)}${syncChart(500, 20, 740, 280, CASE_VESSEL_B, mine, j.both)}`,
     html: asked
-      ? `<div class="knobs" style="left:1.5%;top:60%;width:34%">${(["r", "c"] as const)
+      ? `${state.syncDone ? "" : `<div class="knobs" style="left:1.5%;top:60%;width:34%">${(["r", "c"] as const)
           .map((k) => {
             const s = VESSEL_SLIDERS[k];
             const v = k === "r" ? state.syncR : state.syncC;
             return `<label><span>${s.label}<strong id="v-s${k}">${v.toFixed(2)}</strong></span><input type="range" data-sync="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${v}" ${state.syncDone ? "disabled" : ""}></label>`;
           })
-          .join("")}</div>
+          .join("")}</div>`}
         <div class="meters" style="left:39%;top:66%;width:58%;grid-template-columns:1fr 1fr">
           ${meter("平均の圧（送る量が同じなら、出口の流れにくさで決まる）", j.target.mean, j.mine.mean, j.mine.mean - j.target.mean, j.meanOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
           ${meter("高い圧と低い圧の差（主にふくらみやすさで変わる）", j.target.pulse, j.mine.pulse, j.mine.pulse - j.target.pulse, j.pulseOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
@@ -1257,7 +1257,7 @@ function nWatch(): View {
       ? [{ act: "n-reveal", label: "正体を開ける", sub: "どの部品が違った？", hot: true }]
       : [
           { act: "n-play", label: state.nx.playing ? "止める" : "動かす", sub: "同じ時刻でAとBを動かす" },
-          { act: "n-shot", label: "この時刻を証拠に見せる", sub: "ちがいが大きければ、ロボの見落とし", hot: true },
+          { act: "n-shot", label: "この時刻をロボに見せる", sub: "ちがいが大きければ、ロボの見落とし", hot: true },
           ...(m.spec.watch.length > 1 ? [{ act: "n-watchnext", label: "見るものを変える", sub: m.spec.watch[(state.nx.watch + 1) % m.spec.watch.length]!.label, ghost: true }] : []),
         ],
   };
@@ -1724,7 +1724,7 @@ app.addEventListener("input", (e) => {
     if (j.both && !state.syncDone) {
       state.syncDone = true;
       state.mood = "shock";
-      say("calc", `重なった。血管Bは、ふくらみやすさ ${state.syncC.toFixed(2)}（見本 1.50）＝見本の半分。ポンプが送る量が同じなので、平均の圧は出口の流れにくさだけで決まり、ロボには同じに見えた。ふくらんで受け止める量はAとBでほぼ同じ。Bはふくらみにくいので、同じ量を受け止めるのに圧が大きく上下する。${state.vBet === "c" ? "予想どおり。" : state.vBet === "r" ? "予想は外れた。ここが発見。" : ""}`);
+      say("calc", `重なった。血管Bは、ふくらみやすさが見本の半分（${state.syncC.toFixed(2)}）。1回の脈で入って出ていく液の量は同じ。よくふくらむAは少しの圧で受け止めるが、ふくらみにくいBは圧が大きく上がり、出ていくと大きく下がる。平均は出口の流れにくさで決まるので、ロボには同じに見えた。${state.vBet === "c" ? "予想どおり。" : state.vBet === "r" ? "予想は外れた。ここが発見。" : ""}`);
       state.record.push("謎3 ❤️ 見落とし ✔ 同じ脈 ✔");
       render();
       void stamp("重なった！", "win", 0.5).then(() => damage(12));
@@ -1872,9 +1872,9 @@ app.addEventListener("click", async (e) => {
       if (p) {
         const id = `run:${run.id}:${k}:${phase}`;
         const where = `${k + 1}歩目の「${PHASE_LABEL[phase]}」`;
-        if (!state.evidence.some((x) => x.id === id))
+        if (p.distinguishable && !state.evidence.some((x) => x.id === id))
           state.evidence.push({ id, case: 1, title: "走行テスト（走る）", line: `${k + 1}歩目・${PHASE_LABEL[phase]}`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${where}を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。証拠は一枚あれば十分。ロボに見せよう。` : `${where}を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
+        say("you", p.distinguishable ? `${where}を証拠に保存した。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。証拠は一枚あれば十分。ロボに見せよう。` : `${where}は、ちがい ${Math.abs(p.diff).toFixed(3)} で ${STEP_TOLERANCE} より小さい。これでは証拠にならない。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("証拠", "win", 0.2);
@@ -2127,7 +2127,7 @@ app.addEventListener("click", async (e) => {
       const pb = pressureAt(CASE_VESSEL_B, u);
       const ok = Math.abs(pb - pa) > VESSEL_SEE_DIFF;
       const id = `v:${u}`;
-      if (!state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
+      if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
       say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${Math.abs(pb - pa).toFixed(1)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。証拠に保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${Math.abs(pb - pa).toFixed(1)} [mmHg]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
@@ -2202,7 +2202,7 @@ app.addEventListener("click", async (e) => {
       const b = REST_MV + deltaMv(CASE3_B, t);
       const ok = Math.abs(b - a) > SEE_DIFF;
       const id = `m:${t}`;
-      if (!state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
+      if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
       say("you", ok ? `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。証拠に保存した。` : `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
