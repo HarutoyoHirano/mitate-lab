@@ -1195,10 +1195,9 @@ function panelHtml(): string {
       <h2 id="notice-h">はじめる前に</h2>
       <ul>
         <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
-        <li>検査ロボ TEJUN は決まったルールで動くプログラム（AIではない）。相棒 Claude はAIで、隠れた答えを知りません。</li>
         <li>試す回数で減点しません。名前などは集めません。</li>
       </ul>
-      <p class="sub">くわしい説明と先生用の設定は、右上の「？」にあります。</p>
+      <p class="sub">登場する役割（検査ロボ・Claude など）と先生用の設定は、右上の「？」にあります。</p>
       <div class="row"><button class="cmd hot" data-act="panel-close" autofocus>わかった、はじめる</button></div></div></div>`;
   const body =
     state.panel === "refs"
