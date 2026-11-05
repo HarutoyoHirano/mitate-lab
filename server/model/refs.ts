@@ -256,14 +256,25 @@ export const REFS: readonly RefEntry[] = [
     checkedAt: "scilit・JCI の文献ページ",
   },
   {
+    id: "pennes1948",
+    cite: "Pennes HH. Analysis of tissue and arterial blood temperatures in the resting human forearm. Journal of Applied Physiology. 1948;1(2):93–122.",
+    doi: "10.1152/jappl.1948.1.2.93",
+    field: "体温",
+    about: "体の組織の熱のつり合いの式（生体の熱の式）のもと。組織は熱をため、体の中で熱が生まれ、流れてくる血液とのあいだで、血液の流れに比例して熱をやりとりする。",
+    supports: ["store", "resist", "source"],
+    notCovers: "場所ごとの温度の違い（文献は腕の中の場所ごとに解く。この謎の部品は一か所にまとめる）。汗や皮ふの血流を変える調節。",
+    topicWords: /熱|体温|温度|血液|組織/,
+    checkedAt: "PubMed・scilit",
+  },
+  {
     id: "gagge1971",
-    cite: "Gagge AP, Stolwijk JAJ, Nishi Y. An effective temperature scale based on a simple model of human physiological regulatory response. ASHRAE Transactions. 1971;77(1).",
+    cite: "Gagge AP, Stolwijk JAJ, Nishi Y. An effective temperature scale based on a simple model of human physiological regulatory response. ASHRAE Transactions. 1971;77(Part I):247–262.",
     field: "体温",
     about: "体を、熱をためる体の中心と皮ふの二つの場所で表し、その間と、皮ふとまわりの空気の間を熱が流れる模型（二つの場所の模型）。体の中で生まれる熱を入力にする。",
     supports: ["store", "resist", "source"],
     notCovers: "汗や皮ふの血流が温度に合わせて変わる調節を、この謎の部品では表さない（文献の模型には調節が入っている）。",
     topicWords: /熱|体温|温度|皮ふ|皮膚/,
-    checkedAt: "AIVC の文献（引用文献の一覧）。ページ番号は未確認のため書かない",
+    checkedAt: "AIVC の文献（引用文献の一覧）・北海道大学の再録（ASHRAE Transactions Vol. 77, Part I の転載。ページは転載に印刷された元の頁番号）",
   },
 ];
 
