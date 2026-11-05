@@ -1054,17 +1054,22 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
       <path d="M${R} ${floorY - door - 6} V${T - 10}" fill="none" stroke="${edge}" stroke-width="4"/>
       ${out > 0.5 ? `<path d="M${R + 4} ${floorY - door / 2} h${20 + out}" stroke="var(--water-edge)" stroke-width="${out.toFixed(1)}" stroke-linecap="round"/>` : ""}
       ${flowing ? `<path d="M${cx} ${T - 26} V${Math.max(T, wy - 2)}" stroke="var(--bot)" stroke-width="6" stroke-linecap="round"/>` : ""}
-      <text x="${cx}" y="${floorY + 30}" text-anchor="middle" fill="var(--soft)" font-size="13">${hide ? "広さ（ためやすさ）×？　出口の広さ×？" : `広さ（ためやすさ）×${m.c.toFixed(2)}　出口の広さ×${m.g.toFixed(2)}`}</text>
+      <path d="M${L + 4} ${floorY + 18} H${R - 4} M${L + 12} ${floorY + 12} l-8 6 l8 6 M${R - 12} ${floorY + 12} l8 6 l-8 6" stroke="var(--gold)" stroke-width="2.5" fill="none"/>
+      <text x="${cx}" y="${floorY + 40}" text-anchor="middle" fill="var(--gold)" font-size="16" font-weight="900">広さ ×${hide ? "？" : m.c.toFixed(2)}</text>
+      <text x="${R + 6}" y="${floorY - door - 10}" fill="var(--leak)" font-size="16" font-weight="900">出口 ×${hide ? "？" : m.g.toFixed(2)}</text>
+      <text x="${L + 8}" y="${Math.min(floorY - 8, wy + 20)}" fill="var(--water-edge)" font-size="15" font-weight="900">水位</text>
+      ${kind === "A" ? `<text x="${cx + 10}" y="${T - 14}" fill="var(--bot)" font-size="15" font-weight="900">入る＋</text>` : ""}
       <path d="M${R + 6} ${wy} L${xs(t) - 8} ${ys(dv)}" stroke="${edge}" stroke-width="2" stroke-dasharray="5 5"/>
     </g>`;
   };
   return `<g>
     <rect x="40" y="${floorY}" width="520" height="10" rx="3" fill="var(--metal-edge)"/>
-    <text x="40" y="${floorY + 54}" fill="var(--soft)" font-size="15" font-weight="800">水槽はたとえ：水位＝膜の電圧、広さ＝電気のためやすさ、出口＝イオンの通りやすさ</text>
+    <g font-size="17" font-weight="900"><text x="40" y="26" fill="var(--ink)">水槽はたとえ：<tspan fill="var(--water-edge)">水位</tspan>＝膜の電圧</text>
+      <text x="40" y="52" fill="var(--ink)"><tspan fill="var(--gold)">広さ</tspan>＝電気のためやすさ　<tspan fill="var(--leak)">出口</tspan>＝いつも開いている通り道</text></g>
     ${tank(180, a, labels.a, "A")}${tank(420, b, labels.b, "B")}
     <rect x="${xs(0)}" y="${T}" width="${xs(PULSE_MS) - xs(0)}" height="${floorY - T}" fill="var(--band)"/>
-    ${[0, 5, 10].map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GR}" y="${ys(v) - 4}" fill="var(--soft)" font-size="12" text-anchor="end">−${Math.abs(REST_MV + v)} mV</text>`).join("")}
-    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${floorY + 22}" fill="var(--soft)" font-size="12" text-anchor="middle">${ms} ms</text>`).join("")}
+    ${[0, 5, 10].map((v) => `<line x1="${GL}" x2="${GR}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${GR}" y="${ys(v) - 4}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">−${Math.abs(REST_MV + v)} mV</text>`).join("")}
+    ${[0, 100, 200].map((ms) => `<text x="${xs(ms)}" y="${floorY + 22}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">${ms === 100 ? "100 ms（離す）" : `${ms} ms`}</text>`).join("")}
     <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
     <line x1="${xs(t)}" x2="${xs(t)}" y1="${T}" y2="${floorY}" stroke="var(--gold)" stroke-width="2.5"/>
