@@ -98,7 +98,7 @@ function memo<T>(f: () => T): () => T {
 const SPECS: Record<RetrainCase, CaseSpec> = {
   cartilage: {
     points: CARTILAGE_POINTS,
-    firstRule: "試験台でふつう（1秒）に押して20秒後の力",
+    firstRule: "押して20秒後の力",
     tol: ROBOT_PASS,
     seeB: STEP_TOLERANCE + STEP_ERROR,
     hiddenNeed: HIDDEN_NEED,
@@ -114,7 +114,7 @@ const SPECS: Record<RetrainCase, CaseSpec> = {
           const p = duelMaterial(e1, tau);
           const first = Math.abs(finalCheckDiff(p).diff) <= ROBOT_PASS + 1e-12;
           const all = allDents(p);
-          out.push({ x: tau, y: e1, first, d: cartPointValues(p).map((v, i) => v - a[i]!), maxDiff: Math.max(...all.map((v, i) => Math.abs(v - aAll[i]!))) });
+          out.push({ x: tau, y: e1 + DUEL_SLIDERS.e1.offset, first, d: cartPointValues(p).map((v, i) => v - a[i]!), maxDiff: Math.max(...all.map((v, i) => Math.abs(v - aAll[i]!))) });
         }
       return out;
     }),

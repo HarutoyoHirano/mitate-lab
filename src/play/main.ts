@@ -10,11 +10,11 @@ import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
 import { CARTILAGE_POINTS, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
-import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
+import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { answerMap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
+import { duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsModelLabeled, ruleCard, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -149,7 +149,7 @@ const state = {
   rt: { c: "cartilage" as RetrainCase, slots: [] as string[], tempo: "slowWalk" as TempoId, step: 11, phase: "land" as StepPhase, t: 0, hint: 0, done: false },
   rtLog: {} as Partial<Record<RetrainCase, string[]>>,
   memLog: [] as string[],
-  dd: null as null | { a: number; b: number; contact: boolean; impact: boolean },
+  c2cursor: null as number | null,
   // つづきの謎（1e-4）
   nx: {
     prev: PREPARED_NETS[1]! as NetPuzzleSpec,
@@ -409,7 +409,20 @@ function c1Present(): View {
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
 
-// ---------- 謎1：影武者の面通し ----------
+/** 「合う／合わない／分からない」を三つのボタンで選ぶ（一つの札を押して切りかえる形は、選べることが分からないため） */
+function tagButtons(act: string, id: string, cur: string | undefined, disabled: boolean): string {
+  return `<span class="tags" role="group" aria-label="記録と合うか">${(
+    [
+      ["match", "合う"],
+      ["out", "合わない"],
+      ["unsure", "分からない"],
+    ] as const
+  )
+    .map(([t, l]) => `<button class="tagb ${t} ${cur === t ? "on" : ""}" data-act="${act}" data-val="${id}:${t}" aria-pressed="${cur === t}" ${disabled ? "disabled" : ""}>${l}</button>`)
+    .join("")}</span>`;
+}
+
+// ---------- 謎1：4つの説明の見比べ ----------
 function curve() {
   return state.view?.curves.find((c) => c.id === state.curveId) ?? null;
 }
@@ -442,15 +455,14 @@ function c1Line(): View {
       const back = checked && picked.includes(id) && !c.excluded.includes(id);
       const broken = prevOut || outNow;
       const res = prevOut ? `<span class="res">前の記録で合わない</span>` : outNow ? `<span class="res">計算：合わない</span>` : back ? `<span class="res back">計算：実は記録と合う</span>` : narrowed && v.narrowedTo === id ? `<span class="res win">正体</span>` : "";
-      return `<button class="ghost ${broken ? "broken" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" data-act="tag" data-val="${id}" ${!awaiting || prevOut ? "disabled" : ""} aria-label="説明：${CANDIDATES[id].label}">
+      return `<div class="ghost ${broken ? "broken" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" role="group" aria-label="説明：${CANDIDATES[id].label}">
         <span class="gname">${CANDIDATES[id].label}</span>
         <span class="glook">${LOOK[id]}</span>
-        ${broken ? ghostPuck(COLOR[id], true) : `<svg viewBox="0 0 200 110" class="model" aria-hidden="true">${slsModel({ hl: id === "same" ? null : id, color: COLOR[id], mark: "？" })}</svg>`}
-        <span class="gpart">${PART[id]}</span>
-        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 170 }) : ""}
-        <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "合う？ 合わない？"}</span>
+        ${broken ? ghostPuck(COLOR[id], true) : ""}
+        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 260, legend: true }) : ""}
+        ${awaiting && !prevOut ? tagButtons("tag", id, tag, false) : ""}
         ${res}
-      </button>`;
+      </div>`;
     })
     .join("");
   const cmds: Cmd[] = awaiting
@@ -492,15 +504,22 @@ function c1Line(): View {
 
 function c1Solved(): View {
   const d = state.debrief!;
+  const c = curve();
+  const win = state.view?.narrowedTo ?? null;
+  const fit = win ? fitFor(win) : null;
+  const yMax = c ? Math.max(2.2, ...c.b.map((p) => p.force + 0.2)) : 2.2;
+  // 説明は、だれにでも通じる三行だけ（ばねとダンパの模型は出さない：作者の指摘「非常に分かりにくい」）
+  const lines = ["押された直後、軟骨は少しかたくなる。", "そのかたさは、時間がたつと消えていく。", "20秒待てば消えるので、AとBは同じ。", win === "instant" ? "でも走ると、押された直後のかたさが一歩ごとに効く。" : "でも走ると、消えきる前に次の一歩が来る。", "だから、一歩ごとのへこみがAと違った。"];
   return {
     chap: "謎1 解決",
     goal: "Bの正体が分かった",
-    svg: `${robotArt("down", 1000, 80, 0.75)}
-      <g transform="translate(40,40)"><rect width="920" height="330" rx="18" fill="var(--paper)"/>
-        <text x="30" y="46" fill="var(--paper-soft)" font-size="18" font-weight="900">正体（答え合わせ）</text>
-        <foreignObject x="30" y="64" width="370" height="250"><div xmlns="http://www.w3.org/1999/xhtml" style="color:#2a2216;font-size:21px;font-weight:800;line-height:1.6">${esc(d.explanation)}</div></foreignObject>
-        <text x="430" y="46" fill="var(--paper-soft)" font-size="15" font-weight="900">人工軟骨を、ばねとダンパの模型に見立てると</text>
-        ${slsModelLabeled(430, 70, state.view?.narrowedTo === "instant" || state.view?.narrowedTo === "relax" || state.view?.narrowedTo === "overall" ? state.view.narrowedTo : null, "Bは、光った部品が見本と違った")}</g>`,
+    svg: `${robotArt("down", 1060, 120, 0.62)}
+      <g transform="translate(30,26)"><rect width="1010" height="400" rx="18" fill="var(--paper)"/>
+        <text x="30" y="44" fill="var(--paper-soft)" font-size="18" font-weight="900">Bの正体</text>
+        <text x="30" y="84" fill="var(--paper-ink)" font-size="26" font-weight="900">${esc(d.explanation)}</text>
+        ${lines.map((l, k) => `<text x="30" y="${150 + k * 44}" fill="var(--paper-ink)" font-size="21" font-weight="800">${esc(l)}</text>`).join("")}
+        ${c && fit && win ? `<text x="520" y="134" fill="var(--paper-soft)" font-size="17" font-weight="900">試験台の記録と、重なった説明の線</text><g transform="translate(520,146)"><rect width="460" height="230" rx="10" fill="var(--panel)"/>${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[win], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 460, h: 230, legend: true }).replace("<svg ", '<svg width="460" height="230" ')}</g>` : ""}
+      </g>`,
     who: "bot",
     text: state.line.text,
     cmds: [{ act: "to-c2", label: "謎2：今度は、あなたが仕掛ける", hot: true }],
@@ -515,88 +534,75 @@ function meter(title: string, a: number, b: number, diff: number, ok: boolean, k
     <span class="nums">A ${roll(a.toFixed(d).replace("-", "−"))}${unit}／あなた ${roll(b.toFixed(d).replace("-", "−"), 120)}${unit}　差 ${sgn(diff, d)}${unit}</span></div>`;
 }
 
+/** 謎2：ゆっくり歩かせた12歩目の中のへこみ（表示用。判定は judgeDuel） */
+function duelCurve(e1: number, tau: number): { u: number; v: number }[] {
+  const p = duelMaterial(e1, tau);
+  const steps = duelSteps(p);
+  const us = [...Array.from({ length: 31 }, (_, q) => q / 60), ...Array.from({ length: 31 }, (_, q) => 0.5 + 1e-6 + q / 60)];
+  return us.map((u) => ({ u: Math.min(u, 1), v: dentWithinStep(p, DUEL_PERIOD, steps, DUEL_STEP, Math.min(u, 1)) }));
+}
+const PH_U = { land: 0, peak: 0.5 } as const;
+const PH_NAME = { land: "着地直後", peak: "足を上げる直前" } as const;
+function duelGraph(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, cursor: number | null): string {
+  const round = DUEL_ROUNDS[roundIdx]!;
+  const r = judgeDuel(round, duelMaterial(e1, tau));
+  const rp = round.robot.phase as "land" | "peak";
+  const hp = round.hidden.phase as "land" | "peak";
+  return duelStepGraph({
+    x, y, w, h, period: DUEL_PERIOD, a: duelCurve(BASE.e1, BASE.tau), b: duelCurve(e1, tau), cursor, scan: cursor !== null,
+    robot: { u: PH_U[rp], label: PH_NAME[rp], diff: r.robot.diff, ok: r.robot.ok, goal: `差を ${ROBOT_PASS} より小さく（見本と同じに）` },
+    hidden: { u: PH_U[hp], label: PH_NAME[hp], diff: r.hidden.diff, ok: r.hidden.ok, goal: `差を ${HIDDEN_NEED} より大きく（違いを残す）` },
+  });
+}
+const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る" } as const;
+const knobShown = (key: "e1" | "tau", v: number) => (v + DUEL_SLIDERS[key].offset).toFixed(2);
+
 function c2(): View {
   const round = DUEL_ROUNDS[state.round]!;
-  const p = duelMaterial(state.e1, state.tau);
-  const r = judgeDuel(round, p);
-  const show = state.duelPhase !== "design";
-  const k = 11;
-  const a = duelSteps(BASE)[k]!;
-  const b = duelSteps(p)[k]!;
-  const ph = round.robot.phase;
+  const r = judgeDuel(round, duelMaterial(state.e1, state.tau));
+  const rp = round.robot.phase as "land" | "peak";
+  const judging = state.duelPhase === "judge";
   return {
     chap: "謎2 仕掛けろ",
-    goal: `ロボの「次の一手」では見本と同じ、別の点では違う試作品をつくれ（ラウンド${round.id}）`,
-    svg: `${ruleCard(30, 20, round.id === 1 ? "検査の手順（走らせて調べるを追加）" : "検査の手順", ["① ゆっくり歩かせる（12歩）", `② 12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}を測る`, `③ 差が ${ROBOT_PASS} より小さい → 同じ`, "④ 20秒後の力も見る"], 1, round.id === 2)}
-      <g transform="translate(330,22)"><rect width="470" height="56" rx="28" fill="color-mix(in srgb, var(--bot) 18%, var(--panel))" stroke="var(--bot)" stroke-width="3"/>
-        <circle cx="30" cy="28" r="16" fill="var(--bot)"/><circle cx="30" cy="28" r="6" fill="var(--panel)"/>
-        <text x="58" y="36" fill="var(--bot)" font-size="19" font-weight="900">次の一手：${ph === "land" ? "着地直後（体重がかかった直後）" : "足を上げる直前（体重が抜ける直前）"}</text></g>
-      ${legsStage(state.dd ? { dentA: state.dd.a, dentB: state.dd.b, contact: state.dd.contact, impact: state.dd.impact, labelA: "見本 A", labelB: "あなたの試作", diff: null, hot: false, x0: 300, y0: 110, scale: 0.62 } : { dentA: show ? (ph === "land" ? a.land : a.peak) : 0.6, dentB: show ? (ph === "land" ? b.land : b.peak) : 0.6, contact: show, impact: false, labelA: "見本 A", labelB: "あなたの試作", diff: show ? r.robot.diff : null, hot: show && !r.robot.ok, x0: 300, y0: 110, scale: 0.62 })}`,
-    html: `<div class="knobs" style="left:1.5%;bottom:3%;width:25%">
+    goal: `ロボが測る点では見本と同じ、測らない点では違う試作品をつくれ（ラウンド${round.id}）`,
+    svg: `${ruleCard(24, 18, "ロボの検査の手順", ["① 押して20秒後の力", `② ゆっくり歩かせて、12歩目の${PH_NAME[rp]}`, `③ 差が ${ROBOT_PASS} より小さい → 同じ`], 1, round.id === 2)}
+      <g transform="translate(24,172)"><rect width="310" height="62" rx="12" fill="var(--panel)" stroke="${r.final.ok ? "var(--you)" : "var(--stamp)"}" stroke-width="3"/>
+        <text x="14" y="26" fill="var(--gold)" font-size="16" font-weight="900">🔍 ロボが測る：①20秒後の力</text>
+        <text x="14" y="50" fill="var(--ink)" font-size="17" font-weight="900" font-variant-numeric="tabular-nums">差 ${sgn(r.final.diff, 3)} ${r.final.ok ? "✓" : `（${ROBOT_PASS} より小さく）`}</text></g>
+      ${duelGraph(state.round, state.e1, state.tau, 356, 14, 906, 446, state.c2cursor)}`,
+    html: `<div class="knobs big" style="left:1.5%;bottom:3%;width:25.5%">
         ${(["e1", "tau"] as const)
           .map((key) => {
             const s = DUEL_SLIDERS[key];
-            return `<label><span>${s.label}<strong id="v-${key}">${state[key].toFixed(2)}</strong></span><input type="range" data-knob="${key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[key]}" ${state.duelPhase === "judge" ? "disabled" : ""}></label>`;
+            return `<label><span>${s.label}<strong id="v-${key}">${knobShown(key, state[key])}</strong></span><input type="range" data-knob="${key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[key]}" ${judging ? "disabled" : ""}><em>${KNOB_NOTE[key]}。見本は ${knobShown(key, BASE[key])}</em></label>`;
           })
           .join("")}
-        <span style="color:var(--ink);font-weight:900;font-size:max(14px,1.1cqw)">見本Aは、どちらも 1.00</span>
-      </div>
-      <div class="meters" style="right:1.5%;top:3%;width:28%">${
-        show
-          ? meter(`ロボが測る：12歩目の${ph === "land" ? "着地直後" : "足を上げる直前"}（差を ${ROBOT_PASS} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", ROBOT_PASS, 0.3, "", 4) +
-            meter(`ロボが測らない：12歩目の${round.hidden.phase === "land" ? "着地直後" : "足を上げる直前"}（差を ${HIDDEN_NEED} より大きく）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", HIDDEN_NEED, 0.3, "", 4) +
-            meter("ロボが測る：押して20秒後の力（差を 0.03 より小さく）", r.final.a, r.final.b, r.final.diff, r.final.ok, "pass", 0.03, 0.3, "", 4)
-          : ""
-      }</div>`,
+      </div>`,
     who: state.line.who,
     text: state.line.text,
     extra: state.duelHint
-      ? `<p class="sub">${round.id === 1 ? "押した直後だけ増えるかたさを上げると、着地直後のへこみは浅くなる。増えたかたさが消えていくまでの時間を長くすると、前の一歩のへこみが戻りきらず深くなる。打ち消し合わせると？" : "足を上げる直前は見本と同じにしたまま、着地直後だけ深くしたい。押した直後だけ増えるかたさを下げてみよう。"}${state.duelHint > 1 ? " まず増えるかたさだけを動かして、ロボが見る点の目盛りを見てから、消えていくまでの時間を足そう。" : ""}</p>`
+      ? `<p class="sub">${round.id === 1 ? "着地の瞬間のかたさを上げると、着地直後のへこみは浅くなる。かたさが消えるまでの時間を長くすると、前の一歩のへこみが戻りきらず深くなる。打ち消し合わせると？" : "足を上げる直前は見本と同じにしたまま、着地直後だけ深くしたい。着地の瞬間のかたさを下げてみよう。"}${state.duelHint > 1 ? " まず着地の瞬間のかたさだけを動かして、ロボが測る点の差を見てから、かたさが消えるまでの時間を動かそう。" : ""}</p>`
       : "",
     cmds:
       state.duelPhase === "result" && state.duelCleared
-        ? [{ act: round.id === 1 ? "duel-next" : "to-map", label: round.id === 1 ? "ラウンド2へ" : "答えの地図を開く", hot: true }]
+        ? [{ act: round.id === 1 ? "duel-next" : "to-map", label: round.id === 1 ? "ラウンド2へ" : "わかったことを見る", hot: true }]
         : [
-            { act: "duel-test", label: "ためしに走らせる", hot: state.duelPhase === "design", disabled: state.duelPhase === "judge" },
-            { act: "duel-go", label: "設計を固定して挑む", sub: "ロボが手順どおりに測る", hot: state.duelPhase === "test", disabled: state.duelPhase === "judge" },
+            { act: "duel-go", label: "この試作品でロボに挑む", sub: "ロボが手順どおりに測る", hot: r.final.ok && r.robot.ok && r.hidden.ok, disabled: judging },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
   };
 }
 
-function mapCells(): number[][] {
-  const out: number[][] = [];
-  for (let i = 0; i <= 40; i++) {
-    const row: number[] = [];
-    for (let k = 0; k <= 72; k++) {
-      const p = duelMaterial(+(0.2 + i * 0.05).toFixed(2), +(0.4 + k * 0.05).toFixed(2));
-      row.push((judgeDuel(DUEL_ROUNDS[0]!, p).cleared ? 1 : 0) + (judgeDuel(DUEL_ROUNDS[1]!, p).cleared ? 2 : 0));
-    }
-    out.push(row);
-  }
-  return out;
-}
-let cellsCache: number[][] | null = null;
-
 function c2Map(): View {
-  cellsCache ??= mapCells();
-  const marks = state.duelLog.map((s, i) => {
-    const [e1, tau] = s.split(",").map(Number) as [number, number];
-    return { col: Math.round((tau - 0.4) / 0.05), row: Math.round((e1 - 0.2) / 0.05), label: `あなた（ラウンド${i + 1}）` };
-  });
-  const n1 = cellsCache.flat().filter((x) => x === 1).length;
-  const n2 = cellsCache.flat().filter((x) => x === 2).length;
-  const n3 = cellsCache.flat().filter((x) => x === 3).length;
+  const designs = state.duelLog.map((s) => s.split(",").map(Number) as [number, number]);
   return {
     chap: "謎2 クリア",
-    goal: "答えの地図：あなたの設計は、どこにあった？",
-    svg: `${answerMap(120, 30, 640, 380, cellsCache, marks, { x: "増えたかたさが消えていくまでの時間（0.4〜4）", y: "押した直後だけ増えるかたさ（0.2〜2.2）" })}
-      <g transform="translate(820,60)"><rect width="22" height="22" fill="var(--you)"/><text x="32" y="18" fill="var(--ink)" font-size="18" font-weight="800">ラウンド1で通る ${n1} 通り</text>
-      <rect y="40" width="22" height="22" fill="var(--bot)"/><text x="32" y="58" fill="var(--ink)" font-size="18" font-weight="800">ラウンド2で通る ${n2} 通り</text>
-      <text y="110" fill="var(--gold)" font-size="20" font-weight="900">両方で通る：${n3} 通り</text>
-      <text y="146" fill="var(--soft)" font-size="15">答えは一つではない。でも、</text><text y="170" fill="var(--soft)" font-size="15">測り方が変わると、通る場所も変わる。</text>
-      </g>`,
-    who: "bot",
+    goal: "ロボは、測った点だけ見本と同じ試作品を、二回とも見落とした",
+    svg: designs
+      .slice(0, 2)
+      .map(([e1, tau], i) => `<text x="${24 + i * 628}" y="30" fill="var(--ink)" font-size="19" font-weight="900">ラウンド${i + 1}のあなたの試作品</text>${duelGraph(i, e1, tau, 16 + i * 628, 40, 616, 420, null)}`)
+      .join(""),
+    who: state.line.who,
     text: state.line.text,
     cmds: [{ act: "rt-enter", val: "cartilage", label: "TEJUN を鍛えなおす", sub: "人工軟骨の検査で見る数字を、あなたが足す", hot: true }],
   };
@@ -750,10 +756,10 @@ function c4Why(): View {
       .map((c) => {
         const tag = state.memWhy[c.id];
         const truthOut = c.id === "g";
-        return `<button class="ghost ${state.memChecked && truthOut ? "broken" : ""}" style="--c:${c.id === "g" ? "#7bd88f" : "#4fe0d0"}" data-act="mtag" data-val="${c.id}" ${state.memChecked ? "disabled" : ""}>
+        return `<div class="ghost ${state.memChecked && truthOut ? "broken" : ""}" style="--c:${c.id === "g" ? "#7bd88f" : "#4fe0d0"}" role="group">
           <span class="gname">${c.name}</span><span style="font-size:max(11px,1cqw);color:var(--soft)">${c.look}</span>
-          <span class="tag ${tag ?? ""}">${tag === "match" ? "合う" : tag === "out" ? "合わない" : tag === "unsure" ? "分からない" : "合う？ 合わない？"}</span>
-          ${state.memChecked ? (truthOut ? `<span class="res">計算：合わない</span>` : `<span class="res win">正体</span>`) : ""}</button>`;
+          ${state.memChecked ? "" : tagButtons("mtag", c.id, tag, false)}
+          ${state.memChecked ? (truthOut ? `<span class="res">計算：合わない</span>` : `<span class="res win">正体</span>`) : ""}</div>`;
       })
       .join("")}</div>`,
     who: state.line.who,
@@ -820,10 +826,10 @@ function rtMarks(): { x: number; y: number; label: string }[] {
   if (c === "cartilage") {
     const out = state.duelLog.map((s, i) => {
       const [e1, tau] = s.split(",").map(Number) as [number, number];
-      return { x: tau, y: e1, label: `謎2のあなた（${i + 1}）` };
+      return { x: tau, y: e1 + DUEL_SLIDERS.e1.offset, label: `謎2のあなた（${i + 1}）` };
     });
     const b = rtTruth();
-    if (b && b.tau >= 0.4 && b.tau <= 4 && b.e1 >= 0.2 && b.e1 <= 2.2) out.push({ x: b.tau, y: b.e1, label: "軟骨B" });
+    if (b && b.tau >= 0.4 && b.tau <= 4 && b.e1 >= 0.2 && b.e1 <= 2.2) out.push({ x: b.tau, y: b.e1 + DUEL_SLIDERS.e1.offset, label: "軟骨B" });
     return out;
   }
   if (c === "vessel") return [{ x: CASE_VESSEL_B.c, y: CASE_VESSEL_B.r, label: "血管B" }];
@@ -842,12 +848,12 @@ function rtView(): View {
   const res = judgeRetrain(r.c, r.slots, r.c === "cartilage" ? rtTruth() : null);
   const d = r.c === "membrane" ? 2 : r.c === "vessel" ? 1 : 3;
   const rows = [
-    `<text x="20" y="74" fill="var(--paper-ink)" font-size="16" font-weight="900">① ${esc(sp.firstRule)}（いままで見ていた数字）</text>`,
+    `<text x="20" y="74" fill="var(--paper-ink)" font-size="17" font-weight="900">① ${esc(sp.firstRule)}（いままで）</text>`,
     ...Array.from({ length: RETRAIN_SLOTS }, (_, i) => {
       const id = r.slots[i];
       const bd = id ? res.bDiffs.find((x) => x.id === id) : undefined;
-      return `<text x="20" y="${110 + i * 46}" fill="${id ? "var(--paper-ink)" : "var(--paper-soft)"}" font-size="16" font-weight="900">${i === 0 ? "②" : "③"} ${id ? esc(rtLabel(id)) : "（空き。下で選んで入れる）"}</text>
-        ${bd ? `<text x="44" y="${132 + i * 46}" fill="${bd.seen ? "var(--stamp)" : "var(--paper-soft)"}" font-size="13.5" font-weight="800">この謎のBとの差 ${sgn(bd.diff, d)}${sp.unit}${bd.seen ? "　→ 見分けられる" : "　→ ちがいが小さすぎる"}</text>` : ""}`;
+      return `<text x="20" y="${110 + i * 46}" fill="${id ? "var(--paper-ink)" : "var(--paper-soft)"}" font-size="17" font-weight="900">${i === 0 ? "②" : "③"} ${id ? esc(rtLabel(id)) : "まだない（右で選んで足す）"}</text>
+        ${bd ? `<text x="44" y="${132 + i * 46}" fill="${bd.seen ? "var(--stamp)" : "var(--paper-soft)"}" font-size="15" font-weight="900">この謎のBとの差 ${sgn(bd.diff, d)}${sp.unit}${bd.seen ? "　→ 見分けられる" : "　→ ちがいが小さすぎる"}</text>` : ""}`;
     }),
   ].join("");
   const ok1 = res.catchesB;
@@ -870,16 +876,15 @@ function rtView(): View {
         ${rows}</g>
       ${badge(222, ok1, ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
       ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（地図の赤）`)}
-      ${retrainMap(560, 22, 360, 300, res.cells, rtMarks(), sp.axes)}
-      ${robotArt(r.done ? "smug" : state.mood, 1010, 150, 0.55)}`,
+      <text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}のつまみでつくれる試作品の地図</text>
+      ${retrainMap(560, 48, 330, 270, res.cells, rtMarks(), sp.axes)}`,
     html: r.done
       ? ""
-      : `<div class="picker" style="left:1.3%;top:63%;width:41%">${picker}
+      : `<div class="picker" style="left:72%;top:3%;width:26.5%">${picker}
         <div class="row"><span>足す数字</span><b style="color:var(--gold)">${esc(rtLabel(pick))}</b><button class="add" data-act="rt-add" ${inSlots || r.slots.length >= RETRAIN_SLOTS ? "disabled" : ""}>枠に入れる</button></div>
-        <div class="row"><span>枠</span>${r.slots.length ? r.slots.map((id, i) => `<span class="slot full">${esc(rtLabel(id))}<button data-act="rt-del" data-val="${i}" aria-label="枠から外す">×</button></span>`).join("") : `<span class="slot">まだ空き（二つまで）</span>`}</div></div>`,
+        <div class="row"><span>枠</span>${r.slots.length ? r.slots.map((id, i) => `<span class="slot full">${esc(rtLabel(id))}<button data-act="rt-del" data-val="${i}" aria-label="枠から外す">×</button></span>`).join("") : `<span class="slot">まだない（二つまで足せる）</span>`}</div></div>`,
     who: state.line.who,
     text: state.line.text,
-    sub: `地図＝${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}のつまみでつくれる試作品。赤＝ロボが見る数字はどれも見本と「同じ」なのに、ほかのところで違う（ロボをすり抜ける）。`,
     cmds: r.done
       ? [info.next]
       : [
@@ -1214,7 +1219,7 @@ function discovery(): string[] {
   const ph = state.view?.runPhotos.find((p) => p.distinguishable);
   if (ph) out.push(`謎1：ロボは「一回押して20秒後の力」で区別できなかった。走行テスト（${tempoName(ph.period)}）の${ph.step + 1}歩目に差 ${sgn(ph.diff)} を見つけた`);
   if (state.debrief) out.push(`謎1の正体：${state.debrief.explanation}`);
-  if (state.duelLog.length) out.push(`謎2：${state.duelLog.map((s, i) => `ラウンド${i + 1}を（押した直後だけ増えるかたさ, 消えていくまでの時間）＝（${s}）で突破`).join("、")}`);
+  if (state.duelLog.length) out.push(`謎2：${state.duelLog.map((s, i) => { const [e1, tau] = s.split(",").map(Number) as [number, number]; return `ラウンド${i + 1}を（着地の瞬間のかたさ ${knobShown("e1", e1)}、かたさが消えるまでの時間 ${knobShown("tau", tau)}）で突破`; }).join("、")}。ロボが測る点だけ見本とそろえた別物は、測る点ごとにつくれた`);
   if (state.syncDone) out.push(`謎3：平均の圧は同じ（${VA.mean.toFixed(1)} mmHg）でも、高い圧と低い圧の差が違った（A ${VA.pulse.toFixed(0)}／B ${VB.pulse.toFixed(0)} mmHg、模型の値）。血管Bは、ふくらみやすさが半分`);
   if (state.memChecked) out.push(`謎4：止める直前の膜の電圧は同じでも、上がり方・戻り方が違った。膜Bは電気のためやすさが ${CASE3_B.c} 倍`);
   for (const c of ["cartilage", "vessel", "membrane"] as const) {
@@ -1376,22 +1381,18 @@ function vLoop(): void {
 async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
   const reduce = reduceMotion();
   if (kind === "c2") {
-    const a = duelSteps(BASE);
-    const b = duelSteps(duelMaterial(state.e1, state.tau));
     state.duelPhase = "judge";
-    for (let k = 0; k < 12 && !reduce; k++) {
-      const s0 = performance.now();
-      beep("step", k);
-      for (;;) {
-        const u = Math.min(1, (performance.now() - s0) / 170);
-        const at = (d: { land: number; peak: number; lift: number; pre: number }) => (u < 0.5 ? d.land + (d.peak - d.land) * (u / 0.5) : d.lift + (d.pre - d.lift) * ((u - 0.5) / 0.5));
-        state.dd = { a: at(a[k]!), b: at(b[k]!), contact: u < 0.5, impact: u < 0.15 };
-        const svg = app.querySelector("svg.st");
-        if (svg) svg.innerHTML = VIEWS.c2().svg;
-        if (u >= 1) break;
-        await sleep(30);
-      }
+    const s0 = performance.now();
+    for (;;) {
+      if (reduce) break;
+      const f = Math.min(1, (performance.now() - s0) / 1600);
+      state.c2cursor = f;
+      const svg = app.querySelector("svg.st");
+      if (svg) svg.innerHTML = VIEWS.c2().svg;
+      if (f >= 1) break;
+      await sleep(30);
     }
+    state.c2cursor = null;
   } else {
     state.duelPhase = "judge";
     for (let t = 0; t <= RECORD_MS && !reduce; t += 8) {
@@ -1402,7 +1403,6 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
     }
     state.memT = 105;
   }
-  state.dd = null;
   state.duelPhase = "test";
   if (!commit) {
     say("you", kind === "c2" ? "ためしに走らせた結果。三つの目盛りを見て、つまみを直そう。" : "テストの結果。二つの目盛りを見て、つまみを直そう。");
@@ -1518,10 +1518,11 @@ app.addEventListener("input", (e) => {
     state[k] = Number(t.value);
     state.duelPhase = "design";
     const lab = app.querySelector(`#v-${k}`);
-    if (lab) lab.textContent = k === "g" || k === "c" ? `見本の ${state[k].toFixed(2)} 倍` : state[k].toFixed(2);
-    if (state.scene === "c4-duel") {
+    if (lab) lab.textContent = k === "g" || k === "c" ? `見本の ${state[k].toFixed(2)} 倍` : knobShown(k, state[k]);
+    if (state.scene === "c4-duel" || state.scene === "c2") {
       const svg = app.querySelector("svg.st");
-      if (svg) svg.innerHTML = VIEWS["c4-duel"]().svg;
+      if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
+      if (state.scene === "c2") app.querySelector<HTMLButtonElement>('button[data-act="duel-go"]')?.classList.toggle("hot", judgeDuel(DUEL_ROUNDS[state.round]!, duelMaterial(state.e1, state.tau)).cleared);
     }
     // つまみを動かしたら、前のテストの目盛りは古い。テストし直すまで目盛りを隠す
     const meters = app.querySelector(".meters");
@@ -1749,15 +1750,13 @@ app.addEventListener("click", async (e) => {
       if (state.curveId) {
         state.tags = {};
         state.mood = "calm";
-        say("guide", "試験台でBを1秒かけて押しこみ（ふつう）、その深さで止めて力を記録した（点）。色の線は「この説明が正しければ、Bはこう動くはず」という予想。どの線も押し終わった瞬間の高さはBに合わせてある。違いが出るとしたら、その後。");
+        say("guide", "試験台でBを押して、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？");
         go("c1-line");
       }
       break;
     case "tag": {
-      const id = val as CandidateId;
-      const order: (Tag | undefined)[] = [undefined, "match", "out", "unsure"];
-      const cur = state.tags[id];
-      state.tags = { ...state.tags, [id]: order[(order.indexOf(cur) + 1) % order.length] };
+      const [id, t] = val.split(":") as [CandidateId, Tag];
+      state.tags = { ...state.tags, [id]: t };
       render();
       break;
     }
@@ -1891,7 +1890,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-map":
       state.mood = "down";
-      say("bot", "測り方を変えると、通る場所も変わる……。その地図は、私には描けません。");
+      say("guide", "ラウンド1は、着地直後だけ見本と同じ試作品。ラウンド2は、足を上げる直前だけ見本と同じ試作品。どちらもロボは「区別できません」と言った。一つの点しか測らない検査は、その点だけそろえた別物を見落とす。測る点を変えても、また別の別物がつくれる。");
       go("c2-map");
       break;
     // 謎3（血管）
@@ -2024,16 +2023,15 @@ app.addEventListener("click", async (e) => {
       go("c4-why");
       break;
     case "mtag": {
-      const id = val as "g" | "c";
-      const cur = state.memWhy[id];
-      state.memWhy = { ...state.memWhy, [id]: cur === undefined ? "match" : cur === "match" ? "out" : cur === "out" ? "unsure" : undefined };
+      const [id, t] = val.split(":") as ["g" | "c", "match" | "out" | "unsure"];
+      state.memWhy = { ...state.memWhy, [id]: t };
       render();
       break;
     }
     case "m-check": {
       state.memChecked = true;
       const right = state.memWhy.g === "out" && state.memWhy.c === "match";
-      say("calc", `通りやすさだけが違うなら、長く流したときの上がった高さ（電流×抵抗。抵抗＝通りにくさ）が変わるはず。でも記録は、止める直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは、電気のためやすさのほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは電気のためやすさが ${CASE3_B.c} 倍。${right ? "あなたの札と一致。" : "あなたの札と違うところがある。"}`);
+      say("calc", `通りやすさだけが違うなら、長く流したときの上がった高さ（電流×抵抗。抵抗＝通りにくさ）が変わるはず。でも記録は、止める直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは、電気のためやすさのほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは電気のためやすさが ${CASE3_B.c} 倍。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}`);
       state.record.push("謎4 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();

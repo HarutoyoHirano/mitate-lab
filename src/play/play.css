@@ -198,7 +198,7 @@ button { font: inherit; }
 .ghost .puck { width: 55%; margin: 0 auto; display: block; }
 .ghost .model { width: 46%; margin: 0 auto; display: block; }
 .ghost .gpart { font-size: max(10px, 0.9cqw); color: var(--c); font-weight: 800; }
-.ghost .glook { font-size: max(10px, 0.95cqw); color: var(--soft); }
+.ghost .glook { font-size: max(14px, 1.1cqw); font-weight: 900; color: var(--soft); }
 .ghost .gname { font-weight: 900; font-size: max(12px, 1.2cqw); color: var(--c); }
 .ghost .mini { width: 100%; height: auto; background: var(--panel); border-radius: 8px; align-self: center; }
 .ghost .tag { justify-self: center; font-weight: 900; font-size: max(13px, 1.4cqw); border: 3px solid var(--soft); color: var(--soft); border-radius: 8px; padding: 0 1cqw; transform: rotate(-4deg); }
@@ -280,10 +280,10 @@ button { font: inherit; }
 .topicbox input { flex: 1; min-width: 0; font: inherit; font-size: max(13px, 1.25cqw); padding: 0.4cqw 0.8cqw; border-radius: 10px; border: 2px solid var(--line); background: var(--bg, var(--panel)); color: var(--ink); }
 .topicbox .cmd { white-space: nowrap; }
 /* 検査ロボの鍛えなおし（1c-3）：足す数字を選ぶ */
-.picker { position: absolute; display: grid; gap: 0.5cqw; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); border-radius: 14px; padding: 0.8cqw 1cqw; font-size: max(11px, 1cqw); font-weight: 800; }
+.picker { position: absolute; display: grid; gap: 0.6cqw; font-size: max(14px, 1.15cqw) !important; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); border-radius: 14px; padding: 0.8cqw 1cqw; font-size: max(11px, 1cqw); font-weight: 800; }
 .picker .row { display: flex; gap: 0.4cqw; align-items: center; flex-wrap: wrap; }
 .picker .row > span { color: var(--soft); min-width: 4.6em; }
-.picker button { border: 2px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 9px; padding: 0.25cqw 0.7cqw; font-weight: 800; cursor: pointer; font-size: max(11px, 0.95cqw); }
+.picker button { border: 2px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 9px; padding: 0.25cqw 0.7cqw; font-weight: 800; cursor: pointer; font-size: max(14px, 1.1cqw); }
 .picker button.on { border-color: var(--gold); color: var(--gold); }
 .picker button.add { border-color: var(--you); color: var(--you); }
 .picker input[type="range"] { flex: 1; accent-color: var(--gold); }
@@ -297,3 +297,17 @@ button { font: inherit; }
 .timebar { position: absolute; left: calc(100% * (648 + 66) / 1280); width: calc(100% * (616 - 92) / 1280); top: calc(100% * 412 / 480); display: grid; gap: 2px; }
 .timebar input { width: 100%; accent-color: var(--gold); }
 .timebar b { font-size: max(14px, 1.3cqw); font-weight: 900; color: var(--ink); text-align: center; }
+
+/* 謎2のつまみ：名前と効き方を大きく（小さな文字は読まれない） */
+.knobs.big { gap: 0.4cqw; padding: 0.7cqw 1.1cqw; }
+.knobs.big label { font-size: max(15px, 1.35cqw); font-weight: 900; }
+.knobs.big strong { font-size: max(17px, 1.6cqw); }
+.knobs.big em { font-style: normal; font-size: max(14px, 1.1cqw); font-weight: 900; color: var(--soft); }
+
+/* 「合う／合わない／分からない」の三つのボタン */
+.ghost .tags { display: flex; gap: 0.4cqw; justify-content: center; flex-wrap: wrap; }
+.tagb { border: 2px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 0.3cqw 0.7cqw; font-weight: 900; font-size: max(14px, 1.15cqw); cursor: pointer; }
+.tagb.on.match { background: var(--you); border-color: var(--you); color: var(--on-you); }
+.tagb.on.out { background: var(--stamp); border-color: var(--stamp); color: #fff; }
+.tagb.on.unsure { background: var(--gold); border-color: var(--gold); color: #1a0d04; }
+.ghost { cursor: default; }

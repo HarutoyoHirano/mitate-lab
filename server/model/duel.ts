@@ -40,8 +40,9 @@ export const DUEL_ROUNDS: readonly DuelRound[] = [
 ];
 
 export const DUEL_SLIDERS = {
-  e1: { min: 0.2, max: 2.2, step: 0.05, label: "押した直後だけ増えるかたさ" },
-  tau: { min: 0.4, max: 4, step: 0.05, label: "増えたかたさが消えていくまでの時間" },
+  // 画面の呼び方（2026-11-05 夜、作者の指摘で、効き方の言葉に）。e1 は「着地の瞬間のかたさ」＝待ったあとも残るかたさ（1）＋e1 として見せる（offset）
+  e1: { min: 0.2, max: 2.2, step: 0.05, label: "着地の瞬間のかたさ", offset: BASE.eInf },
+  tau: { min: 0.4, max: 4, step: 0.05, label: "かたさが消えるまでの時間", offset: 0 },
 } as const;
 
 export function duelMaterial(e1: number, tau: number): MaterialParams {

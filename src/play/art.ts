@@ -548,8 +548,66 @@ export function runTimeline(o: {
   </g>`;
 }
 
+/**
+ * 謎2：ゆっくり歩かせた12歩目の中のへこみ（誤差なし・公開の式）。A＝点線、あなた＝実線。
+ * ロボが測る点と、ロボが測らない点に、差と目標を大きく出す。判定は judgeDuel と同じ値を渡す。
+ */
+export function duelStepGraph(o: {
+  x: number; y: number; w: number; h: number; period: number;
+  a: readonly { u: number; v: number }[]; b: readonly { u: number; v: number }[];
+  robot: { u: number; label: string; diff: number; ok: boolean; goal: string };
+  hidden: { u: number; label: string; diff: number; ok: boolean; goal: string };
+  cursor: number | null; scan: boolean;
+}): string {
+  const L = 60, R = 24, T = 54, B = 46;
+  const all = [...o.a, ...o.b].map((p) => p.v);
+  const vMin = Math.min(0, ...all) - 0.04;
+  const vMax = Math.max(1, ...all) + 0.04;
+  const xs = (u: number) => L + (o.w - L - R) * u;
+  const ys = (v: number) => T + (o.h - T - B) * ((vMax - v) / (vMax - vMin));
+  const path = (pts: readonly { u: number; v: number }[]) => pts.map((p, i) => `${i ? "L" : "M"}${xs(p.u).toFixed(1)} ${ys(p.v).toFixed(1)}`).join(" ");
+  const yAt = (pts: readonly { u: number; v: number }[], u: number, before: boolean) => {
+    let best = pts[0]!;
+    for (const p of pts) if ((before ? p.u <= u + 1e-9 : p.u >= u - 1e-9) && Math.abs(p.u - u) <= Math.abs(best.u - u)) best = p;
+    return best.v;
+  };
+  const marker = (m: typeof o.robot, kind: "robot" | "hidden") => {
+    const before = m.u > 0.25; // 足を上げる直前は、跳ぶ前の値
+    const ya = yAt(o.a, m.u, before), yb = yAt(o.b, m.u, before);
+    const col = kind === "robot" ? "var(--gold)" : "var(--stamp)";
+    const bx = Math.min(o.w - R - 250, Math.max(L + 4, xs(m.u) - (kind === "robot" ? 8 : 125)));
+    const by = kind === "robot" ? T + 4 : o.h - B - 96;
+    return `<g>
+      <line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${T}" y2="${o.h - B}" stroke="${col}" stroke-width="3" stroke-dasharray="${kind === "robot" ? "0" : "6 5"}"/>
+      <line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${ys(ya)}" y2="${ys(yb)}" stroke="${col}" stroke-width="9" stroke-linecap="round" opacity=".55"/>
+      <circle cx="${xs(m.u)}" cy="${ys(yb)}" r="8" fill="${col}"/>
+      <g transform="translate(${bx},${by})"><rect width="250" height="92" rx="12" fill="var(--panel)" stroke="${col}" stroke-width="3"/>
+        <text x="14" y="28" fill="${col}" font-size="18" font-weight="900">${kind === "robot" ? "🔍 ロボが測る" : "ロボが測らない"}：${m.label}</text>
+        <text x="14" y="58" fill="var(--ink)" font-size="22" font-weight="900" font-variant-numeric="tabular-nums">差 ${m.diff >= 0 ? "+" : "−"}${Math.abs(m.diff).toFixed(3)} ${m.ok ? "✓" : ""}</text>
+        <text x="14" y="82" fill="${m.ok ? "var(--you)" : "var(--soft)"}" font-size="15" font-weight="900">${m.goal}</text></g>
+    </g>`;
+  };
+  return `<g transform="translate(${o.x},${o.y})">
+    <rect width="${o.w}" height="${o.h}" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="${xs(0)}" y="${T}" width="${xs(0.5) - xs(0)}" height="${o.h - T - B}" fill="color-mix(in srgb, var(--bot) 10%, transparent)"/>
+    <text x="${(xs(0) + xs(0.5)) / 2}" y="${T - 12}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">体重がかかっている</text>
+    <text x="${(xs(0.5) + xs(1)) / 2}" y="${T - 12}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">足を上げている</text>
+    <text x="14" y="${T - 30}" fill="var(--ink)" font-size="17" font-weight="900">12歩目のへこみ</text>
+    ${[0, 0.5, 1].map((v) => `<line x1="${L}" x2="${o.w - R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${ys(v) + 5}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="end">${v}</text>`).join("")}
+    ${[0, 0.5, 1].map((u) => `<text x="${xs(u)}" y="${o.h - B + 22}" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="middle">${(u * o.period).toFixed(0)}${u === 1 ? " 秒" : ""}</text>`).join("")}
+    <path d="${path(o.a)}" fill="none" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/>
+    <path d="${path(o.b)}" fill="none" stroke="var(--you)" stroke-width="4"/>
+    ${marker(o.hidden, "hidden")}${marker(o.robot, "robot")}
+    ${o.cursor !== null ? `<line x1="${xs(o.cursor)}" x2="${xs(o.cursor)}" y1="${T}" y2="${o.h - B}" stroke="var(--bot)" stroke-width="4"/>` : ""}
+    <g font-size="15" font-weight="900" fill="var(--ink)" transform="translate(190,${T - 30})">
+      <line x1="0" x2="28" y1="-5" y2="-5" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/><text x="36" y="0">見本 A</text>
+      <line x1="120" x2="148" y1="-5" y2="-5" stroke="var(--you)" stroke-width="4"/><text x="156" y="0">あなたの試作品</text>
+    </g>
+  </g>`;
+}
+
 /** 小さな曲線（影武者の札・力の記録）：Bの記録の点と、説明の線。押している間は横に広げる */
-export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number }): string {
+export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number; legend?: boolean }): string {
   const L = 8;
   const R = 6;
   const T = 8;
@@ -566,6 +624,7 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
       .join(" ");
   return `<svg viewBox="0 0 ${o.w} ${o.h}" class="mini" aria-hidden="true">
     <rect x="${L}" y="${T}" width="${xPush - L}" height="${o.h - T - B}" fill="var(--band)"/>
+    ${o.legend ? `<g font-size="15" font-weight="900" fill="var(--ink)"><circle cx="${o.w - 150}" cy="20" r="5" fill="var(--you)"/><text x="${o.w - 140}" y="25">Bの記録</text><line x1="${o.w - 70}" x2="${o.w - 46}" y1="20" y2="20" stroke="${o.lineColor ?? "var(--gold)"}" stroke-width="3.5" stroke-dasharray="9 5"/><text x="${o.w - 42}" y="25">予想</text>${o.a ? `<line x1="${o.w - 150}" x2="${o.w - 126}" y1="44" y2="44" stroke="var(--soft)" stroke-width="2" stroke-dasharray="5 4"/><text x="${o.w - 120}" y="49">見本 A</text>` : ""}</g>` : ""}
     ${o.a ? `<polyline points="${poly(o.a)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="5 4"/>` : ""}
     ${o.line ? `<polyline points="${poly(o.line)}" fill="none" stroke="${o.lineColor ?? "var(--gold)"}" stroke-width="3.5" stroke-dasharray="9 5"/>` : ""}
     ${o.b
@@ -1014,12 +1073,12 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
   return `<g transform="translate(${x},${y})">
     <rect y="${oy}" width="${w}" height="${H}" fill="var(--panel)" stroke="var(--line)"/>${rects}
     ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${(col(m.x) + 0.5) * cw + 12}" y="${cy(row(m.y)) - 10 - (zoom ? k * 16 : 0)}" fill="var(--ink)" font-size="14" font-weight="900">${m.label}</text>`).join("")}
-    <text x="${w / 2}" y="${oy + H + 22}" fill="var(--soft)" font-size="13" text-anchor="middle">${axes.x} →</text>
+    <text x="${w / 2}" y="${oy + H + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">${axes.x} →</text>
     ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>`}
-    <g transform="translate(0,${h + 36})" font-size="12" font-weight="800">
-      <rect width="14" height="14" fill="var(--stamp)"/><text x="20" y="12" fill="var(--ink)">すり抜ける</text>
-      <rect x="110" width="14" height="14" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="130" y="12" fill="var(--ink)">見分けられる</text>
-      <rect x="232" width="14" height="14" fill="var(--chip)"/><text x="252" y="12" fill="var(--ink)">いままでの数字で見分けられる</text>
+    <g transform="translate(-20,${h + 34})" font-size="15" font-weight="900">
+      <rect width="16" height="16" fill="var(--stamp)"/><text x="22" y="14" fill="var(--ink)">赤：見本と違うのに、ロボが「同じ」と言う（すり抜ける）</text>
+      <rect y="24" width="16" height="16" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="22" y="38" fill="var(--ink)">緑：ロボが見分けられる（または、見本とほぼ同じ）</text>
+      <rect y="48" width="16" height="16" fill="var(--chip)"/><text x="22" y="62" fill="var(--ink)">灰：いままでの数字で見分けられる</text>
     </g>
   </g>`;
 }
