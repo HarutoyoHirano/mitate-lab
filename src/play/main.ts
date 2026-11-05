@@ -908,9 +908,6 @@ function titleView(): View {
         ]
           .map(([c, n, k], i) => `<g transform="translate(0,${14 + i * 62})"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
-        <text x="0" y="356" fill="var(--soft)" font-size="15">人工軟骨＝膝の骨と骨の間でクッションになる軟骨の、代わりを目指す試作品（本物ではなく、計算でつくった）</text>
-        <text x="0" y="380" fill="var(--soft)" font-size="15">体の一部をつくりなおす医療（再生医療）の、架空の研究所。試作品は、検査ロボ TEJUN が決まった手順で調べる。</text>
-        <text x="0" y="404" fill="var(--soft)" font-size="15">ロボが「区別できない」と言ったものの、見落としを見つけるのが、あなたの仕事。</text>
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
     text: state.line.text,
