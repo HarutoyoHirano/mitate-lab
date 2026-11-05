@@ -271,6 +271,24 @@ function startMovie(id: MovieId, line: string): void {
   go("movie");
   if (state.moviePlaying) movieLoop();
 }
+/** A＝見本（いままで・比べる基準）と B＝試作品（新しくつくった・調べたい）を絵で見せる（文字の説明は読まれないため） */
+function abPair(x: number, y: number): string {
+  const pad = (cx: number, k: "a" | "b") => `<path d="M${cx - 80} ${y + 70} q0 -34 30 -36 h100 q30 2 30 36 v14 q0 10 -10 10 h-140 q-10 0 -10 -10 z" fill="var(--pad-${k})" stroke="var(--pad-${k}-edge)" stroke-width="4"/>`;
+  return `<g>
+    ${pad(x + 150, "a")}
+    <g transform="translate(${x + 40},${y - 2})"><rect width="64" height="30" rx="6" fill="var(--gold)"/><text x="32" y="22" fill="#1a0d04" font-size="17" font-weight="900" text-anchor="middle">基準</text></g>
+    <text x="${x + 150}" y="${y + 134}" fill="var(--ink)" font-size="26" font-weight="900" text-anchor="middle">見本 A</text>
+    <text x="${x + 150}" y="${y + 162}" fill="var(--soft)" font-size="18" font-weight="900" text-anchor="middle">いままでの人工軟骨</text>
+    <text x="${x + 380}" y="${y + 74}" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">くらべる</text>
+    <path d="M${x + 310} ${y + 88} h140 m-12 -10 l12 10 l-12 10 m-128 -20 l-12 10 l12 10" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="${x + 560}" y="${y - 6}" width="140" height="14" rx="4" fill="var(--metal)"/><path d="M${x + 618} ${y + 8} h24 l-12 16 z" fill="var(--metal-edge)"/>
+    ${pad(x + 630, "b")}
+    <circle cx="${x + 730}" cy="${y + 26}" r="22" fill="var(--panel)" stroke="var(--pad-b-edge)" stroke-width="3"/><text x="${x + 730}" y="${y + 35}" fill="var(--pad-b-edge)" font-size="26" font-weight="900" text-anchor="middle">？</text>
+    <text x="${x + 630}" y="${y + 134}" fill="var(--ink)" font-size="26" font-weight="900" text-anchor="middle">試作品 B</text>
+    <text x="${x + 630}" y="${y + 162}" fill="var(--soft)" font-size="18" font-weight="900" text-anchor="middle">新しく印刷した人工軟骨</text>
+  </g>`;
+}
+
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string, string][] = [
@@ -284,9 +302,7 @@ function c1Say(): View {
     goal: "ロボの証言を聞き、確かめ方を考えよう",
     svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 [N] 未満 → 同じ"], null, false)}
       ${bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
-      <g transform="translate(40,300)"><rect width="820" height="74" rx="12" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
-        <text x="18" y="30" fill="var(--ink)" font-size="17" font-weight="900">A＝見本：いままでの人工軟骨。性質が分かっていて、比べる基準になる</text>
-        <text x="18" y="58" fill="var(--ink)" font-size="17" font-weight="900">B＝試作品：新しくつくった人工軟骨。見本と同じか、調べたい</text></g>`,
+      ${abPair(60, 262)}`,
     who: "bot",
     text: state.line.text,
     cmds: !asked
@@ -325,7 +341,7 @@ const alongB = (d: StepRow, u: number) => (u < 0.5 ? d.land + (d.peak - d.land) 
 function runAt(run: NonNullable<ReturnType<typeof currentRun>>, t: number): { a: number; b: number; contact: boolean; u: number; k: number } {
   const k = Math.min(PLAY_RUN_STEPS - 1, Math.floor(t / PLAY_RUN_PERIOD + 1e-9));
   const u = Math.max(0, Math.min(1, (t - k * PLAY_RUN_PERIOD) / PLAY_RUN_PERIOD));
-  return { a: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, u), b: alongB(run.b[k]!, u), contact: u < 0.5, u, k };
+  return { a: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, u >= 0.5 ? Math.min(1, Math.max(u, 0.5 + 1e-6)) : u), b: alongB(run.b[k]!, u), contact: u < 0.5, u, k };
 }
 const pointValue = (rows: readonly StepRow[], i: number) => rows[RUN_POINTS[i]!.k]![RUN_POINTS[i]!.phase];
 /** 時刻 t にいちばん近い測った点（同じ時刻の二点は、跳んだ後の点） */
@@ -356,13 +372,12 @@ function c1Run(): View {
   const aLine = run ? Array.from({ length: PLAY_RUN_STEPS }, (_, k) => us.map((u) => ({ t: (k + Math.min(u, 1)) * PLAY_RUN_PERIOD, v: dentWithinStep(BASE, PLAY_RUN_PERIOD, run.a, k, Math.min(u, 1)) }))).flat() : [];
   const bPts = RUN_POINTS.map((p) => {
     const shown = !!run && p.i < state.shown;
-    const d = run ? pointValue(run.b, p.i) - pointValue(run.a, p.i) : 0;
-    return { t: p.t, v: run ? pointValue(run.b, p.i) : 0, shown, hot: shown && Math.abs(d) > STEP_TOLERANCE, sel: sel === p.i, shot: !!run && v.runPhotos.some((x) => x.runId === run.id && x.step === p.k && x.phase === p.phase) };
+    return { t: p.t, v: run ? pointValue(run.b, p.i) : 0, shown, hot: false, sel: sel === p.i, shot: !!run && v.runPhotos.some((x) => x.runId === run.id && x.step === p.k && x.phase === p.phase) };
   });
   const have = state.evidence.some((e) => e.case === 1 && e.id.startsWith("run"));
   return {
     chap: "謎1 見破れ",
-    goal: run ? "AとBの差が大きかった瞬間（赤い点）を選んで、証拠に保存しよう" : "見本Aと試作品Bを、同じように走らせてみよう",
+    goal: run ? "AとBの差が大きい瞬間を選んで、証拠に保存しよう" : "見本Aと試作品Bを、同じように走らせてみよう",
     svg: `${legsStage({ dentA: dents.a, dentB: dents.b, contact: dents.contact, impact: dents.impact, labelA: "見本 A", labelB: "試作品 B", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, x0: -92, y0: 34, scale: 0.76 })}
       ${runTimeline({ x: 648, y: 14, w: 616, h: 392, period: PLAY_RUN_PERIOD, steps: PLAY_RUN_STEPS, aLine, bPts, now: run ? cur : null, tol: STEP_TOLERANCE })}`,
     html: `<div class="timebar"><input type="range" id="c1-t" min="0" max="${RUN_T_MAX}" step="0.05" value="${cur}" ${!run || playing ? "disabled" : ""} aria-label="時間のバー（秒）"><b id="c1-t-label">${run && !playing ? (sel !== null ? pointLabel(sel) : "バーを動かすか、点を押して選ぶ") : ""}</b></div>`,
@@ -370,7 +385,7 @@ function c1Run(): View {
     text: state.line.text,
     cmds: [
       { act: "go-run", label: run ? "もう一度走らせる" : "走らせる", hot: !run, disabled: playing || state.busy },
-      { act: "shot", label: "この瞬間を証拠に保存", sub: sel !== null ? pointLabel(sel) : "赤い点を選ぶ", hot: sel !== null, disabled: sel === null || state.busy || playing },
+      { act: "shot", label: "この瞬間を証拠に保存", sub: sel !== null ? pointLabel(sel) : "グラフの点を選ぶ", hot: sel !== null, disabled: sel === null || state.busy || playing },
       { act: "to-present", label: "ロボに証拠を見せる", sub: "証拠ファイルを開く", disabled: !have, hot: have && sel === null },
     ],
   };
@@ -1376,7 +1391,7 @@ async function playRun(): Promise<void> {
   state.shown = RUN_POINTS.length;
   const hot = RUN_POINTS.filter((p) => Math.abs(pointValue(run.b, p.i) - pointValue(run.a, p.i)) > STEP_TOLERANCE);
   const steps = [...new Set(hot.map((p) => p.k + 1))];
-  say("you", hot.length ? `赤い点では、AとBのへこみのちがいが ${STEP_TOLERANCE} より大きい。赤い点を選んで、証拠に保存しよう。` : `どの瞬間も、ちがいは ${STEP_TOLERANCE} より小さい。もう一度走らせてみよう。`);
+  say("you", hot.length ? "点線（A）と点（B）を見くらべよう。AとBのへこみが大きくちがう瞬間を選んで、証拠に保存しよう。" : `どの瞬間も、ちがいは ${STEP_TOLERANCE} より小さい。もう一度走らせてみよう。`);
   state.mood = hot.length ? "sweat" : "smug";
   render();
 }

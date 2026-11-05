@@ -72,25 +72,25 @@ export function legsStage(o: { dentA: number; dentB: number; contact: boolean; i
     const edge = kind === "A" ? "var(--pad-a-edge)" : "var(--pad-b-edge)";
     const femurBottom = top - 2;
     return `<g>
-      <text x="${cx - 150}" y="108" fill="var(--ink)" font-size="19" font-weight="900">${label}</text>
+      <text x="${cx - 150}" y="96" fill="var(--ink)" font-size="26" font-weight="900">${label}</text>
       
-      <text x="${cx - 26}" y="140" fill="var(--soft)" font-size="12" text-anchor="end">試験機の押し棒</text>
+      
       <rect x="${cx - 16}" y="118" width="32" height="${Math.max(10, femurBottom - 150 - 118)}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
-      ${o.contact ? `<path d="M${cx + 34} 128 v40 m-12 -12 l12 12 l12 -12" stroke="var(--bot)" stroke-width="5" fill="none" stroke-linecap="round"/><text x="${cx + 52}" y="152" fill="var(--bot)" font-size="13" font-weight="900">体重にあたる力</text>` : ""}
+      ${o.contact ? `<path d="M${cx + 34} 128 v40 m-12 -12 l12 12 l12 -12" stroke="var(--bot)" stroke-width="5" fill="none" stroke-linecap="round"/><text x="${cx + 52}" y="156" fill="var(--bot)" font-size="20" font-weight="900">体重</text>` : ""}
       
       <path d="M${cx - 22} ${femurBottom - 150} V${femurBottom - 46} C ${cx - 22} ${femurBottom - 30}, ${cx - 78} ${femurBottom - 34}, ${cx - 78} ${femurBottom - 12} C ${cx - 78} ${femurBottom + 2}, ${cx - 40} ${femurBottom + 2}, ${cx} ${femurBottom - 4} C ${cx + 40} ${femurBottom + 2}, ${cx + 78} ${femurBottom + 2}, ${cx + 78} ${femurBottom - 12} C ${cx + 78} ${femurBottom - 34}, ${cx + 22} ${femurBottom - 30}, ${cx + 22} ${femurBottom - 46} V${femurBottom - 150} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
-      <text x="${cx - 100}" y="${femurBottom - 80}" fill="var(--soft)" font-size="13" text-anchor="end">太ももの骨</text>
+      <text x="${cx - 96}" y="${femurBottom - 80}" fill="var(--soft)" font-size="20" font-weight="900" text-anchor="end">太ももの骨</text>
       
       <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="${col}" stroke="${edge}" stroke-width="3"/>
       <path d="M${cx - 70 - bulge / 2} ${top + 6} Q ${cx - 70 - bulge} ${(top + plateau) / 2} ${cx - 70 - bulge / 2} ${plateau - 4} L ${cx + 70 + bulge / 2} ${plateau - 4} Q ${cx + 70 + bulge} ${(top + plateau) / 2} ${cx + 70 + bulge / 2} ${top + 6} Z" fill="url(#hex-${kind})" opacity=".55"/>
-      <text x="${cx + 100}" y="${(top + plateau) / 2 + 5}" fill="var(--soft)" font-size="13">人工軟骨</text>
+      <text x="${cx + 96}" y="${(top + plateau) / 2 + 7}" fill="var(--ink)" font-size="20" font-weight="900">人工軟骨</text>
       ${o.impact ? `<g class="impact" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"><path d="M${cx - 96 - bulge} ${(top + plateau) / 2} l-20 0"/><path d="M${cx - 92 - bulge} ${top} l-16 -10"/></g>` : ""}
       
       <path d="M${cx - 84} ${plateau} H${cx + 84} C ${cx + 84} ${plateau + 22}, ${cx + 26} ${plateau + 26}, ${cx + 24} ${plateau + 44} V${plateau + 76} H${cx - 24} V${plateau + 44} C ${cx - 26} ${plateau + 26}, ${cx - 84} ${plateau + 22}, ${cx - 84} ${plateau} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
       <rect x="${cx - 60}" y="${plateau + 76}" width="120" height="14" rx="4" fill="var(--metal-edge)"/>
-      <text x="${cx - 100}" y="${plateau + 56}" fill="var(--soft)" font-size="13" text-anchor="end">すねの骨（固定）</text>
-      <text x="${cx + 150}" y="${plateau + 40}" fill="var(--ink)" font-size="24" font-weight="900" font-variant-numeric="tabular-nums">${dent.toFixed(2)}</text>
-      <text x="${cx + 150}" y="${plateau + 58}" fill="var(--soft)" font-size="12">へこみ</text>
+      <text x="${cx - 96}" y="${plateau + 56}" fill="var(--soft)" font-size="20" font-weight="900" text-anchor="end">すねの骨</text>
+      <text x="${cx + 120}" y="${plateau + 42}" fill="var(--ink)" font-size="30" font-weight="900" font-variant-numeric="tabular-nums">${dent.toFixed(2)}</text>
+      <text x="${cx + 120}" y="${plateau + 66}" fill="var(--soft)" font-size="20" font-weight="900">へこみ</text>
     </g>`;
   };
   const pat = (id: string, c: string) => `<pattern id="${id}" width="18" height="15.6" patternUnits="userSpaceOnUse"><path d="M4.5 0 h9 l4.5 7.8 l-4.5 7.8 h-9 l-4.5 -7.8z" fill="none" stroke="${c}" stroke-width="1.2"/></pattern>`;
@@ -543,7 +543,6 @@ export function runTimeline(o: {
     <g font-size="14" font-weight="900" fill="var(--ink)" transform="translate(${L},${o.h - 22})">
       <line x1="0" x2="28" y1="-5" y2="-5" stroke="var(--pad-a-edge)" stroke-width="3" stroke-dasharray="7 6"/><text x="36" y="0">見本 A</text>
       <circle cx="120" cy="-5" r="6" fill="var(--pad-b-edge)"/><text x="132" y="0">試作品 B（測った点）</text>
-      <circle cx="306" cy="-5" r="8" fill="var(--stamp)"/><text x="320" y="0">ちがいが ${o.tol} より大きい</text>
     </g>
   </g>`;
 }
