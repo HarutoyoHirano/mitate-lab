@@ -899,7 +899,6 @@ function titleView(): View {
     chap: "見立てラボ",
     goal: "同じに見える。でも、測り方を変えると違う。",
     svg: `<g transform="translate(60,24)">
-        <text x="0" y="0" fill="var(--soft)" font-size="15" font-weight="900">膝まわりを丸ごとつくりなおすプロジェクト（架空）</text>
         ${[
           ["謎1 見破れ", "3Dプリントの人工軟骨を、走らせて調べる", "かたさと力"],
           ["謎2 仕掛けろ", "ロボの検査をすり抜ける軟骨をつくる", "かたさと力"],
