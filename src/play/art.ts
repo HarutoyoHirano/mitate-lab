@@ -924,6 +924,20 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
  * 謎3の正体・三段目：人工血管を電気の部品で書いた回路（式の形が同じだけ。電気は流れていない）。
  * 電圧＝圧の数字、流れ＝電流。コンデンサの板の長さ＝ふくらみやすさ、＋の数＝たまった量（ふくらみやすさ×圧）。計算値で動かす
  */
+/** 番号の丸（謎3の正体で、図と説明を照らし合わせる） */
+export function numBadge(x: number, y: number, n: string, hot = false): string {
+  return `<g transform="translate(${x},${y})"><circle r="17" fill="${hot ? "var(--gold)" : "var(--paper)"}" stroke="${hot ? "var(--stamp)" : "var(--metal-edge)"}" stroke-width="${hot ? 3 : 2}"/><text y="7" fill="var(--paper-ink)" font-size="19" font-weight="900" text-anchor="middle">${n}</text></g>`;
+}
+/** 試験装置の部品の小さな絵と、電気の部品の記号（対応表の行に使う） */
+export function partIcon(kind: "pump" | "bag" | "tube" | "src" | "cap" | "res", x: number, y: number): string {
+  const g = (inner: string) => `<g transform="translate(${x},${y})" stroke-linecap="round">${inner}</g>`;
+  if (kind === "pump") return g(`<circle r="15" fill="var(--panel)" stroke="var(--gold)" stroke-width="4"/><path d="M-8 -8 L8 8 M8 -8 L-8 8" stroke="var(--gold)" stroke-width="4"/>`);
+  if (kind === "bag") return g(`<circle r="15" fill="color-mix(in srgb, var(--you) 30%, var(--panel))" stroke="var(--you)" stroke-width="3"/>`);
+  if (kind === "tube") return g(`<rect x="-20" y="-9" width="40" height="18" rx="9" fill="var(--panel)" stroke="var(--metal-edge)" stroke-width="2.5"/><path d="M-12 0 l4 -5 l5 10 l5 -10 l5 10 l4 -5" stroke="var(--metal-edge)" stroke-width="2" fill="none"/>`);
+  if (kind === "src") return g(`<circle r="15" fill="var(--heart)" stroke="var(--heart-edge)" stroke-width="3"/><path d="M0 9 V-9 m-6 6 l6 -6 l6 6" stroke="#fff" stroke-width="2.5" fill="none"/>`);
+  if (kind === "cap") return g(`<path d="M0 -18 V-5 M0 5 V18" stroke="var(--ink)" stroke-width="3"/><path d="M-15 -5 H15 M-15 5 H15" stroke="var(--you)" stroke-width="5"/>`);
+  return g(`<path d="M-20 0 h6 l3 -8 l5 16 l5 -16 l5 16 l5 -16 l3 8 h6" stroke="var(--ink)" stroke-width="3" fill="none"/>`);
+}
 export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn: number, flowMax: number, tag: string, lit: boolean): string {
   const plate = 40 + 50 * v.c;
   const q = v.c * p;
@@ -945,8 +959,9 @@ export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn
     ${marks("＋", 102, "var(--plus)")}${marks("−", 152, "var(--minus)")}
     <path d="M524 96 V146" stroke="var(--vessel-edge)" stroke-width="${ow.toFixed(1)}"/><path d="M516 138 l8 10 l8 -10" stroke="var(--vessel-edge)" stroke-width="3" fill="none"/>
     <text x="80" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">電流を送りこむもの</text>
-    <text x="300" y="208" fill="${lit ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ（電気をためる部品）</text>
+    <text x="300" y="208" fill="${lit ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ${lit ? "（小さい）" : ""}</text>
     <text x="500" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">抵抗</text>
+    ${numBadge(128, 84, "①")}${numBadge(300 + plate / 2 + 24, 121, "②", lit)}${numBadge(462, 84, "③")}
   </g>`;
 }
 

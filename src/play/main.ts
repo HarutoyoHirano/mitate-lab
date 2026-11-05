@@ -14,7 +14,7 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, numBadge, partIcon, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -935,19 +935,21 @@ function vesselWiringView(): View {
   if (!vFlowMax) for (let i = 0; i <= 200; i++) vFlowMax = Math.max(vFlowMax, pumpFlow((BEAT_S * i) / 200));
   const u = state.u % BEAT_S;
   const fl = pumpFlow(u);
-  const line = (yy: number, t: string, col = "var(--ink)") => `<text x="660" y="${yy}" fill="${col}" font-size="17" font-weight="900">${t}</text>`;
+  // 前のページと同じ①②③で、試験装置の部品と電気の部品を一行ずつ対応させる（2026-11-06、作者の指摘「回路図だけ出てきても意味がわからん。何と何が対応するか分かりやすく」）
+  const row = (yy: number, n: string, dev: "pump" | "bag" | "tube", devName: string, el: "src" | "cap" | "res", elName: string, hot = false) =>
+    `${numBadge(676, yy - 7, n, hot)}${partIcon(dev, 724, yy - 7)}<text x="750" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="19" font-weight="900">${devName}</text>
+     <text x="934" y="${yy}" fill="var(--soft)" font-size="22" font-weight="900">→</text>${partIcon(el, 984, yy - 7)}<text x="1012" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="19" font-weight="900">${elName}</text>`;
   return {
     chap: "謎3 正体",
-    goal: "電気の部品で書くと：同じ式になる",
+    goal: "同じ ①②③ を電気の部品で書くと、同じ式になる",
     svg: `${vesselCircuit(16, 10, BASE_VESSEL, pressureAt(BASE_VESSEL, u), fl, vFlowMax, "見本の血管 A を電気の部品で書くと", false)}${vesselCircuit(16, 244, CASE_VESSEL_B, pressureAt(CASE_VESSEL_B, u), fl, vFlowMax, "試作品の血管 B", true)}
-      ${beatChart(660, 30, 580, 170, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
-      ${line(252, "電流を送りこむもの ＝ ポンプ（心臓）")}
-      ${line(278, "コンデンサ ＝ ふくらむ血管　抵抗 ＝ 出口の細い管")}
-      ${line(304, "電圧 ＝ 圧の数字　電流 ＝ 流れ")}
-      ${line(346, "Bはコンデンサが小さい（ためにくい）", "var(--gold)")}
-      ${line(372, "→ 同じ電流をためると、電圧が大きく上がる")}
-      ${line(414, "式の形が同じだけ（人工血管に電気は流れていない）", "var(--soft)")}
-      ${line(440, "謎4の神経の膜では、本当に電気がたまる", "var(--you)")}`,
+      ${beatChart(660, 30, 580, 130, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
+      ${row(222, "①", "pump", "ポンプ（心臓）", "src", "電流を送りこむもの")}
+      ${row(270, "②", "bag", "ふくらむ袋（血管）", "cap", "コンデンサ", true)}
+      ${row(318, "③", "tube", "細い管（出口）", "res", "抵抗")}
+      <text x="660" y="364" fill="var(--ink)" font-size="19" font-weight="900">圧 → 電圧　　流れ → 電流</text>
+      <text x="660" y="404" fill="var(--gold)" font-size="19" font-weight="900">Bの②は小さい（ためにくい）→ 電圧が大きく上下</text>
+      <text x="660" y="444" fill="var(--soft)" font-size="17" font-weight="900">式の形が同じだけ（人工血管に電気は流れていない）</text>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
@@ -2430,7 +2432,7 @@ app.addEventListener("click", async (e) => {
     // 検査ロボを鍛えなおす（1c-3）
     case "v-more":
       state.vExplain = Math.min(2, state.vExplain + 1);
-      say("guide", state.vExplain === 1 ? "試験装置の三つの部品に番号を付けた。見本Aと試作品Bを同じ時刻で動かしている。Bで違うのは ② の袋。" : "同じ三つを電気の部品で書くこともできる。ポンプは電流を送りこむもの、ふくらむ血管は電気をためるコンデンサ、細い管は抵抗。圧を電圧と読みかえると、同じ式になる。");
+      say("guide", state.vExplain === 1 ? "試験装置の三つの部品に番号を付けた。見本Aと試作品Bを同じ時刻で動かしている。Bで違うのは ② の袋。" : "同じ①②③を電気の部品で書くこともできる。① ポンプ→電流を送りこむもの、② ふくらむ袋→電気をためるコンデンサ、③ 細い管→抵抗。圧を電圧と読みかえると、同じ式になる。謎4の神経の膜では、本当に電気がたまる。");
       state.vPlaying = !reduceMotion();
       render();
       if (state.vPlaying) vLoop();
