@@ -12,9 +12,9 @@ import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHAS
 import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
-import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
+import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -148,6 +148,10 @@ const state = {
   memTank: false,
   memWhy: {} as Partial<Record<"g" | "c", "match" | "out" | "unsure">>,
   memChecked: false,
+  /** 謎3の正体：0＝膜の拡大図、1＝電気回路で見る（CR回路の過渡現象） */
+  mExplain: 0,
+  /** 謎3の電気回路：もし①入口の電流（p）や③抵抗（r）が違ったら */
+  mWhatIf: null as "p" | "r" | null,
   g: 1,
   c: 1,
   record: [] as string[],
@@ -898,7 +902,7 @@ function whatIfWaves(): { v: number[]; color: string; dash?: string; width?: num
     ...(wi ? [{ v: wave((u) => whatIfPressure(wi, u)), color: "var(--gold)", width: 4 }] : []),
   ];
 }
-function whatIfButtons(names: [string, string, string]): string {
+function whatIfButtons(names: [string, string, string], act = "v-whatif", cur: "p" | "r" | null = state.vWhatIf): string {
   return `<div class="choices"><span class="choices-lead">もし、ほかの部品が違ったら？</span>${(
     [
       ["p", names[0]],
@@ -906,7 +910,7 @@ function whatIfButtons(names: [string, string, string]): string {
       ["", names[2]],
     ] as const
   )
-    .map(([v, l]) => `<button class="choice ${state.vWhatIf === (v || null) ? "on" : ""}" data-act="v-whatif" data-val="${v}">${l}</button>`)
+    .map(([v, l]) => `<button class="choice ${cur === (v || null) ? "on" : ""}" data-act="${act}" data-val="${v}">${l}</button>`)
     .join("")}</div>`;
 }
 function vesselRigView(): View {
@@ -1031,6 +1035,65 @@ function vesselWiringView(): View {
   };
 }
 
+// ---------- 謎3の正体：電気回路で見る（2026-11-06、作者の指示「神経のところは電気回路をベースに解説を入れること（CR回路の過渡現象）」。膜は本当に電気） ----------
+function memWhatIf(wi: "p" | "r" | null, t: number): { m: Membrane; dv: number } {
+  if (wi === "p") return { m: BASE_MEM, dv: 1.3 * deltaMv(BASE_MEM, t) };
+  if (wi === "r") {
+    const m = { g: BASE_MEM.g / 1.3, c: BASE_MEM.c };
+    return { m, dv: deltaMv(m, t) };
+  }
+  return { m: CASE3_B, dv: deltaMv(CASE3_B, t) };
+}
+function membraneWiringView(): View {
+  const t = state.memT;
+  const wi = state.mWhatIf;
+  const push = t <= PULSE_MS;
+  const ts = Array.from({ length: 101 }, (_, i) => (RECORD_MS * i) / 100);
+  const GX = 660, GY = 30, GW = 580, GH = 120, LO = -72, HI = -55;
+  const gx = (tt: number) => GX + (GW * tt) / RECORD_MS;
+  const gy = (mv: number) => GY + GH * (1 - (mv - LO) / (HI - LO));
+  const cur = memWhatIf(wi, 0).m;
+  const k = wi === "p" ? 1.3 : 1;
+  const tauDot = (m: Membrane, kk: number, col: string) => {
+    const tau = tauMs(m);
+    return `<circle cx="${gx(tau)}" cy="${gy(REST_MV + kk * deltaMv(m, tau))}" r="7" fill="${col}" stroke="var(--panel)" stroke-width="2"/>`;
+  };
+  const row = (yy: number, n: string, dev: "gate" | "lipid" | "pore" | "rest", devName: string, el: "src" | "cap" | "res" | "bat", elName: string, hot = false) =>
+    `${numBadge(676, yy - 6, n, hot)}${partIcon(dev, 722, yy - 6)}<text x="748" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="17" font-weight="900">${devName}</text>
+     <text x="960" y="${yy}" fill="var(--soft)" font-size="20" font-weight="900">→</text>${partIcon(el, 1000, yy - 6)}<text x="1024" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="17" font-weight="900">${elName}</text>`;
+  const lower = memWhatIf(wi, t);
+  return {
+    chap: "謎3 正体",
+    goal: "膜は、コンデンサと抵抗の電気回路そのもの",
+    svg: `${membraneCircuit(16, 10, BASE_MEM, deltaMv(BASE_MEM, t), push, 1, "見本の膜 A を電気の部品で書くと", null)}${membraneCircuit(16, 244, lower.m, lower.dv, push, k, wi === "p" ? "もし①が違ったら（電流が1.3倍）" : wi === "r" ? "もし③が違ったら（抵抗が1.3倍）" : "試作品の膜 B", wi === "p" ? "src" : wi === "r" ? "res" : "cap")}
+      ${waveChart(GX, GY, GW, GH, [
+        { v: ts.map((tt) => REST_MV + deltaMv(BASE_MEM, tt)), color: "var(--soft)", dash: "6 4", width: 2.5 },
+        { v: ts.map((tt) => REST_MV + deltaMv(CASE3_B, tt)), color: "var(--membrane-edge)", width: wi ? 2.5 : 3.5 },
+        ...(wi ? [{ v: ts.map((tt) => REST_MV + memWhatIf(wi, tt).dv), color: "var(--gold)", width: 4 }] : []),
+      ], t / RECORD_MS, LO, HI, [-70, -65, -60], wi ? "膜の電圧（mV）　点線＝A　線＝B　金＝もし" : "膜の電圧（mV）　点線＝A　線＝B　●＝かかる時間")}
+      <line x1="${gx(PULSE_MS)}" x2="${gx(PULSE_MS)}" y1="${GY}" y2="${GY + GH}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="${gx(PULSE_MS) + 6}" y="${GY + GH - 8}" fill="var(--ink)" font-size="15" font-weight="900">離す</text>
+      ${tauDot(BASE_MEM, 1, "var(--soft)")}${wi ? tauDot(cur, k, "var(--gold)") : tauDot(CASE3_B, 1, "var(--membrane-edge)")}
+      ${row(200, "①", "gate", "押されると開く入口", "src", "電流源（電流を送りこむ）", wi === "p")}
+      ${row(234, "②", "lipid", "あぶらの膜", "cap", "コンデンサ", !wi)}
+      ${row(268, "③", "pore", "いつも開いている通り道", "res", "抵抗", wi === "r")}
+      ${row(302, "④", "rest", "何もしないときの電圧", "bat", "電池")}
+      <g transform="translate(656,320)"><rect width="590" height="100" rx="12" fill="var(--paper)"/>
+        <text x="14" y="28" fill="var(--paper-ink)" font-size="18" font-weight="900">② × 電圧の上がる速さ ＝ ① −（電圧 − ④）÷ ③</text>
+        <text x="14" y="58" fill="var(--paper-ink)" font-size="18" font-weight="900">上がりきる高さ ＝ ① × ③　　かかる時間 ＝ ③ × ②</text>
+        <text x="14" y="88" fill="var(--paper-soft)" font-size="16" font-weight="900">●：かかる時間で約6割まで上がる（離すと約4割まで戻る）</text></g>
+      <text x="660" y="444" fill="var(--gold)" font-size="17" font-weight="900">${wi === "p" ? "①が1.3倍 → 高さも1.3倍 → 離す直前が変わる（ロボも気づく）" : wi === "r" ? "③が1.3倍 → 高さも時間も1.3倍 → 離す直前が変わる" : `Bは②が${CASE3_B.c}倍 → 時間は${CASE3_B.c}倍、高さは同じ → 離す直前はそろう`}</text>
+      <text x="660" y="468" fill="var(--soft)" font-size="15" font-weight="900">膜は本当に電気をためる（工学では「CR回路の過渡現象」）</text>`,
+    who: state.line.who,
+    text: state.line.text,
+    extra: whatIfButtons(["① 入口の電流が違ったら", "③ 抵抗が違ったら", "② 実際のB"], "m-whatif", state.mWhatIf),
+    cmds: [
+      { act: "to-duel4", label: "膜に、仕掛けろ", hot: true },
+      { act: "m-back", label: "前の説明へ", ghost: true },
+    ],
+  };
+}
+
 // ---------- 謎3：膜の見落とし（ここで初めて電気の部品を出す：1c-2） ----------
 function c4Say(): View {
   const a = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
@@ -1074,6 +1137,7 @@ function c4Present(): View {
   return v;
 }
 function c4Why(): View {
+  if (state.memChecked && state.mExplain > 0) return membraneWiringView();
   const cards: { id: "g" | "c"; name: string; look: string }[] = [
     { id: "g", name: "イオンの通りやすさが違う", look: "いつも開いている通り道の数が違う（多いほど＋が外へ出やすい）。そうなら、離す直前の電圧が変わるはず" },
     { id: "c", name: "電気のためやすさが違う", look: "膜の電圧を同じだけ上げるのに要る電気の量が違う。そうなら、上がり方と戻り方の速さが変わるはず" },
@@ -1110,7 +1174,7 @@ function c4Why(): View {
       .join("")}</div>`,
     who: state.line.who,
     text: state.line.text,
-    cmds: state.memChecked ? [{ act: "to-duel4", label: "膜に、仕掛けろ", hot: true }] : [{ act: "m-check", label: "選んだ答えを計算で確かめる", sub: all ? "計算プログラムが確かめる" : `あと ${cards.filter((c) => !state.memWhy[c.id]).length} 枚`, hot: all, disabled: !all }],
+    cmds: state.memChecked ? [{ act: "m-more", label: "電気回路で見る", sub: "膜は、本当に電気をためる", hot: true }, { act: "to-duel4", label: "膜に、仕掛けろ" }] : [{ act: "m-check", label: "選んだ答えを計算で確かめる", sub: all ? "計算プログラムが確かめる" : `あと ${cards.filter((c) => !state.memWhy[c.id]).length} 枚`, hot: all, disabled: !all }],
   };
 }
 function c4Duel(): View {
@@ -1120,7 +1184,7 @@ function c4Duel(): View {
   const show = state.duelPhase !== "design";
   return {
     chap: "謎3 仕掛けろ",
-    goal: `ロボの「次の一手」では見本と同じ、別の時刻では違う膜をつくれ（ラウンド${round.id}）`,
+    goal: `ロボが見る数字では見本と同じ、ほかの時刻では違う膜をつくれ（ラウンド${round.id}）`,
     svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "見本の膜 A", "A", true, state.memT || 105, true)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105, true)}
       ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "見本の膜 A", b: "あなたの膜", top: 18, notes: false })}
       ${ruleCard(880, 20, "膜の検査の手順", [round.id === 1 ? "① 離す直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差が ${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} より小さい → 同じ`], 0, round.id === 2)}`,
@@ -1820,6 +1884,25 @@ async function playRun(): Promise<void> {
   render();
 }
 
+let mTimer = 0;
+/** 謎3の電気回路：押して離すを4秒でくり返し見せる（動きを減らす設定では、押している途中の60 msで止める） */
+function mLoop(): void {
+  cancelAnimationFrame(mTimer);
+  if (reduceMotion()) {
+    state.memT = 60;
+    render();
+    return;
+  }
+  const s0 = performance.now() - (state.memT / RECORD_MS) * 4000;
+  const tick = () => {
+    if (state.scene !== "c4-why" || state.mExplain === 0) return;
+    state.memT = Math.round((((performance.now() - s0) / 4000) * RECORD_MS) % RECORD_MS);
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
+    mTimer = requestAnimationFrame(tick);
+  };
+  tick();
+}
 let vTimer = 0;
 function vLoop(): void {
   const s0 = performance.now() - (state.u / BEAT_S) * 2500;
@@ -1922,6 +2005,8 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
       brHint: 0,
       vBet: null,
       memChecked: false,
+      mExplain: 0,
+      mWhatIf: null,
       memWhy: {},
       panel: null,
     });
@@ -2554,7 +2639,26 @@ app.addEventListener("click", async (e) => {
       await damage(10);
       break;
     }
+    case "m-more":
+      state.mExplain = 1;
+      state.mWhatIf = null;
+      say("guide", "膜を電気の部品で書いた回路。押している間は、①の入口から決まった量の電流が入る。電気は②の膜（コンデンサ）にたまり、電圧が上がる。上がるほど③の通り道（抵抗）から出ていく電流が増え、入る分と出る分がつり合う高さで止まる。離すと、たまった電気が③から出ていき、④の −70 mV へ戻る。上がるのも戻るのも、かかる時間は ③×②（抵抗×電気のためやすさ）で決まる。");
+      go("c4-why");
+      mLoop();
+      break;
+    case "m-whatif":
+      state.mWhatIf = val === "p" || val === "r" ? val : null;
+      say("guide", state.mWhatIf === "p" ? "もし①の入口から入る電流が1.3倍だったら（金の線）。つり合う高さが1.3倍になり、離す直前の電圧も上がる。これならロボも見分けられる。" : state.mWhatIf === "r" ? "もし③の抵抗が1.3倍（通り道が少ない）だったら（金の線）。電気が出ていきにくく、つり合う高さも、かかる時間も1.3倍になる。離す直前の電圧が変わるので、ロボも見分けられる。" : `実際のBは、②のコンデンサだけが ${CASE3_B.c} 倍。つり合う高さ（①×③）は変わらず、かかる時間だけが ${CASE3_B.c} 倍になる。${PULSE_MS} ms 押せばBでも上がりきるので、離す直前だけを見るロボは見落とした。`);
+      render();
+      mLoop();
+      break;
+    case "m-back":
+      state.mExplain = 0;
+      state.memT = 60;
+      render();
+      break;
     case "to-duel4":
+      state.mExplain = 0;
       state.round = 0;
       state.g = 1;
       state.c = 1;
@@ -2645,7 +2749,7 @@ app.addEventListener("click", async (e) => {
         c === "cartilage"
           ? h === 1
             ? "20秒後の力は、押した直後だけ増えるかたさにも、消えていくまでの時間にも、ほとんど左右されない。だから、いままで見ていた数字は、どちらの部品もおさえていない。数字を一つ足すだけでは、赤いますが必ず残る（計算で確かめた）。"
-            : "仕掛けろで、ロボは走って1歩目の「着地した直後」と「足を上げた直後」を、別々のラウンドで見た。あなたは片方ずつならすり抜けられた。両方見たら？"
+            : "仕掛けろで、ロボは走って1歩目の「着地した直後」と「足を上げた直後」を、別々のラウンドで見た。片方だけを見るロボなら、あなたはだませる試作品をつくれた。両方見たら？"
           : c === "vessel"
             ? h === 1
               ? "1回の脈の平均の圧は、ポンプが送る量が同じなら、出口の流れにくさで決まる。だから、いままで見ていた数字で、出口の流れにくさはおさえられている。残る部品は、ふくらみやすさ。それで変わる時刻を一つ足そう。"

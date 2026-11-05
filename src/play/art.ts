@@ -947,8 +947,14 @@ export function numBadge(x: number, y: number, n: string, hot = false): string {
   return `<g transform="translate(${x},${y})"><circle r="17" fill="${hot ? "var(--gold)" : "var(--paper)"}" stroke="${hot ? "var(--stamp)" : "var(--metal-edge)"}" stroke-width="${hot ? 3 : 2}"/><text y="7" fill="var(--paper-ink)" font-size="19" font-weight="900" text-anchor="middle">${n}</text></g>`;
 }
 /** 試験装置の部品の小さな絵と、電気の部品の記号（対応表の行に使う） */
-export function partIcon(kind: "pump" | "bag" | "tube" | "src" | "cap" | "res", x: number, y: number): string {
+export function partIcon(kind: "pump" | "bag" | "tube" | "src" | "cap" | "res" | "gate" | "lipid" | "pore" | "rest" | "bat", x: number, y: number): string {
   const g = (inner: string) => `<g transform="translate(${x},${y})" stroke-linecap="round">${inner}</g>`;
+  // 膜の部品（謎3の正体：電気回路で見る）
+  if (kind === "gate") return g(`<rect x="-16" y="-14" width="10" height="28" rx="4" fill="var(--membrane-edge)"/><rect x="6" y="-14" width="10" height="28" rx="4" fill="var(--membrane-edge)"/><path d="M0 10 V-10 m-5 5 l5 -5 l5 5" stroke="var(--plus)" stroke-width="2.5" fill="none"/>`);
+  if (kind === "lipid") return g(`${[-12, 0, 12].map((cx) => `<circle cx="${cx}" cy="-8" r="5" fill="var(--membrane-edge)"/><circle cx="${cx}" cy="8" r="5" fill="var(--membrane-edge)"/>`).join("")}`);
+  if (kind === "pore") return g(`<rect x="-16" y="-14" width="11" height="28" rx="4" fill="var(--soft)"/><rect x="5" y="-14" width="11" height="28" rx="4" fill="var(--soft)"/>`);
+  if (kind === "rest") return g(`<text y="6" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">−70</text>`);
+  if (kind === "bat") return g(`<path d="M0 -18 V-6 M0 6 V18" stroke="var(--ink)" stroke-width="3"/><path d="M-15 -6 H15" stroke="var(--gold)" stroke-width="4"/><path d="M-8 6 H8" stroke="var(--gold)" stroke-width="6"/>`);
   if (kind === "pump") return g(`<circle r="15" fill="var(--panel)" stroke="var(--gold)" stroke-width="4"/><path d="M-8 -8 L8 8 M8 -8 L-8 8" stroke="var(--gold)" stroke-width="4"/>`);
   if (kind === "bag") return g(`<circle r="15" fill="color-mix(in srgb, var(--you) 30%, var(--panel))" stroke="var(--you)" stroke-width="3"/>`);
   if (kind === "tube") return g(`<rect x="-20" y="-9" width="40" height="18" rx="9" fill="var(--panel)" stroke="var(--metal-edge)" stroke-width="2.5"/><path d="M-12 0 l4 -5 l5 10 l5 -10 l5 10 l4 -5" stroke="var(--metal-edge)" stroke-width="2" fill="none"/>`);
@@ -981,6 +987,38 @@ export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn
     <text x="300" y="208" fill="${lit ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ${lit ? "（小さい）" : ""}</text>
     <text x="500" y="208" fill="${hot === "res" ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">抵抗${hot === "res" ? " ×1.3" : ""}</text>
     ${numBadge(128, 84, "①", hot === "src")}${numBadge(300 + plate / 2 + 24, 121, "②", lit)}${numBadge(462, 84, "③", hot === "res")}
+  </g>`;
+}
+
+/** 謎3の正体：膜を電気の部品で書く（膜は本当に電気をためる。CR回路の過渡現象）。上の線＝細胞の中、下の線＝外 */
+export function membraneCircuit(x: number, y: number, m: Membrane, dv: number, pushing: boolean, iScale: number, tag: string, hot: "src" | "cap" | "res" | null): string {
+  const plate = 40 + 40 * m.c;
+  const n = Math.max(0, Math.min(16, Math.round(m.c * dv * 0.7)));
+  const marks = (sign: string, yy: number, col: string) => Array.from({ length: n }, (_, k) => `<text x="${290 - plate / 2 + 8 + ((k * (plate - 16)) / Math.max(1, n - 1))}" y="${yy}" fill="${col}" font-size="15" font-weight="900" text-anchor="middle">${sign}</text>`).join("");
+  const iw = pushing ? 2 + 4 * iScale : 0;
+  const ow = Math.max(1.5, 0.6 * m.g * dv);
+  const gold = (h: boolean) => (h ? "var(--gold)" : "var(--soft)");
+  return `<g transform="translate(${x},${y})" stroke-linecap="round">
+    <rect width="600" height="216" rx="14" fill="var(--panel)" stroke="${hot ? "var(--membrane-edge)" : "var(--line)"}" stroke-width="${hot ? 2.5 : 1.5}"/>
+    <text x="16" y="28" fill="var(--ink)" font-size="17" font-weight="900">${tag}</text>
+    <text x="584" y="30" fill="var(--gold)" font-size="20" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">膜の電圧 ${(REST_MV + dv).toFixed(1)} mV</text>
+    <text x="16" y="62" fill="var(--membrane-edge)" font-size="15" font-weight="900">中</text>
+    <text x="16" y="192" fill="var(--membrane-edge)" font-size="15" font-weight="900">外</text>
+    <g stroke="var(--ink)" stroke-width="3" fill="none">
+      <path d="M40 56 H470 M40 186 H470 M110 56 V91 M110 151 V186 M290 56 V${121 - 8} M290 ${121 + 8} V186 M470 56 V80 M470 136 V152 M470 166 V186"/>
+    </g>
+    <path d="M470 80 l-11 5 l22 6 l-22 6 l22 6 l-22 6 l22 6 l-22 6 l22 6 l-11 5" stroke="${hot === "res" ? "var(--gold)" : "var(--ink)"}" stroke-width="${hot === "res" ? 5 : 3}" fill="none"/>
+    <path d="M452 152 H488" stroke="var(--gold)" stroke-width="4"/><path d="M461 166 H479" stroke="var(--gold)" stroke-width="7"/>
+    <text x="496" y="166" fill="var(--gold)" font-size="16" font-weight="900">−70 mV</text>
+    <circle cx="110" cy="121" r="30" fill="var(--membrane)" stroke="${hot === "src" ? "var(--gold)" : "var(--membrane-edge)"}" stroke-width="${hot === "src" ? 6 : 3}"/>
+    ${iw ? `<path d="M110 140 V102" stroke="var(--plus)" stroke-width="${iw.toFixed(1)}"/><path d="M100 110 l10 -10 l10 10" stroke="var(--plus)" stroke-width="3" fill="none"/>` : `<path d="M110 140 V102" stroke="var(--soft)" stroke-width="2" opacity=".5"/>`}
+    <path d="M${290 - plate / 2} 113 H${290 + plate / 2} M${290 - plate / 2} 129 H${290 + plate / 2}" stroke="${hot === "cap" ? "var(--gold)" : "var(--membrane-edge)"}" stroke-width="${hot === "cap" ? 8 : 6}"/>
+    ${marks("＋", 104, "var(--plus)")}${marks("−", 150, "var(--minus)")}
+    <path d="M500 84 V128" stroke="var(--plus)" stroke-width="${ow.toFixed(1)}" opacity=".85"/><path d="M492 120 l8 10 l8 -10" stroke="var(--plus)" stroke-width="3" fill="none"/>
+    <text x="110" y="208" fill="${gold(hot === "src")}" font-size="15" font-weight="900" text-anchor="middle">${pushing ? "押している：電流が入る" : "離した：電流なし"}${hot === "src" ? " ×1.3" : ""}</text>
+    <text x="290" y="208" fill="${gold(hot === "cap")}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ${hot === "cap" ? `（${m.c}倍）` : ""}</text>
+    <text x="470" y="208" fill="${gold(hot === "res")}" font-size="15" font-weight="900" text-anchor="middle">抵抗${hot === "res" ? " ×1.3" : ""}＋電池</text>
+    ${numBadge(156, 84, "①", hot === "src")}${numBadge(290 + plate / 2 + 22, 121, "②", hot === "cap")}${numBadge(434, 104, "③", hot === "res")}${numBadge(434, 160, "④")}
   </g>`;
 }
 
