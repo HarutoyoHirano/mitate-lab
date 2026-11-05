@@ -254,7 +254,7 @@ function movieView(): View {
   return {
     chap: m.chap,
     goal: m.goal,
-    svg: introMovie(state.movieId, state.movieT),
+    svg: introMovie(state.movieId, state.movieT, reduceMotion()),
     who: state.line.who,
     text: state.line.text,
     cmds: state.moviePlaying
@@ -1011,7 +1011,7 @@ function nMovie(): View {
   return {
     chap: nxChap(),
     goal: `はじまりの話（${nxSourceLabel()}）`,
-    svg: nextMovie(m.spec, m.verdict.runA!, m.verdict.robotA!, state.nx.mt, state.nx.sc!),
+    svg: nextMovie(m.spec, m.verdict.runA!, m.verdict.robotA!, state.nx.mt, state.nx.sc!, reduceMotion()),
     who: state.line.who,
     text: state.line.text,
     cmds: state.nx.mplaying

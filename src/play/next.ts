@@ -413,13 +413,13 @@ function nextScene(i: number, spec: NetPuzzleSpec, runA: NetRun, s: number, sc: 
     ${s > 2.6 ? `<g transform="translate(176,212) rotate(-6)"><rect width="190" height="44" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="95" y="30" fill="var(--stamp)" font-size="19" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}`);
 }
 
-export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: number, sc: MachineScale): string {
+export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: number, sc: MachineScale, labels = false): string {
   const total = nextMovieLength();
   const tags = spec.scenes.map((x) => x.tag);
   if (t >= total) {
     return `<g>
       ${[0, 1, 2].map((i) => `<g transform="translate(${30 + i * 416},24)">${nextScene(i, spec, runA, NEXT_SCENE_DUR[i]! * 0.5, sc, robotA)}
-        <text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${i + 1}　${esc(tags[i] ?? "")}</text></g>`).join("")}
+        ${labels ? `<text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${i + 1}　${esc(tags[i] ?? "")}</text>` : ""}</g>`).join("")}
       <g transform="translate(140,366)"><rect width="1000" height="100" rx="14" fill="var(--paper)"/>
         ${textBlock(500, 40, wrapLines(spec.endLine, 36, 1), 22, "var(--paper-ink)")}
         <text x="500" y="78" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">確かめるのは、あなた。</text></g>

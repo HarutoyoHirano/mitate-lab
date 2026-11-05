@@ -445,12 +445,13 @@ export function movieLength(id: MovieId): number {
 export function movieOutline(id: MovieId): { scenes: number; length: number; end: string } {
   return { scenes: MOVIES[id].scenes.length, length: movieLength(id), end: MOVIES[id].end.join("") };
 }
-export function introMovie(id: MovieId, t: number): string {
+/** labels：結びの場面で、各場面の一行を出すか（動きを減らす設定で字幕を見ていない人だけ。2026-11-05 夜、作者の指摘） */
+export function introMovie(id: MovieId, t: number, labels = false): string {
   const mv = MOVIES[id];
   if (t >= movieLength(id)) {
     return `<g>
       ${mv.scenes.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${sc.draw(sc.dur)}
-        <text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
+        ${labels ? `<text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text>` : ""}</g>`).join("")}
       <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
         <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
         <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
