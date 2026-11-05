@@ -394,7 +394,6 @@ function sceneRobotMem(s: number): string {
 interface MovieScene {
   dur: number;
   tag: string;
-  cap: readonly [string, string];
   short: string;
   draw: (s: number) => string;
 }
@@ -407,33 +406,33 @@ export type MovieId = 1 | 2 | 4 | 5;
 const MOVIES: Record<MovieId, Movie> = {
   1: {
     scenes: [
-      { dur: 5, tag: "① 新しい試作品", cap: ["体の一部をつくりなおす医療（再生医療）のラボ。", "3Dプリンタで、人工軟骨の新しい試作品Bができた。"], short: "新しい試作品Bができた", draw: scenePrinter },
-      { dur: 7, tag: "② 膝の軟骨のしごと", cap: ["膝の軟骨は、一歩ごとに体重で押されて少しへこみ、足を上げると戻る。", "歩くときと走るときでは、押され方がちがう。"], short: "軟骨は一歩ごとに押される", draw: sceneLeg },
-      { dur: 5, tag: "③ 検査ロボの検査", cap: ["検査ロボ TEJUN は、決まった手順で調べる。", "押して20秒待ち、力を読み、見本と比べる。答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobot },
+      { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで、試作品Bができた", draw: scenePrinter },
+      { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は、一歩ごとに押されてへこむ", draw: sceneLeg },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「20秒後の力は、区別できません」", draw: sceneRobot },
     ],
     end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
   },
   2: {
     scenes: [
-      { dur: 5, tag: "① 検査の見落とし", cap: ["謎1で、ロボの検査には見落としがあると分かった。", "ラボは、検査を鍛えなおすことにした。"], short: "検査に見落としがあった", draw: sceneMiss },
-      { dur: 6, tag: "② わざとすり抜けてみる", cap: ["検査を鍛えるには、わざと検査をすり抜ける試験用の軟骨をつくって、", "見落としを先に見つけておく。設計するのは、あなた。"], short: "すり抜ける軟骨をつくる", draw: sceneDesign },
-      { dur: 6, tag: "③ ロボも負けていない", cap: ["ロボは、軟骨をゆっくり歩かせて、決まった一歩を測る。", "そして一度すり抜けられると、見る場所を変えてくる。"], short: "ロボは見る場所を変える", draw: sceneRuleChange },
+      { dur: 5, tag: "① 検査の見落とし", short: "謎1で、ロボの見落としが見つかった", draw: sceneMiss },
+      { dur: 6, tag: "② わざとすり抜けてみる", short: "すり抜ける軟骨をつくって、見落としを探す", draw: sceneDesign },
+      { dur: 6, tag: "③ ロボも負けていない", short: "ロボは、すり抜けられると見る場所を変える", draw: sceneRuleChange },
     ],
     end: ["ロボの検査はすり抜けて、ほかのところには違いを残せ。", "二回戦では、ロボの測り方が変わる。"],
   },
   4: {
     scenes: [
-      { dur: 6, tag: "① 軟骨から血管へ", cap: ["膝の軟骨には血管がない。栄養は、まわりの液からしみこむようにして届く。", "膝のまわりの骨や筋肉へは、心臓が脈（ドクン）ごとに送る血液を、血管が運ぶ。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
-      { dur: 6, tag: "② 試験装置で調べる", cap: ["心臓と血管のまねをした試験装置で、人工血管の試作品Bを調べる。", "ポンプが脈ごとに液を送り、人工血管がふくらんで受け止め、その先の細い管へ流す。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
-      { dur: 5, tag: "③ 検査ロボの検査", cap: ["ロボは、1回の脈の平均の圧を読み、見本と比べる。", "答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobotMean },
+      { dur: 6, tag: "① 軟骨から血管へ", short: "軟骨に血管はない。血液は血管が運ぶ", draw: sceneHeart },
+      { dur: 6, tag: "② 試験装置で調べる", short: "試験装置で、人工血管の試作品Bを調べる", draw: sceneHeart },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「平均の圧は、区別できません」", draw: sceneRobotMean },
     ],
     end: ["でも、1回の脈の中の圧の動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
   5: {
     scenes: [
-      { dur: 6, tag: "① 膝から脳へ", cap: ["最後は神経のチーム。膝が押された感じは、神経を通って脳へ伝わる。", "そのはじまりは、膝のまわりの神経の端の膜。"], short: "はじまりは神経の端の膜", draw: sceneNerve },
-      { dur: 7, tag: "② 膜の電圧", cap: ["押されると膜の入口が開いて電流が入り、膜の電圧（細胞の中が外にくらべて何ミリボルトか）が", "−70 mV から上がる。電流が止まると、もとへ戻る。"], short: "電流が入ると電圧が上がり、戻る", draw: sceneMembrane },
-      { dur: 5, tag: "③ 検査ロボの検査", cap: ["ロボは、電流を止める直前の膜の電圧だけを読み、見本と比べる。", "答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobotMem },
+      { dur: 6, tag: "① 膝から脳へ", short: "膝が押された感じは、神経で脳へ伝わる", draw: sceneNerve },
+      { dur: 7, tag: "② 膜の電圧", short: "電流が入ると、膜の電圧が上がって戻る", draw: sceneMembrane },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「止める直前は、区別できません」", draw: sceneRobotMem },
     ],
     end: ["でも、電流を入れている途中や止めたあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
@@ -445,13 +444,13 @@ export function movieLength(id: MovieId): number {
 export function movieOutline(id: MovieId): { scenes: number; length: number; end: string } {
   return { scenes: MOVIES[id].scenes.length, length: movieLength(id), end: MOVIES[id].end.join("") };
 }
-/** labels：結びの場面で、各場面の一行を出すか（動きを減らす設定で字幕を見ていない人だけ。2026-11-05 夜、作者の指摘） */
-export function introMovie(id: MovieId, t: number, labels = false): string {
+/** 各場面は一行だけを大きく出す（長い字幕は読まれないため。2026-11-05 夜、作者の指摘）。結びでも同じ一行を並べる */
+export function introMovie(id: MovieId, t: number): string {
   const mv = MOVIES[id];
   if (t >= movieLength(id)) {
     return `<g>
       ${mv.scenes.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${sc.draw(sc.dur)}
-        ${labels ? `<text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text>` : ""}</g>`).join("")}
+        <text x="200" y="326" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
       <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
         <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
         <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
@@ -466,8 +465,7 @@ export function introMovie(id: MovieId, t: number, labels = false): string {
   return `<g>
     <text x="640" y="32" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">${sc.tag}</text>
     <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${sc.draw(s)}</g>
-    <text x="640" y="420" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[0]}</text>
-    <text x="640" y="450" fill="var(--ink)" font-size="19" font-weight="900" text-anchor="middle">${sc.cap[1]}</text>
+    <text x="640" y="440" fill="var(--ink)" font-size="26" font-weight="900" text-anchor="middle">${sc.short}</text>
   </g>`;
 }
 

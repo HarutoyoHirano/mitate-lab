@@ -413,13 +413,13 @@ function nextScene(i: number, spec: NetPuzzleSpec, runA: NetRun, s: number, sc: 
     ${s > 2.6 ? `<g transform="translate(176,212) rotate(-6)"><rect width="190" height="44" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="95" y="30" fill="var(--stamp)" font-size="19" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}`);
 }
 
-export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: number, sc: MachineScale, labels = false): string {
+export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: number, sc: MachineScale): string {
   const total = nextMovieLength();
   const tags = spec.scenes.map((x) => x.tag);
   if (t >= total) {
     return `<g>
       ${[0, 1, 2].map((i) => `<g transform="translate(${30 + i * 416},24)">${nextScene(i, spec, runA, NEXT_SCENE_DUR[i]! * 0.5, sc, robotA)}
-        ${labels ? `<text x="200" y="324" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${i + 1}　${esc(tags[i] ?? "")}</text>` : ""}</g>`).join("")}
+        <text x="200" y="326" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${i + 1}　${esc(tags[i] ?? "")}</text></g>`).join("")}
       <g transform="translate(140,366)"><rect width="1000" height="100" rx="14" fill="var(--paper)"/>
         ${textBlock(500, 40, wrapLines(spec.endLine, 36, 1), 22, "var(--paper-ink)")}
         <text x="500" y="78" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">確かめるのは、あなた。</text></g>
@@ -430,10 +430,11 @@ export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: 
   while (i < 2 && t >= from + NEXT_SCENE_DUR[i]!) from += NEXT_SCENE_DUR[i++]!;
   const s = t - from;
   const fade = clamp01(s / 0.35);
-  const cap = spec.scenes[i]?.caption[0] ?? "";
+  // 字幕は最初の一文だけを大きく（長い字幕は読まれないため。2026-11-05 夜、作者の指摘）
+  const cap = (spec.scenes[i]?.caption[0] ?? "").split(/(?<=。)/)[0] ?? "";
   return `<g>
     <text x="640" y="32" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">${esc(tags[i] ?? "")}</text>
     <g opacity="${fade.toFixed(2)}" transform="translate(410,46) scale(1.15)">${nextScene(i, spec, runA, s, sc, robotA)}</g>
-    ${textBlock(640, 418, wrapLines(cap, 34, 2), 19, "var(--ink)")}
+    ${textBlock(640, cap.length > 28 ? 420 : 440, wrapLines(cap, 28, 2), 24, "var(--ink)")}
   </g>`;
 }
