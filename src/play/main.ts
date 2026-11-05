@@ -14,7 +14,7 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, numBadge, partIcon, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -129,6 +129,8 @@ const state = {
   vPlaying: false,
   /** 謎3の正体の段（0＝やさしい説明、1＝試験装置の見立て、2＝電気の部品で書く） */
   vExplain: 0,
+  /** 謎3の正体の二段目：もし①ポンプ（p）や③細い管（r）が違ったら */
+  vWhatIf: null as "p" | "r" | null,
   vBet: null as "r" | "c" | "unknown" | null,
   syncR: 1,
   syncC: 1.5,
@@ -890,20 +892,46 @@ function vesselRigView(): View {
   const badge = (x: number, y: number, n: string, hot = false) => `<g transform="translate(${x},${y})"><circle r="17" fill="${hot ? "var(--gold)" : "var(--paper)"}" stroke="${hot ? "var(--stamp)" : "var(--metal-edge)"}" stroke-width="${hot ? 3 : 2}"/><text y="7" fill="var(--paper-ink)" font-size="19" font-weight="900" text-anchor="middle">${n}</text></g>`;
   const marks = (dy: number, hot: boolean) => `${badge(122, 112 + dy, "①")}${badge(214, 112 + dy, "②", hot)}${badge(330, 160 + dy, "③")}`;
   const row = (yy: number, n: string, t: string, col = "var(--ink)") => `${badge(676, yy - 7, n, n === "②")}<text x="704" y="${yy}" fill="${col}" font-size="20" font-weight="900">${t}</text>`;
+  // もし①や③が違ったら（2026-11-06、作者の提案「①と③が違った場合はどうなるかも解説したらよい」）。同じ式で計算した仮の血管。
+  // ① ポンプが1回に送る量が1.3倍 → この模型は送る量に比例するので、圧が全体に1.3倍。③ 細い管の流れにくさが1.3倍
+  const wi = state.vWhatIf;
+  const N = 80;
+  const wave = (f: (u: number) => number) => Array.from({ length: N + 1 }, (_, i) => f((BEAT_S * i) / N));
+  const waves: { v: number[]; color: string; dash?: string; width?: number }[] = [
+    { v: wave((u) => pressureAt(BASE_VESSEL, u)), color: "var(--soft)", dash: "6 4", width: 2.5 },
+    { v: wave((u) => pressureAt(CASE_VESSEL_B, u)), color: "var(--vessel-edge)", width: wi ? 2.5 : 3.5 },
+    ...(wi === "p" ? [{ v: wave((u) => 1.3 * pressureAt(BASE_VESSEL, u)), color: "var(--gold)", width: 4 }] : wi === "r" ? [{ v: wave((u) => pressureAt({ ...BASE_VESSEL, r: BASE_VESSEL.r * 1.3 }, u)), color: "var(--gold)", width: 4 }] : []),
+  ];
+  const concl: [string, string, string] =
+    wi === "p"
+      ? ["もし①が1回に送る量が多かったら", "圧が全体に上がる（金の線）", "平均も上がるので、ロボも見分けられる"]
+      : wi === "r"
+        ? ["もし③が流れにくかったら", "出ていきにくく、圧が全体に上がる", "平均も上がるので、ロボも見分けられる"]
+        : ["②がふくらみにくいと、同じ量でも", "圧が高く上がり、低く下がる", "平均は変わらない → ロボは見落とした"];
   return {
     chap: "謎3 正体",
     goal: "試験装置で見ると：Bは ② ふくらむ袋（人工血管）が違った",
     svg: `${machine(sa, ra, k, sc, { x: 16, y: 10, w: 610, h: 220, scale: 1.2, tag: "見本の血管 A" })}${machine(sb, rb, k, sc, { x: 16, y: 244, w: 610, h: 220, scale: 1.2, tag: "試作品の血管 B", tagColor: "var(--vessel-edge)", lit })}
       ${marks(0, false)}${marks(232, true)}
       <text x="238" y="351" fill="var(--gold)" font-size="18" font-weight="900">ふくらみにくい</text>
-      ${beatChart(660, 30, 580, 150, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
-      ${row(236, "①", "ポンプ（心臓のかわり）：AもBも同じ")}
-      ${row(282, "②", "ふくらむ袋（人工血管）：Bは見本の半分", "var(--gold)")}
-      ${row(328, "③", "細い管（出口）：AもBも同じ")}
-      <text x="660" y="384" fill="var(--ink)" font-size="20" font-weight="900">②がふくらみにくいと、同じ量でも</text>
-      <text x="660" y="414" fill="var(--ink)" font-size="20" font-weight="900">圧が高く上がり、低く下がる</text>`,
+      ${waveChart(660, 30, 580, 150, waves, (state.u % BEAT_S) / BEAT_S, 40, 150, [60, 80, 100, 120, 140], wi ? `点線＝A　線＝B　金＝もし${wi === "p" ? "①" : "③"}が違ったら` : "1回の脈の圧（mmHg）　点線＝A、線＝B")}
+      ${row(236, "①", wi === "p" ? "ポンプ（心臓のかわり）：もし多く送ったら" : "ポンプ（心臓のかわり）：AもBも同じ", wi === "p" ? "var(--gold)" : "var(--ink)")}
+      ${row(282, "②", "ふくらむ袋（人工血管）：Bは見本の半分", wi ? "var(--ink)" : "var(--gold)")}
+      ${row(328, "③", wi === "r" ? "細い管（出口）：もし流れにくかったら" : "細い管（出口）：AもBも同じ", wi === "r" ? "var(--gold)" : "var(--ink)")}
+      <text x="660" y="384" fill="var(--ink)" font-size="20" font-weight="900">${concl[0]}</text>
+      <text x="660" y="414" fill="var(--ink)" font-size="20" font-weight="900">${concl[1]}</text>
+      <text x="660" y="444" fill="var(--gold)" font-size="20" font-weight="900">${concl[2]}</text>`,
     who: state.line.who,
     text: state.line.text,
+    extra: `<div class="choices"><span class="choices-lead">もし、ほかの部品が違ったら？</span>${(
+      [
+        ["p", "① ポンプが違ったら"],
+        ["r", "③ 細い管が違ったら"],
+        ["", "② 実際のB"],
+      ] as const
+    )
+      .map(([v, l]) => `<button class="choice ${state.vWhatIf === (v || null) ? "on" : ""}" data-act="v-whatif" data-val="${v}">${l}</button>`)
+      .join("")}</div>`,
     cmds: [
       { act: "v-more", label: "電気の部品でも書ける", sub: "同じ式の見立て", hot: true },
       { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す" },
@@ -963,15 +991,18 @@ function vesselWiringView(): View {
      <text x="934" y="${yy}" fill="var(--soft)" font-size="22" font-weight="900">→</text>${partIcon(el, 984, yy - 7)}<text x="1012" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="19" font-weight="900">${elName}</text>`;
   return {
     chap: "謎3 正体",
-    goal: "同じ ①②③ を電気の部品で書くと、同じ式になる",
+    goal: "同じ ①②③ を電気の部品で書くと、同じ形の式になる",
     svg: `${vesselCircuit(16, 10, BASE_VESSEL, pressureAt(BASE_VESSEL, u), fl, vFlowMax, "見本の血管 A を電気の部品で書くと", false)}${vesselCircuit(16, 244, CASE_VESSEL_B, pressureAt(CASE_VESSEL_B, u), fl, vFlowMax, "試作品の血管 B", true)}
-      ${beatChart(660, 30, 580, 130, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
-      ${row(222, "①", "pump", "ポンプ（心臓）", "src", "電流を送りこむもの")}
-      ${row(270, "②", "bag", "ふくらむ袋（血管）", "cap", "コンデンサ", true)}
-      ${row(318, "③", "tube", "細い管（出口）", "res", "抵抗")}
-      <text x="660" y="364" fill="var(--ink)" font-size="19" font-weight="900">圧 → 電圧　　流れ → 電流</text>
-      <text x="660" y="404" fill="var(--gold)" font-size="19" font-weight="900">Bの②は小さい（ためにくい）→ 電圧が大きく上下</text>
-      <text x="660" y="444" fill="var(--soft)" font-size="17" font-weight="900">式の形が同じだけ（人工血管に電気は流れていない）</text>`,
+      ${beatChart(660, 30, 580, 110, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
+      ${row(196, "①", "pump", "ポンプ（心臓）", "src", "電流を送りこむもの（電流源）")}
+      ${row(240, "②", "bag", "ふくらむ袋（血管）", "cap", "コンデンサ", true)}
+      ${row(284, "③", "tube", "細い管（出口）", "res", "抵抗")}
+      <g transform="translate(656,306)"><rect width="590" height="112" rx="12" fill="var(--paper)"/>
+        <text x="14" y="30" fill="var(--paper-ink)" font-size="18" font-weight="900">血管：② × 圧の上がる速さ ＝ ①の流れ − 圧 ÷ ③</text>
+        <text x="14" y="62" fill="var(--paper-ink)" font-size="18" font-weight="900">回路：② × 電圧の上がる速さ ＝ ①の電流 − 電圧 ÷ ③</text>
+        <text x="14" y="94" fill="var(--paper-soft)" font-size="16" font-weight="900">どちらも「たまる分 ＝ 入る分 − 出ていく分」。圧↔電圧、流れ↔電流</text></g>
+      <text x="660" y="442" fill="var(--gold)" font-size="18" font-weight="900">Bは②が小さい → 同じ①でも、電圧（圧）が大きく上下</text>
+      <text x="660" y="466" fill="var(--soft)" font-size="16" font-weight="900">式の形が同じだけ（人工血管に電気は流れていない）</text>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
@@ -1711,7 +1742,7 @@ async function openChapter(i: number): Promise<void> {
   state.moviePlaying = false;
   if (i === 1) startMovie(2, "はじまりの話：ロボの検査の手順を見直すために、わざと見落とさせる試作品をつくる。");
   else if (i === 2) startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
-  else startMovie(5, "はじまりの話：膝が押された感じは、神経が脳へ知らせる。神経のチームは、その入口になる膜の試作品Bをつくった。");
+  else startMovie(5, "はじまりの話：膝が押されると、神経の端がそれを感じとり、脳へ知らせる。ラボの神経のチームは、この神経の端をつつむ膜を人工でつくりなおそうとしていて、新しい膜（試作品B）ができた。");
 }
 function go(s: Scene): void {
   saveProgress(s);
@@ -2425,13 +2456,13 @@ app.addEventListener("click", async (e) => {
     // 謎4（膜）
     case "to-m5":
       state.moviePlaying = false;
-      startMovie(5, "はじまりの話：膝が押された感じは、神経が脳へ知らせる。神経のチームは、その入口になる膜の試作品Bをつくった。");
+      startMovie(5, "はじまりの話：膝が押されると、神経の端がそれを感じとり、脳へ知らせる。ラボの神経のチームは、この神経の端をつつむ膜を人工でつくりなおそうとしていて、新しい膜（試作品B）ができた。");
       break;
     case "enter-c4":
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
-      say("bot", `今度は神経の膜の検査です。膝の動きを脳へ伝える神経の端の膜の模型で、見本の膜A（いままでの膜）と、神経のチームがつくった試作品の膜Bをくらべます。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
+      say("bot", `今度は神経の膜の検査です。膝の動きを脳へ伝える神経の端の膜の模型で、見本の膜A（いままでの人工の膜）と、神経のチームが新しくつくった試作品の膜Bをくらべます。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
       go("c4-say");
       break;
     case "c4-next":
@@ -2536,8 +2567,14 @@ app.addEventListener("click", async (e) => {
     // 検査ロボを鍛えなおす（1c-3）
     case "v-more":
       state.vExplain = Math.min(2, state.vExplain + 1);
-      say("guide", state.vExplain === 1 ? "試験装置の三つの部品に番号を付けた。見本Aと試作品Bを同じ時刻で動かしている。Bで違うのは ② の袋。" : "同じ①②③を電気の部品で書くこともできる。① ポンプ→電流を送りこむもの、② ふくらむ袋→電気をためるコンデンサ、③ 細い管→抵抗。圧を電圧と読みかえると、同じ式になる。謎4の神経の膜では、本当に電気がたまる。");
+      say("guide", state.vExplain === 1 ? "試験装置の三つの部品に番号を付けた。見本Aと試作品Bを同じ時刻で動かしている。Bで違うのは ② の袋。" : "同じ①②③を電気の部品で書くこともできる。① ポンプは電流を送りこむもの（電流源）。ポンプは圧に関係なく決まった量を送るので、電圧を決める電圧源ではなく電流源になる。② ふくらむ袋は電気をためるコンデンサ、③ 細い管は抵抗。右下の二つの式は、圧を電圧、流れを電流と読みかえると同じ形。謎4の神経の膜では、本当に電気がたまる。");
       state.vPlaying = !reduceMotion();
+      render();
+      if (state.vPlaying) vLoop();
+      break;
+    case "v-whatif":
+      state.vWhatIf = val === "p" || val === "r" ? val : null;
+      say("guide", state.vWhatIf === "p" ? "もし①ポンプが1回に送る量が1.3倍だったら（金の線）。圧が全体に上がり、平均も上がる。これならロボの検査（平均）でも見分けられる。" : state.vWhatIf === "r" ? "もし③細い管の流れにくさが1.3倍だったら（金の線）。血液が出ていきにくく、圧が全体に上がる。平均も上がるので、ロボも見分けられる。" : "実際のBは②だけが違った。平均は変わらず、高い圧と低い圧の差だけが変わる。だから、平均だけを見るロボは見落とした。");
       render();
       if (state.vPlaying) vLoop();
       break;

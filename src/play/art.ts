@@ -931,6 +931,17 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
  * 謎3の正体・三段目：人工血管を電気の部品で書いた回路（式の形が同じだけ。電気は流れていない）。
  * 電圧＝圧の数字、流れ＝電流。コンデンサの板の長さ＝ふくらみやすさ、＋の数＝たまった量（ふくらみやすさ×圧）。計算値で動かす
  */
+/** 波のグラフ（何本でも）。lines は1回の脈を同じ間隔で取った値。lo〜hi の目盛り、u は時刻の線（0〜1） */
+export function waveChart(x: number, y: number, w: number, h: number, lines: { v: number[]; color: string; dash?: string; width?: number }[], u: number, lo: number, hi: number, ticks: number[], caption: string): string {
+  const ys = (p: number) => h * (1 - (p - lo) / (hi - lo));
+  return `<g transform="translate(${x},${y})">
+    <rect width="${w}" height="${h}" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+    ${ticks.map((p) => `<line x1="0" x2="${w}" y1="${ys(p)}" y2="${ys(p)}" stroke="var(--line)"/><text x="${w - 4}" y="${ys(p) - 3}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${p}</text>`).join("")}
+    ${lines.map((l) => `<polyline points="${l.v.map((p, i) => `${((w * i) / (l.v.length - 1)).toFixed(1)},${Math.max(0, Math.min(h, ys(p))).toFixed(1)}`).join(" ")}" fill="none" stroke="${l.color}" stroke-width="${l.width ?? 3}" ${l.dash ? `stroke-dasharray="${l.dash}"` : ""}/>`).join("")}
+    <line x1="${w * u}" x2="${w * u}" y1="0" y2="${h}" stroke="var(--gold)" stroke-width="2.5"/>
+    <text x="0" y="${h + 18}" fill="var(--soft)" font-size="15" font-weight="900">${caption}</text>
+  </g>`;
+}
 /** 番号の丸（謎3の正体で、図と説明を照らし合わせる） */
 export function numBadge(x: number, y: number, n: string, hot = false): string {
   return `<g transform="translate(${x},${y})"><circle r="17" fill="${hot ? "var(--gold)" : "var(--paper)"}" stroke="${hot ? "var(--stamp)" : "var(--metal-edge)"}" stroke-width="${hot ? 3 : 2}"/><text y="7" fill="var(--paper-ink)" font-size="19" font-weight="900" text-anchor="middle">${n}</text></g>`;
