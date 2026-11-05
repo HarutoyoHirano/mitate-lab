@@ -76,7 +76,7 @@ export const CARTILAGE_POINTS: readonly (RetrainPoint & { period: number; step: 
  * （2026-11-06、謎2のロボの検査を「走る」の1歩目に変えたため、ゆっくり歩く12歩目の4点は外した）
  */
 export const CARTILAGE_SHOWN: readonly { group: string; ids: readonly string[] }[] = [
-  { group: "走って1歩目（謎1・謎2と同じ走り）", ids: STEP_PHASES.map((ph) => `jog:0:${ph}`) },
+  { group: "走って1歩目（見破れ・仕掛けろと同じ走り）", ids: STEP_PHASES.map((ph) => `jog:0:${ph}`) },
 ];
 /** 全テンポ・全歩・全時点のへこみ（違いが残るかを見る） */
 function allDents(p: MaterialParams): number[] {

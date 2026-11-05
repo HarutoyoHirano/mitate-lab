@@ -35,7 +35,7 @@ export interface DuelRound {
 }
 
 export const DUEL_ROUNDS: readonly DuelRound[] = [
-  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: "走行検査を足しました。謎1と同じように走らせて、1歩目の「着地した直後」のへこみを見ます。すり抜けられますか？" },
+  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: "走行検査を足しました。見破れと同じように走らせて、1歩目の「着地した直後」のへこみを見ます。すり抜けられますか？" },
   { id: 2, robot: LIFT_CHECK, hidden: LAND_CHECK, robotLine: "見る場所を変えます。今度は1歩目の「足を上げた直後」。同じ試作品で通るかな？" },
 ];
 
