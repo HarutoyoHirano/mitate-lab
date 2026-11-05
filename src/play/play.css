@@ -276,3 +276,13 @@ button { font: inherit; }
 .topicbox div { display: flex; gap: 0.8cqw; }
 .topicbox input { flex: 1; min-width: 0; font: inherit; font-size: max(13px, 1.25cqw); padding: 0.4cqw 0.8cqw; border-radius: 10px; border: 2px solid var(--line); background: var(--bg, var(--panel)); color: var(--ink); }
 .topicbox .cmd { white-space: nowrap; }
+/* 検査ロボの鍛えなおし（1c-3）：足す数字を選ぶ */
+.picker { position: absolute; display: grid; gap: 0.5cqw; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); border-radius: 14px; padding: 0.8cqw 1cqw; font-size: max(11px, 1cqw); font-weight: 800; }
+.picker .row { display: flex; gap: 0.4cqw; align-items: center; flex-wrap: wrap; }
+.picker .row > span { color: var(--soft); min-width: 4.6em; }
+.picker button { border: 2px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 9px; padding: 0.25cqw 0.7cqw; font-weight: 800; cursor: pointer; font-size: max(11px, 0.95cqw); }
+.picker button.on { border-color: var(--gold); color: var(--gold); }
+.picker button.add { border-color: var(--you); color: var(--you); }
+.picker input[type="range"] { flex: 1; accent-color: var(--gold); }
+.picker .slot { display: inline-flex; gap: 0.4cqw; align-items: center; border: 2px dashed var(--line); border-radius: 9px; padding: 0.2cqw 0.6cqw; }
+.picker .slot.full { border-style: solid; border-color: var(--gold); }

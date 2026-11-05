@@ -37,7 +37,7 @@ export function ruleCard(x: number, y: number, title: string, lines: string[], h
     <rect width="300" height="${h}" rx="10" fill="var(--paper)"/>
     <text x="16" y="30" fill="var(--paper-soft)" font-size="14" font-weight="900">${title}</text>
     ${lines.map((l, i) => `<text x="16" y="${62 + i * 30}" fill="${i === hot ? "var(--stamp)" : "var(--paper-ink)"}" font-size="16.5" font-weight="900">${l}</text>`).join("")}
-    ${revised ? `<g class="pop" transform="translate(196,${h - 46}) rotate(-12)"><rect width="92" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="46" y="24" fill="var(--stamp)" font-size="16" font-weight="900" text-anchor="middle">改訂</text></g>` : ""}
+    ${revised ? `<g class="pop" transform="translate(150,${h - 46}) rotate(-8)"><rect width="140" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="70" y="24" fill="var(--stamp)" font-size="15" font-weight="900" text-anchor="middle">見る場所を変えた</text></g>` : ""}
   </g>`;
 }
 
@@ -932,5 +932,39 @@ export function answerMap(x: number, y: number, w: number, h: number, cells: num
     ${marks.map((m) => `<circle cx="${(m.col + 0.5) * cw}" cy="${h - (m.row + 0.5) * ch}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${(m.col + 0.5) * cw + 12}" y="${h - (m.row + 0.5) * ch - 8}" fill="var(--ink)" font-size="14" font-weight="900">${m.label}</text>`).join("")}
     <text x="${w / 2}" y="${h + 24}" fill="var(--soft)" font-size="13" text-anchor="middle">${axes.x} →</text>
     <text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>
+  </g>`;
+}
+
+/** すり抜けの地図（1c-3）：つまみの格子のます。赤＝書きなおした規則をすり抜ける試作品。判定は retrain.ts の結果そのまま */
+export function retrainMap(x: number, y: number, w: number, h: number, cells: readonly { x: number; y: number; first: boolean; slips: boolean }[] , marks: { x: number; y: number; label: string }[], axes: { x: string; y: string }): string {
+  const xs = [...new Set(cells.map((c) => c.x))].sort((a, b) => a - b);
+  // 最初の規則を通る行が少ない（血管・膜）ときは、その行だけを拡大して見せる
+  const firstYs = [...new Set(cells.filter((c) => c.first).map((c) => c.y))].sort((a, b) => a - b);
+  const zoom = firstYs.length > 0 && firstYs.length <= 6;
+  const ys = zoom ? firstYs : [...new Set(cells.map((c) => c.y))].sort((a, b) => a - b);
+  if (zoom) cells = cells.filter((c) => firstYs.includes(c.y));
+  const cw = w / xs.length;
+  const H = zoom ? Math.min(h, ys.length * 64) : h;
+  const oy = (h - H) / 2;
+  const ch = H / ys.length;
+  const col = (v: number) => xs.reduce((best, q, i) => (Math.abs(q - v) < Math.abs(xs[best]! - v) ? i : best), 0);
+  const row = (v: number) => ys.reduce((best, q, i) => (Math.abs(q - v) < Math.abs(ys[best]! - v) ? i : best), 0);
+  const cy = (r: number) => oy + H - (r + 0.5) * ch;
+  let rects = "";
+  for (const c of cells) {
+    const fill = c.slips ? "var(--stamp)" : c.first ? "color-mix(in srgb, var(--you) 45%, var(--panel))" : "var(--chip)";
+    rects += `<rect x="${(col(c.x) * cw).toFixed(1)}" y="${(oy + H - (row(c.y) + 1) * ch).toFixed(1)}" width="${(cw + 0.4).toFixed(1)}" height="${(ch + 0.4).toFixed(1)}" fill="${fill}"/>`;
+  }
+  const shown = zoom ? marks.filter((m) => ys.some((q) => Math.abs(q - m.y) < 1e-6)) : marks;
+  return `<g transform="translate(${x},${y})">
+    <rect y="${oy}" width="${w}" height="${H}" fill="var(--panel)" stroke="var(--line)"/>${rects}
+    ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${(col(m.x) + 0.5) * cw + 12}" y="${cy(row(m.y)) - 10 - (zoom ? k * 16 : 0)}" fill="var(--ink)" font-size="14" font-weight="900">${m.label}</text>`).join("")}
+    <text x="${w / 2}" y="${oy + H + 22}" fill="var(--soft)" font-size="13" text-anchor="middle">${axes.x} →</text>
+    ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">最初の規則を通る試作品だけ（${axes.y}が見本に近いもの）を拡大。左の数字＝${axes.y}</text>` : `<text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>`}
+    <g transform="translate(0,${h + 36})" font-size="12" font-weight="800">
+      <rect width="14" height="14" fill="var(--stamp)"/><text x="20" y="12" fill="var(--ink)">すり抜ける</text>
+      <rect x="110" width="14" height="14" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="130" y="12" fill="var(--ink)">見分けられる</text>
+      <rect x="232" width="14" height="14" fill="var(--chip)"/><text x="252" y="12" fill="var(--ink)">最初の規則で見分けられる</text>
+    </g>
   </g>`;
 }
