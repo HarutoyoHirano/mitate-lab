@@ -378,7 +378,8 @@ function c1Run(): View {
 
 // ---------- 証拠を見せる（謎1・3・4 共通） ----------
 function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, goal: string): View {
-  const cards = [base, ...state.evidence.filter((e) => e.case === c)];
+  // 見せる証拠は一枚でよい。たくさん撮っても、舞台に収まるよう新しい5枚だけ並べる
+  const cards = [base, ...state.evidence.filter((e) => e.case === c).slice(-5)];
   return {
     chap: c === 1 ? "謎1 見破れ" : c === 3 ? "謎3 脈の見落とし" : "謎4 膜の見落とし",
     goal,
@@ -434,6 +435,24 @@ function fitFor(id: CandidateId) {
   return fitCandidate(id, c.pushSeconds, end.force, compare(state.view!.records).candidates[id].interval);
 }
 
+/** 説明の線と記録の点が、いちばんずれるところ（画面の点のうち、線との差が最大のもの）。合わない理由を示すため */
+function mismatchOf(id: CandidateId): { t: number; force: number; diff: number; where: string } | null {
+  const c = curve();
+  const fit = fitFor(id);
+  if (!c || !fit) return null;
+  const line = predictedCurve(fit.params, c.pushSeconds);
+  const at = (t: number) => {
+    for (let i = 1; i < line.length; i++) if (line[i]!.t >= t) { const p = line[i - 1]!, q = line[i]!; return p.force + ((q.force - p.force) * (t - p.t)) / (q.t - p.t || 1); }
+    return line[line.length - 1]!.force;
+  };
+  let best: { t: number; force: number; diff: number } | null = null;
+  for (const p of c.b) { const d = p.force - at(p.t); if (!best || Math.abs(d) > Math.abs(best.diff)) best = { t: p.t, force: p.force, diff: d }; }
+  if (!best) return null;
+  const h = best.t - c.pushSeconds;
+  const where = h <= 0 ? "押している途中" : h < 0.8 ? "押し終わった直後" : h < 5 ? `押し終わって${Math.max(1, Math.round(h))}秒ほど` : "長く待ったあと";
+  return { ...best, where };
+}
+
 function c1Line(): View {
   const v = state.view!;
   const c = curve()!;
@@ -459,7 +478,7 @@ function c1Line(): View {
         <span class="gname">${CANDIDATES[id].label}</span>
         <span class="glook">${LOOK[id]}</span>
         ${broken ? ghostPuck(COLOR[id], true) : ""}
-        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 260, legend: true }) : ""}
+        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 260, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
         ${awaiting && !prevOut ? tagButtons("tag", id, tag, false) : ""}
         ${res}
       </div>`;
@@ -1695,7 +1714,7 @@ app.addEventListener("click", async (e) => {
         const where = `${k + 1}歩目の「${PHASE_LABEL[phase]}」`;
         if (!state.evidence.some((x) => x.id === id))
           state.evidence.push({ id, case: 1, title: "走行テスト（走る）", line: `${k + 1}歩目・${PHASE_LABEL[phase]}`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${where}を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。` : `${where}を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
+        say("you", p.distinguishable ? `${where}を証拠ファイルに入れた。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。証拠は一枚あれば十分。ロボに見せよう。` : `${where}を証拠に入れた。でも、ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より小さい。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("証拠", "win", 0.2);
@@ -1771,7 +1790,13 @@ app.addEventListener("click", async (e) => {
       });
       const after = curve()!;
       const same = [...outs].sort().join() === [...after.excluded].sort().join();
-      say("calc", `${after.excluded.length ? after.excluded.map((x) => `「${CANDIDATES[x].label}」`).join("") + "は、記録と合わない" : "この記録で合わなくなった説明はない"}。${allUnsure ? "" : same ? "あなたの札と一致。" : "あなたの札と違うところがある。どこを見た？"}`);
+      const why = after.excluded
+        .map((x) => {
+          const m = mismatchOf(x);
+          return m ? `「${CANDIDATES[x].label}」は、${m.where}で点が線より${m.diff > 0 ? "上" : "下"}（ずれ ${Math.abs(m.diff).toFixed(2)} [N]）` : `「${CANDIDATES[x].label}」は記録と合わない`;
+        })
+        .join("。");
+      say("calc", `${after.excluded.length ? `${why}。赤い丸のところを見よう。測るたびのぶれ（0.02）より大きくずれる線は、記録と合わない` : "この記録で合わなくなった説明はない"}。${allUnsure ? "" : same ? "あなたの答えと一致。" : "あなたの答えと違うところがある。どこを見た？"}`);
       if (after.excluded.length) beep("shatter");
       if (state.view!.overall === "narrowed") {
         state.mood = "shock";

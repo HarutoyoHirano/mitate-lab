@@ -607,7 +607,7 @@ export function duelStepGraph(o: {
 }
 
 /** 小さな曲線（影武者の札・力の記録）：Bの記録の点と、説明の線。押している間は横に広げる */
-export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number; legend?: boolean }): string {
+export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?: readonly { t: number; force: number }[]; lineColor?: string; a?: readonly { t: number; force: number }[]; push: number; yMax: number; w: number; h: number; until?: number; legend?: boolean; mark?: { t: number; force: number } | null }): string {
   const L = 8;
   const R = 6;
   const T = 8;
@@ -631,6 +631,7 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
       .filter((p) => p.t <= until + 1e-9)
       .map((p, i) => (i % 2 === 0 ? `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="3.6" fill="var(--you)"/>` : ""))
       .join("")}
+    ${o.mark ? `<circle cx="${xs(o.mark.t).toFixed(1)}" cy="${ys(o.mark.force).toFixed(1)}" r="13" fill="none" stroke="var(--stamp)" stroke-width="4"/><text x="${Math.min(o.w - 70, xs(o.mark.t) + 4).toFixed(1)}" y="${(ys(o.mark.force) + (o.mark.force > o.yMax * 0.6 ? 34 : -18)).toFixed(1)}" fill="var(--stamp)" font-size="15" font-weight="900">ずれる</text>` : ""}
   </svg>`;
 }
 

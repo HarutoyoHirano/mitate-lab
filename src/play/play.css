@@ -187,7 +187,7 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) { .next-hint { animation: none; } }
 .drum { width: 8.5cqw; height: 8.5cqw; border-radius: 50%; border: 0.6cqw solid var(--bot); background: var(--panel); color: var(--gold); font-weight: 900; font-size: max(12px, 1.3cqw); cursor: pointer; justify-self: center; box-shadow: 0 0 0 0.8cqw color-mix(in srgb, var(--bot) 18%, transparent); }
 .drum:active { transform: scale(0.92); background: var(--bot); color: #1a0d04; }
-.tray { position: absolute; left: 2%; top: 4%; width: 34%; display: grid; gap: 0.8cqw; grid-template-columns: 1fr 1fr; }
+.tray { position: absolute; left: 2%; top: 4%; width: 34%; max-height: 92%; overflow-y: auto; display: grid; gap: 0.8cqw; grid-template-columns: 1fr 1fr; align-content: start; }
 .card-ev { background: var(--paper); color: var(--paper-ink); border-radius: 10px; padding: 0.7cqw 0.9cqw; border: 3px solid transparent; cursor: pointer; text-align: left; font-size: max(11px, 1.05cqw); }
 .card-ev strong { display: block; font-size: max(12px, 1.2cqw); }
 .card-ev.on { border-color: var(--you); transform: rotate(-2deg) scale(1.04); box-shadow: 0 8px 20px rgba(0,0,0,.35); }
