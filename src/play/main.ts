@@ -525,7 +525,7 @@ function c2(): View {
           ? meter(`ロボが見る点（${ph === "land" ? "着地直後" : "足を上げる直前"}）：差を ${ROBOT_PASS} 以内に`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", ROBOT_PASS, 0.3, "", 4) +
             meter(`ロボに見えない違い（${round.hidden.phase === "land" ? "着地直後" : "足を上げる直前"}）：差を ${HIDDEN_NEED} 以上に`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", HIDDEN_NEED, 0.3, "", 4) +
             meter("第1版の検査（1秒かけて押し、20秒後の力）：差を 0.03 以内に", r.final.a, r.final.b, r.final.diff, r.final.ok, "pass", 0.03, 0.3, "", 4)
-          : `<div class="meter"><b>ためしに走らせると、三つの目盛りが出る</b><span class="nums">何度でも走らせてよい。減点なし。</span></div>`
+          : ""
       }</div>`,
     who: state.line.who,
     text: state.line.text,
@@ -536,7 +536,7 @@ function c2(): View {
       state.duelPhase === "result" && state.duelCleared
         ? [{ act: round.id === 1 ? "duel-next" : "to-map", label: round.id === 1 ? "ラウンド2へ" : "答えの地図を開く", hot: true }]
         : [
-            { act: "duel-test", label: "ためしに走らせる", sub: "何度でも。減点なし", hot: state.duelPhase === "design", disabled: state.duelPhase === "judge" },
+            { act: "duel-test", label: "ためしに走らせる", hot: state.duelPhase === "design", disabled: state.duelPhase === "judge" },
             { act: "duel-go", label: "設計を固定して挑む", sub: "ロボが手順どおりに測る", hot: state.duelPhase === "test", disabled: state.duelPhase === "judge" },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
@@ -761,7 +761,7 @@ function c4Duel(): View {
         show
           ? meter(`ロボが見る点（${round.robotLabel}）：小さく`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
             meter(`ロボに見えない違い（${round.hiddenLabel}）：大きく`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
-          : `<div class="meter"><b>テストで、二つの目盛りが出る</b></div>`
+          : ""
       }</div>`,
     who: state.line.who,
     text: state.line.text,
@@ -770,7 +770,7 @@ function c4Duel(): View {
       state.duelPhase === "result" && state.duelCleared
         ? [round.id === 1 ? { act: "mduel-next", label: "ラウンド2へ", hot: true } : { act: "rt-enter", val: "membrane", label: "TEJUN を鍛えなおす", sub: "膜の検査で見る数字を、あなたが足す", hot: true }]
         : [
-            { act: "mduel-test", label: "テスト", sub: "何度でも", hot: state.duelPhase === "design" },
+            { act: "mduel-test", label: "ためしに測る", hot: state.duelPhase === "design" },
             { act: "mduel-go", label: "設計を固定して挑む", hot: state.duelPhase === "test" },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
@@ -2112,7 +2112,7 @@ app.addEventListener("click", async (e) => {
       } else {
         state.mood = "calm";
         const why = [!res.catchesB ? "足した数字では、この謎のBとのちがいが小さすぎる。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この数字ではロボをすり抜ける。` : ""].join("");
-        say("calc", `${why}数字を選びなおそう（何度でも。減点なし）。`);
+        say("calc", `${why}数字を選びなおそう。`);
         render();
         await stamp("まだ見落とす", "miss");
       }
