@@ -275,17 +275,17 @@ function startMovie(id: MovieId, line: string): void {
 }
 function c1Say(): View {
   const r = state.view!.intro;
-  const lines: [string, string, string][] = [
-    ["証言 1 / 2", `「押して20秒後の力は、A ${r.base.toFixed(3)}、B ${r.force.toFixed(3)}」`, `「ちがいは ${Math.abs(r.diff).toFixed(3)}。${r.tolerance} より小さいので同じ」`],
-    ["証言 2 / 2", "「だから、AとBは", "　同じ軟骨です」"],
+  const lines: [string, string, string, string][] = [
+    ["証言 1 / 2", "「押して20秒後の力は", `　A：${r.base.toFixed(3)}　　B：${r.force.toFixed(3)}`, `　ちがいは、わずか ${Math.abs(r.diff).toFixed(3)}」`],
+    ["証言 2 / 2", `「私の手順では、ちがいが ${r.tolerance} より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ軟骨です」"],
   ];
-  const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
+  const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   const asked = state.say >= 2;
   return {
     chap: "謎1 見破れ",
     goal: "ロボの証言を聞き、確かめ方を考えよう",
     svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 未満 → 同じ"], null, false)}
-      ${bubble(360, 70, lab, l1, l2, 570)}${robotArt(state.mood, 960, 40, 0.95)}
+      ${bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
       <g transform="translate(40,300)"><rect width="820" height="74" rx="12" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
         <text x="18" y="30" fill="var(--ink)" font-size="17" font-weight="900">A＝見本：いままでの人工軟骨。性質が分かっていて、比べる基準になる</text>
         <text x="18" y="58" fill="var(--ink)" font-size="17" font-weight="900">B＝試作品：新しくつくった人工軟骨。見本と同じか、調べたい</text></g>`,
@@ -588,15 +588,15 @@ function c3Stage(): string {
   return loopStage({ u: state.u, a: BASE_VESSEL, b: CASE_VESSEL_B, pa: pressureAt(BASE_VESSEL, state.u), pb: pressureAt(CASE_VESSEL_B, state.u), minA: VA.min, minB: VB.min, flow: pumpFlow(state.u) });
 }
 function c3Say(): View {
-  const lines: [string, string, string][] = [
-    ["証言 1 / 2", `「1回の脈の平均の圧：A ${VA.mean.toFixed(1)}・B ${VB.mean.toFixed(1)}」`, `「差 ${sgn(VB.mean - VA.mean, 1)} mmHg。区別できません」`],
-    ["証言 2 / 2", "「だから、AとBは", "　同じ人工血管です」"],
+  const lines: [string, string, string, string][] = [
+    ["証言 1 / 2", "「1回の脈の平均の圧は", `　A：${VA.mean.toFixed(1)}　　B：${VB.mean.toFixed(1)}（mmHg）`, `　ちがいは、わずか ${Math.abs(VB.mean - VA.mean).toFixed(1)}」`],
+    ["証言 2 / 2", `「私の手順では、ちがいが ${VESSEL_ROBOT_TOL} より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ人工血管です」"],
   ];
-  const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
+  const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   return {
     chap: "謎3 脈の見落とし",
     goal: "心臓と血管のまねをした試験装置の、人工血管。ロボの証言を聞こう",
-    svg: `<g transform="translate(-40,40) scale(0.72)">${c3Stage()}</g>${bubble(560, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1040, 120, 0.7)}`,
+    svg: `<g transform="translate(-40,40) scale(0.72)">${c3Stage()}</g>${bubble(540, 30, lab, l1, l2, 470, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
     sub: "mmHg（ミリメートル水銀柱）は、血圧に使う圧力の単位。値は模型の値で、体の血圧ではない。",
@@ -675,16 +675,16 @@ function c3Sync(): View {
 function c4Say(): View {
   const a = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   const b = REST_MV + deltaMv(CASE3_B, PULSE_MS);
-  const lines: [string, string, string][] = [
-    ["証言 1 / 2", `「止める直前：A ${mvs(a)}、B ${mvs(b)}」`, `「差 ${sgn(b - a, 2)} mV。区別できません」`],
-    ["証言 2 / 2", "「だから、AとBは", "　同じ膜です」"],
+  const lines: [string, string, string, string][] = [
+    ["証言 1 / 2", "「止める直前の膜の電圧は", `　A：${mvs(a)}　　B：${mvs(b)}（mV）`, `　ちがいは、わずか ${Math.abs(b - a).toFixed(2)}」`],
+    ["証言 2 / 2", `「私の手順では、ちがいが ${ROBOT_STEADY_TOL} より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ膜です」"],
   ];
-  const [lab, l1, l2] = lines[Math.min(state.say, 1)]!;
+  const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   return {
     chap: "謎4 膜の見落とし",
     goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの証言を聞こう",
     svg: `${nerveWhole(16, 16, false)}<g transform="translate(310,224) scale(0.8)">${heartCircuit(0, 0, 1, 1, { src: "電流を送りこむもの＝押されると開く入口", cap: "電気をためる部品＝膜", res: "抵抗＝いつも開いている通り道", bat: "電池＝何もしていないときの −70 mV" })}</g>
-      <text x="310" y="190" fill="var(--soft)" font-size="14">膜は本当に電気をためる。電気の部品で書くと、この回路になる。</text><text x="310" y="210" fill="var(--soft)" font-size="13">mV＝ミリボルト（1000分の1ボルト）</text>${bubble(640, 40, lab, l1, l2, 400)}${robotArt(state.mood, 1080, 160, 0.6)}`,
+      <text x="310" y="190" fill="var(--soft)" font-size="14">膜は本当に電気をためる。電気の部品で書くと、この回路になる。</text><text x="310" y="212" fill="var(--soft)" font-size="14" font-weight="800">mV＝ミリボルト（1000分の1ボルト）</text>${bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
     cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
@@ -1443,7 +1443,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     });
     state.mood = "smug";
     const it = r.view.intro;
-    introLine = `いつもの検査の結果です。押して20秒後の力。B ${it.force.toFixed(3)}、見本A ${it.base.toFixed(3)}。ちがいは ${it.tolerance} より小さいので、同じとみなします。`;
+    introLine = `いつもの検査の結果です。押して20秒後の力は、A ${it.base.toFixed(3)}、B ${it.force.toFixed(3)}。ちがいは、わずか ${Math.abs(it.force - it.base).toFixed(3)}。`;
     say("guide", "はじまりの話：新しい試作品Bができて、検査ロボが調べた。何が起きたのか、見てみよう。");
     state.scene = "movie";
     state.movieId = 1;

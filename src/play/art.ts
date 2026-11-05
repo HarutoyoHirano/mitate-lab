@@ -42,12 +42,13 @@ export function ruleCard(x: number, y: number, title: string, lines: string[], h
 }
 
 /** ロボの証言の吹き出し */
-export function bubble(x: number, y: number, label: string, l1: string, l2 = "", w = 400): string {
+export function bubble(x: number, y: number, label: string, l1: string, l2 = "", w = 400, l3 = ""): string {
   return `<g transform="translate(${x},${y})">
-    <rect width="${w}" height="${l2 ? 120 : 92}" rx="18" fill="var(--paper)"/><path d="M${w} 46 l30 10 l-30 14z" fill="var(--paper)"/>
+    <rect width="${w}" height="${l3 ? 152 : l2 ? 120 : 92}" rx="18" fill="var(--paper)"/><path d="M${w} 46 l30 10 l-30 14z" fill="var(--paper)"/>
     <text x="22" y="32" fill="var(--paper-soft)" font-size="14" font-weight="900">${label}</text>
     <text x="22" y="70" fill="var(--paper-ink)" font-size="23" font-weight="900">${l1}</text>
     ${l2 ? `<text x="22" y="102" fill="var(--paper-ink)" font-size="23" font-weight="900">${l2}</text>` : ""}
+    ${l3 ? `<text x="22" y="134" fill="var(--paper-ink)" font-size="23" font-weight="900">${l3}</text>` : ""}
   </g>`;
 }
 
@@ -406,33 +407,33 @@ export type MovieId = 1 | 2 | 4 | 5;
 const MOVIES: Record<MovieId, Movie> = {
   1: {
     scenes: [
-      { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで、試作品Bができた", draw: scenePrinter },
-      { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は、一歩ごとに押されてへこむ", draw: sceneLeg },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「20秒後の力は、区別できません」", draw: sceneRobot },
+      { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで試作品Bができた", draw: scenePrinter },
+      { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は一歩ごとに押されてへこむ", draw: sceneLeg },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「20秒後の力は区別できません」", draw: sceneRobot },
     ],
     end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
   },
   2: {
     scenes: [
-      { dur: 5, tag: "① 検査の見落とし", short: "謎1で、ロボの見落としが見つかった", draw: sceneMiss },
-      { dur: 6, tag: "② わざとすり抜けてみる", short: "すり抜ける軟骨をつくって、見落としを探す", draw: sceneDesign },
-      { dur: 6, tag: "③ ロボも負けていない", short: "ロボは、すり抜けられると見る場所を変える", draw: sceneRuleChange },
+      { dur: 5, tag: "① 検査の見落とし", short: "謎1でロボの見落としが見つかった", draw: sceneMiss },
+      { dur: 6, tag: "② わざとすり抜けてみる", short: "すり抜ける軟骨をつくって見落としを探す", draw: sceneDesign },
+      { dur: 6, tag: "③ ロボも負けていない", short: "ロボはすり抜けられると見る場所を変える", draw: sceneRuleChange },
     ],
     end: ["ロボの検査はすり抜けて、ほかのところには違いを残せ。", "二回戦では、ロボの測り方が変わる。"],
   },
   4: {
     scenes: [
       { dur: 6, tag: "① 軟骨から血管へ", short: "軟骨に血管はない。血液は血管が運ぶ", draw: sceneHeart },
-      { dur: 6, tag: "② 試験装置で調べる", short: "試験装置で、人工血管の試作品Bを調べる", draw: sceneHeart },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「平均の圧は、区別できません」", draw: sceneRobotMean },
+      { dur: 6, tag: "② 試験装置で調べる", short: "試験装置で人工血管の試作品Bを調べる", draw: sceneHeart },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「平均の圧は区別できません」", draw: sceneRobotMean },
     ],
     end: ["でも、1回の脈の中の圧の動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
   5: {
     scenes: [
-      { dur: 6, tag: "① 膝から脳へ", short: "膝が押された感じは、神経で脳へ伝わる", draw: sceneNerve },
-      { dur: 7, tag: "② 膜の電圧", short: "電流が入ると、膜の電圧が上がって戻る", draw: sceneMembrane },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「止める直前は、区別できません」", draw: sceneRobotMem },
+      { dur: 6, tag: "① 膝から脳へ", short: "膝が押された感じは神経で脳へ伝わる", draw: sceneNerve },
+      { dur: 7, tag: "② 膜の電圧", short: "電流が入ると膜の電圧が上がって戻る", draw: sceneMembrane },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「止める直前は区別できません」", draw: sceneRobotMem },
     ],
     end: ["でも、電流を入れている途中や止めたあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
