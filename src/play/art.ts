@@ -338,57 +338,71 @@ function sceneRobotMean(s: number): string {
     `);
 }
 
-/** 謎4 ① 膝が押された感じは、神経を通って脳へ。はじまりは神経の端の膜 */
+/** 謎4 ① 膝が押されると、神経の端が脳に知らせる */
 function sceneNerve(s: number): string {
   const pressed = s % 2 < 1.2;
   return frame(`
     <g transform="translate(14,10) scale(0.62)">${nerveWhole(0, 0, pressed)}</g>
     <g font-weight="900" text-anchor="middle">
-      <text x="296" y="70" fill="var(--gold)" font-size="15">膝が押される</text>
-      <text x="296" y="98" fill="var(--soft)" font-size="16">↓</text>
-      <text x="296" y="126" fill="var(--you)" font-size="15">神経の端の膜で</text>
-      <text x="296" y="146" fill="var(--you)" font-size="15">電圧が変わる</text>
-      <text x="296" y="174" fill="var(--soft)" font-size="16">↓</text>
-      <text x="296" y="202" fill="var(--ink)" font-size="15">脳へ伝わる</text>
+      <text x="296" y="74" fill="var(--gold)" font-size="20">膝が押される</text>
+      <text x="296" y="106" fill="var(--soft)" font-size="20">↓</text>
+      <text x="296" y="140" fill="var(--you)" font-size="20">神経の端の膜</text>
+      <text x="296" y="172" fill="var(--soft)" font-size="20">↓</text>
+      <text x="296" y="206" fill="var(--ink)" font-size="20">脳が「押された」</text>
+      <text x="296" y="230" fill="var(--ink)" font-size="20">と分かる</text>
     </g>
     `);
 }
-/** 謎4 ② 入口が開いて電流が入り、膜の電圧が −70 mV から上がり、止まると戻る（見本の膜の値） */
-const MEM_LOOP_S = 4; // 0〜200 ミリ秒を実時間4秒で見せる
+/**
+ * 謎4 ② 押すと膜の入口が開いて＋のイオンが入り、膜の電圧が −70 mV から上がる。離すと戻る（見本の膜の値）。
+ * 専門の言葉（ためやすさ・通りやすさ）は出さない。0〜200 ms を実時間4秒で見せる
+ */
+const MEM_LOOP_S = 4;
 function sceneMembrane(s: number): string {
-  const t = ((s % MEM_LOOP_S) / MEM_LOOP_S) * RECORD_MS;
-  const gx0 = 40;
-  const gx1 = 380;
-  const gy0 = 196;
-  const gy1 = 278;
+  const t = s >= MEM_LOOP_S * 2 ? RECORD_MS : ((s % MEM_LOOP_S) / MEM_LOOP_S) * RECORD_MS; // 結びでは最後まで描いた絵
+  const open = t < PULSE_MS;
+  const mv = REST_MV + deltaMv(BASE_MEM, t);
+  const lip = Array.from({ length: 11 }, (_, k) => 30 + k * 18).filter((x) => x < 150 || x > 182);
+  const ions = open ? Array.from({ length: 4 }, (_, k) => { const ph = ((t / 25 + k / 4) % 1); return `<text x="166" y="${(60 + ph * 110).toFixed(1)}" fill="var(--gold)" font-size="22" font-weight="900" text-anchor="middle">＋</text>`; }).join("") : "";
+  const gx0 = 40, gx1 = 380, gy0 = 214, gy1 = 270;
   const xs = (ms: number) => gx0 + ((gx1 - gx0) * ms) / RECORD_MS;
   const ys = (dv: number) => gy1 - ((gy1 - gy0) * dv) / 11;
   const pts: string[] = [];
   for (let m = 0; m <= t + 1e-9; m += 2) pts.push(`${xs(m).toFixed(1)},${ys(deltaMv(BASE_MEM, m)).toFixed(1)}`);
   return frame(`
-    ${membranePatch(8, 8, 0.78, BASE_MEM, "見本の膜", "A", true, t)}
+    <text x="20" y="40" fill="var(--soft)" font-size="17" font-weight="900">細胞の外</text>
+    <text x="20" y="184" fill="var(--soft)" font-size="17" font-weight="900">細胞の中</text>
+    ${lip.map((x) => `<circle cx="${x}" cy="98" r="7" fill="var(--leak)" opacity=".85"/><circle cx="${x}" cy="128" r="7" fill="var(--leak)" opacity=".85"/>`).join("")}
+    <rect x="${open ? 146 : 152}" y="88" width="8" height="50" rx="3" fill="var(--bot)"/><rect x="${open ? 178 : 172}" y="88" width="8" height="50" rx="3" fill="var(--bot)"/>
+    <text x="192" y="80" fill="var(--bot)" font-size="16" font-weight="900">入口</text>
+    ${ions}
+    <text x="260" y="40" fill="var(--ink)" font-size="18" font-weight="900" text-anchor="middle">${open ? "押している" : "離した"}</text>
+    <g transform="translate(236,96)"><rect width="150" height="70" rx="12" fill="var(--paper)"/>
+      <text x="75" y="24" fill="var(--paper-soft)" font-size="15" font-weight="900" text-anchor="middle">膜の電圧</text>
+      <text x="75" y="56" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text></g>
+    <rect x="${gx0}" y="${gy0}" width="${xs(PULSE_MS) - gx0}" height="${gy1 - gy0}" fill="var(--gold)" opacity=".1"/>
     <rect x="${gx0}" y="${gy0}" width="${gx1 - gx0}" height="${gy1 - gy0}" fill="none" stroke="var(--line)"/>
-    <rect x="${gx0}" y="${gy0}" width="${xs(PULSE_MS) - gx0}" height="${gy1 - gy0}" fill="var(--gold)" opacity=".08"/>
-    
-    <text x="${gx0 - 4}" y="${gy1 + 4}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">−70</text>
-    <text x="${gx0 - 4}" y="${ys(10) + 4}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">−60</text>
-    <polyline points="${pts.join(" ")}" fill="none" stroke="var(--soft)" stroke-width="2.5"/>
-    <text x="${gx1}" y="${gy1 + 16}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">${RECORD_MS} ms</text>`);
+    <text x="${gx0 - 4}" y="${gy1 + 4}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">−70</text>
+    <text x="${gx0 - 4}" y="${ys(10) + 4}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">−60</text>
+    <text x="${(gx0 + xs(PULSE_MS)) / 2}" y="${gy1 + 20}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">押している</text>
+    <text x="${(xs(PULSE_MS) + gx1) / 2}" y="${gy1 + 20}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">離した</text>
+    <polyline points="${pts.join(" ")}" fill="none" stroke="var(--you)" stroke-width="3"/>`);
 }
-/** 謎4 ③ ロボは電流を止める直前の膜の電圧だけを読む */
+/** 謎4 ③ ロボは試作品の膜Bを押し、離す直前の膜の電圧だけを読む */
 function sceneRobotMem(s: number): string {
-  const t = Math.min(PULSE_MS, (s / 2.6) * PULSE_MS);
+  // 押している間の途中の値は、AとBで違いうるので描かない。読むのは離す直前の一つだけ（AとBの差は 0.5 mV より小さく、整数にすると同じ）
+  const f = Math.min(1, s / 2.6);
   const done = s > 3;
-  const mv = REST_MV + deltaMv(BASE_MEM, t);
+  const mv = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   return frame(`
     ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
-    <g transform="translate(200,60)"><rect width="170" height="84" rx="12" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
-      <text x="85" y="26" fill="var(--paper-soft)" font-size="15" font-weight="800" text-anchor="middle">膜の電圧計</text>
-      <text x="85" y="62" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text></g>
-    <rect x="200" y="160" width="170" height="16" rx="8" fill="var(--chip)"/>
-    <rect x="200" y="160" width="${((170 * t) / PULSE_MS).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
-    
-    ${done ? stampMark(176, 200, "区別できません") : ""}
+    <g transform="translate(200,40)"><rect width="170" height="84" rx="12" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
+      <text x="85" y="26" fill="var(--paper-soft)" font-size="15" font-weight="900" text-anchor="middle">試作品の膜 B</text>
+      <text x="85" y="62" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${f >= 1 ? `${Math.round(mv).toString().replace("-", "−")} mV` : "押している"}</text></g>
+    <text x="200" y="152" fill="var(--ink)" font-size="16" font-weight="900">押している → 離す直前</text>
+    <rect x="200" y="162" width="170" height="16" rx="8" fill="var(--chip)"/>
+    <rect x="200" y="162" width="${(170 * f).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
+    ${done ? stampMark(176, 210, "区別できません") : ""}
     `);
 }
 
@@ -431,11 +445,11 @@ const MOVIES: Record<MovieId, Movie> = {
   },
   5: {
     scenes: [
-      { dur: 6, tag: "① 膝から脳へ", short: "膝が押された感じは神経で脳へ伝わる", draw: sceneNerve },
-      { dur: 7, tag: "② 膜の電圧", short: "電流が入ると膜の電圧が上がって戻る", draw: sceneMembrane },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「止める直前は区別できません」", draw: sceneRobotMem },
+      { dur: 6, tag: "① 膝から脳へ", short: "膝が押されると神経が脳に知らせる", draw: sceneNerve },
+      { dur: 8, tag: "② 神経の端の膜", short: "押すと＋が入って膜の電圧が上がる", draw: sceneMembrane },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「離す直前の電圧は区別できません」", draw: sceneRobotMem },
     ],
-    end: ["でも、電流を入れている途中や止めたあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+    end: ["でも、押している途中や離したあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
 };
 /** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
@@ -694,6 +708,38 @@ export function slsModel(o: { hl: ModelPart | null; color?: string; mark?: strin
   </g>`;
 }
 
+/** 動く模型で、深さ1を何 px で描くか（ダンパの筒の中にピストンが収まる大きさ） */
+export const SLS_ANIM_K = 16;
+/**
+ * 動く模型（正体の解説の二段目）：上の板を x（深さ1で K px）だけ押し下げる。
+ * 右のばねの縮み＝σ1/E1、ダンパののび＝x−σ1/E1（標準線形固体の式そのまま）。力＝E∞·x＋σ1。
+ * 幅 200×高さ 110 の座標（slsModel と同じ配置）。
+ */
+export function slsAnim(o: { x: number; s1: number; e1: number; color?: string; ink?: string; base?: string }): string {
+  const K = SLS_ANIM_K;
+  const dx = o.x * K;
+  const cs = Math.max(0, Math.min(K, (o.s1 / o.e1) * K));
+  const base = o.base ?? "var(--paper-soft)";
+  const zig = (x: number, y0: number, y1: number, n = 6) => {
+    const h = (y1 - y0 - 12) / n;
+    let d = `M${x} ${y0} v6`;
+    for (let k = 0; k < n; k++) d += ` l${k % 2 ? -9 : 9} ${h / 2} l${k % 2 ? 9 : -9} ${h / 2}`;
+    return `${d} v6`;
+  };
+  const top = 6 + dx;
+  const sb = 54 + dx - cs; // 右のばねの下の端
+  const piston = sb + 18;
+  return `<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="22" y="${top}" width="156" height="8" rx="3" fill="${o.ink ?? "var(--paper-ink)"}" stroke="none"/>
+    <rect x="22" y="98" width="156" height="8" rx="3" fill="${base}" stroke="none"/>
+    <path d="${zig(60, top + 8, 98)}" stroke="${base}" stroke-width="3"/>
+    <path d="${zig(140, top + 8, sb)}" stroke="${o.color ?? "var(--you)"}" stroke-width="4"/>
+    <path d="M140 ${sb} V${piston} M128 ${piston} H152" stroke="${base}" stroke-width="3"/>
+    <path d="M124 64 V92 H156 V64" stroke="${base}" stroke-width="3"/>
+    <path d="M140 92 V98" stroke="${base}" stroke-width="3"/>
+  </g>`;
+}
+
 /** 正体の画面・まとめで使う、部品の名前つきの模型（幅 460） */
 export function slsModelLabeled(x: number, y: number, hl: ModelPart | null, caption: string): string {
   const name = (part: ModelPart, tx: number, ty: number, t1: string, t2: string) => `<text x="${tx}" y="${ty}" fill="${hl === part ? "var(--stamp)" : "var(--paper-ink)"}" font-size="14" font-weight="900">${t1}</text><text x="${tx}" y="${ty + 18}" fill="var(--paper-soft)" font-size="12">${t2}</text>`;
@@ -776,14 +822,14 @@ export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: 
       <path d="M260 ${y - 12} C 380 ${y - bulge}, 560 ${y - bulge}, 690 ${y - 12} L690 ${y + 12} C 560 ${y + bulge}, 380 ${y + bulge}, 260 ${y + 12} Z" fill="${col}" stroke="${edge}" stroke-width="4"/>
       <path d="M690 ${y - 6} h70 q20 0 20 20 v40" stroke="${edge}" stroke-width="6" fill="none"/>
       ${[0, 1, 2, 3].map((k) => `<path d="M780 ${y + 60 + k * 10} h${-10 + (k % 2) * 20}" stroke="${edge}" stroke-width="3"/>`).join("")}
-      <text x="800" y="${y + 70}" fill="var(--soft)" font-size="13">出口（流れにくさ）</text>
+      <text x="800" y="${y + 70}" fill="var(--soft)" font-size="16" font-weight="900">出口（流れにくさ）</text>
       <g transform="translate(900,${y})">
         <circle r="46" fill="var(--panel)" stroke="var(--line)" stroke-width="4"/>
         ${[0, 50, 100, 150].map((v) => { const a = (-210 + (v / 150) * 240) * (Math.PI / 180); return `<line x1="${36 * Math.cos(a)}" y1="${36 * Math.sin(a)}" x2="${44 * Math.cos(a)}" y2="${44 * Math.sin(a)}" stroke="var(--soft)" stroke-width="2"/>`; }).join("")}
         <line x1="0" y1="0" x2="${36 * Math.cos(((-210 + (p / 150) * 240) * Math.PI) / 180)}" y2="${36 * Math.sin(((-210 + (p / 150) * 240) * Math.PI) / 180)}" stroke="var(--stamp)" stroke-width="4" stroke-linecap="round"/>
         <circle r="5" fill="var(--ink)"/>
         <text x="60" y="8" fill="var(--ink)" font-size="22" font-weight="900" font-variant-numeric="tabular-nums">${p.toFixed(0)}</text>
-        <text x="60" y="26" fill="var(--soft)" font-size="12">mmHg</text>
+        <text x="60" y="28" fill="var(--soft)" font-size="15" font-weight="900">mmHg</text>
       </g>
     </g>`;
   };
@@ -794,7 +840,7 @@ export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: 
     </g>
     <path d="M200 250 C 230 200, 240 190, 262 190 M200 310 C 230 360, 240 370, 262 370" stroke="var(--heart-edge)" stroke-width="10" fill="none"/>
     ${tube(190, o.a, o.pa, o.minA, "見本の血管 A", "A")}${tube(370, o.b, o.pb, o.minB, "新しい血管 B", "B")}
-    <text x="150" y="400" fill="var(--soft)" font-size="13" text-anchor="middle">1回の脈 ${BEAT_S} 秒（${(beatPhase * 100).toFixed(0)}%）</text>
+    <text x="150" y="400" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">1回の脈 ${BEAT_S} 秒（${(beatPhase * 100).toFixed(0)}%）</text>
   </g>`;
 }
 
@@ -809,12 +855,12 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
   const poly = (ps: number[]) => ps.map((p, i) => `${xs(i).toFixed(1)},${ys(p).toFixed(1)}`).join(" ");
   return `<g transform="translate(${x},${y})">
     <rect width="${w}" height="${h}" rx="8" fill="var(--panel)" stroke="var(--line)"/>
-    ${[60, 80, 100, 120].map((p) => `<line x1="0" x2="${w}" y1="${ys(p)}" y2="${ys(p)}" stroke="var(--line)"/><text x="${w - 4}" y="${ys(p) - 3}" fill="var(--soft)" font-size="11" text-anchor="end">${p}</text>`).join("")}
+    ${[60, 80, 100, 120].map((p) => `<line x1="0" x2="${w}" y1="${ys(p)}" y2="${ys(p)}" stroke="var(--line)"/><text x="${w - 4}" y="${ys(p) - 3}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${p}</text>`).join("")}
     <polyline points="${poly(pa)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${poly(pb)}" fill="none" stroke="var(--vessel-edge)" stroke-width="3.5"/>
     ${marks.map((m) => `<path d="M${(w * m) / BEAT_S - 6} -2 h12 l-6 8z" fill="var(--gold)"/>`).join("")}
     <line x1="${(w * u) / BEAT_S}" x2="${(w * u) / BEAT_S}" y1="0" y2="${h}" stroke="var(--gold)" stroke-width="2.5"/>
-    <text x="0" y="${h + 16}" fill="var(--soft)" font-size="12">1回の脈の圧（mmHg）　点線＝A、線＝B</text>
+    <text x="0" y="${h + 18}" fill="var(--soft)" font-size="15" font-weight="900">1回の脈の圧（mmHg）　点線＝A、線＝B</text>
   </g>`;
 }
 

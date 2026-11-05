@@ -88,7 +88,7 @@ const vIndex = (u: number) => Math.round((u / BEAT_S) * BEAT_STEPS);
 
 // ---------- 膜 ----------
 const M_TIMES = grid(0, RECORD_MS, 5);
-export const MEMBRANE_POINTS: readonly (RetrainPoint & { t: number })[] = M_TIMES.map((t) => ({ id: `m:${t}`, label: t === PULSE_MS ? "止める直前（流して 100 ms）の膜の電圧" : t < PULSE_MS ? `流して ${t} ms の膜の電圧` : `止めて ${t - PULSE_MS} ms の膜の電圧`, t }));
+export const MEMBRANE_POINTS: readonly (RetrainPoint & { t: number })[] = M_TIMES.map((t) => ({ id: `m:${t}`, label: t === PULSE_MS ? "離す直前（押して 100 ms）の膜の電圧" : t < PULSE_MS ? `押して ${t} ms の膜の電圧` : `離して ${t - PULSE_MS} ms の膜の電圧`, t }));
 
 function memo<T>(f: () => T): () => T {
   let v: T | undefined;
@@ -148,7 +148,7 @@ const SPECS: Record<RetrainCase, CaseSpec> = {
   },
   membrane: {
     points: MEMBRANE_POINTS,
-    firstRule: "止める直前の膜の電圧",
+    firstRule: "離す直前の膜の電圧",
     tol: ROBOT_STEADY_TOL,
     seeB: ROBOT_STEADY_TOL,
     hiddenNeed: HIDDEN2_NEED,
