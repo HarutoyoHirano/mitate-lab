@@ -321,3 +321,7 @@ button { font: inherit; }
 .picker .row.col { display: grid; gap: 0.3cqw; }
 .picker .row.col > div { display: flex; flex-wrap: wrap; gap: 0.4cqw; }
 .picker button.on { background: color-mix(in srgb, var(--gold) 22%, var(--chip)); }
+
+/* タイトルの一覧：押すとその謎から始める */
+.stage svg g.jump { cursor: pointer; }
+.stage svg g.jump:hover rect, .stage svg g.jump:focus rect { stroke: var(--gold); stroke-width: 3; }

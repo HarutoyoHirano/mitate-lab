@@ -861,8 +861,8 @@ function c3Sync(): View {
           })
           .join("")}</div>`}
         <div class="meters" style="left:39%;top:66%;width:58%;grid-template-columns:1fr 1fr">
-          ${meter("平均の圧（送る量が同じなら、出口の流れにくさで決まる）", j.target.mean, j.mine.mean, j.mine.mean - j.target.mean, j.meanOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
-          ${meter("高い圧と低い圧の差（主にふくらみやすさで変わる）", j.target.pulse, j.mine.pulse, j.mine.pulse - j.target.pulse, j.pulseOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
+          ${meter("平均の圧", j.target.mean, j.mine.mean, j.mine.mean - j.target.mean, j.meanOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
+          ${meter("高い圧と低い圧の差", j.target.pulse, j.mine.pulse, j.mine.pulse - j.target.pulse, j.pulseOk, "pass", VESSEL_ROBOT_TOL, 30, "", 1).replace("A ", "血管B ").replace("あなた", "あなたの装置")}
         </div>`
       : "",
     who: state.line.who,
@@ -1026,7 +1026,9 @@ function rtView(): View {
   const r = state.rt;
   const sp = retrainSpec(r.c);
   const info = RT_PAGE[r.c];
-  const res = judgeRetrain(r.c, r.slots, r.c === "cartilage" ? rtTruth() : null);
+  const noB = r.c === "cartilage" && !rtTruth(); // 謎2から始めて、謎1のBを開けていない
+  const raw = judgeRetrain(r.c, r.slots, r.c === "cartilage" ? rtTruth() : null);
+  const res = noB ? { ...raw, catchesB: true, cleared: r.slots.length > 0 && raw.slipCount === 0 } : raw;
   const d = r.c === "membrane" ? 2 : r.c === "vessel" ? 1 : 3;
   const rows = [
     `<text x="20" y="74" fill="var(--paper-ink)" font-size="17" font-weight="900">① ${esc(sp.firstRule)}（いままで）</text>`,
@@ -1053,7 +1055,7 @@ function rtView(): View {
         <text x="20" y="34" fill="var(--paper-soft)" font-size="15" font-weight="900">TEJUN が${info.page}の検査で見る数字</text>
         ${r.done ? `<g class="pop" transform="translate(356,8) rotate(-8)"><rect width="100" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="50" y="24" fill="var(--stamp)" font-size="16" font-weight="900" text-anchor="middle">数字 ${1 + r.slots.length} つ</text></g>` : ""}
         ${rows}</g>
-      ${badge(222, ok1, ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
+      ${badge(222, ok1, noB ? "謎1のBはまだ開けていない（すり抜けだけ確かめる）" : ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
       ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（地図の赤）`)}
       <text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}のつまみでつくれる試作品の地図</text>
       ${retrainMap(560, 48, 330, 270, res.cells, rtMarks(), sp.axes)}`,
@@ -1131,13 +1133,13 @@ function titleView(): View {
           ["謎4 膜の見落とし", "膝の感覚を脳へ伝える神経の膜", "電気"],
           ["まとめ・つづきの謎", "三つは同じ部品でできていた。AIが次の謎を組み立てる", "見立て"],
         ]
-          .map(([c, n, k], i) => `<g transform="translate(0,${14 + i * 62})"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
+          .map(([c, n, k], i) => `<g class="jump" transform="translate(0,${14 + i * 62})" data-act="jump" data-val="${i}" role="button" tabindex="0" aria-label="${c}から始める"><rect width="580" height="54" rx="12" fill="var(--paper)"/><text x="18" y="20" fill="var(--paper-soft)" font-size="13" font-weight="900">${c}</text><text x="18" y="44" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="44" fill="var(--paper-soft)" font-size="13" font-weight="800" text-anchor="end">${k}</text></g>`)
           .join("")}
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
     text: state.line.text,
     cmds: [
-      { act: "start", label: "謎1を始める", sub: "人工軟骨の見落とし", hot: true, disabled: state.busy },
+      { act: "start", label: "謎1から始める", sub: "上の一覧を押すと、その謎から始められる", hot: true, disabled: state.busy },
       { act: "n-enter", label: "つづきの謎だけ見る", ghost: true },
     ],
   };
@@ -1800,6 +1802,24 @@ app.addEventListener("click", async (e) => {
       await startSession({});
       if (state.moviePlaying) movieLoop();
       break;
+    case "jump": {
+      // タイトルの一覧から、好きな謎を選んで始める（2026-11-05 夜、作者の指摘「どの謎から始めるようにはできないのか？」による）
+      const i = Number(val);
+      if (i === 4) {
+        app.querySelector<HTMLElement>('[data-act="n-enter"]')?.click();
+        break;
+      }
+      await startSession({});
+      if (i === 0) {
+        if (state.moviePlaying) movieLoop();
+        break;
+      }
+      state.moviePlaying = false;
+      if (i === 1) startMovie(2, "はじまりの話：ロボの検査を鍛えなおすために、わざと見落とさせる試作品をつくる。");
+      else if (i === 2) startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
+      else startMovie(5, "はじまりの話：膝が押された感じは、神経が脳へ知らせる。神経のチームは、その入口になる膜の試作品Bをつくった。");
+      break;
+    }
     case "movie-skip":
       state.moviePlaying = false;
       state.movieT = movieLength(state.movieId);
@@ -2320,7 +2340,8 @@ app.addEventListener("click", async (e) => {
     }
     case "rt-go": {
       const c = state.rt.c;
-      const res = judgeRetrain(c, state.rt.slots, c === "cartilage" ? rtTruth() : null);
+      const raw = judgeRetrain(c, state.rt.slots, c === "cartilage" ? rtTruth() : null);
+      const res = c === "cartilage" && !rtTruth() ? { ...raw, catchesB: true, cleared: state.rt.slots.length > 0 && raw.slipCount === 0 } : raw;
       if (res.cleared) {
         state.rt.done = true;
         state.rtLog[c] = state.rt.slots.map(rtLabel);
