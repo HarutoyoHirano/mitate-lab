@@ -1253,7 +1253,7 @@ function rtView(): View {
       ${badge(222, ok1, noB ? "見破れのBはまだ開けていない（すり抜けだけ確かめる）" : ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
       ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（${r.c === "cartilage" ? "地図の赤" : "グラフの赤い線"}）`)}
       ${r.c === "cartilage" ? `<text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">仕掛けろのつまみでつくれる試作品の地図</text>
-      ${retrainMap(560, 48, 330, 270, res.cells, rtMarks(), sp.axes)}` : rtWave(res)}`,
+      ${retrainMap(580, 72, 310, 230, res.cells, rtMarks(), sp.axes)}` : rtWave(res)}`,
     html: r.done
       ? ""
       : `<div class="picker" style="left:72%;top:3%;width:26.5%">${picker}
@@ -1322,12 +1322,12 @@ function titleView(): View {
     goal: "同じに見える。でも、測り方を変えると違う。",
     svg: `<g transform="translate(60,24)">
         ${[
-          ["謎1 軟骨の見落とし", "3Dプリントの人工軟骨　見破れ → 仕掛けろ", "かたさと力", 0],
+          ["謎1 軟骨の見落とし", "3Dプリントの人工軟骨", "かたさと力", 0],
           ["謎2 脈の見落とし", "膝へ血液を運ぶ人工血管", "流れと圧", 2],
           ["謎3 膜の見落とし", "膝の感覚を脳へ伝える神経の膜", "電気", 3],
           ["まとめ・つづきの謎", "三つは同じ見立てで書けた。AIが次の謎を組み立てる", "見立て", 4],
         ]
-          .map(([c, n, k, ch], i) => `<g class="jump" transform="translate(0,${20 + i * 76})" data-act="jump" data-val="${ch}" role="button" tabindex="0" aria-label="${c}から始める"><rect width="580" height="62" rx="12" fill="var(--paper)"/><text x="18" y="24" fill="var(--paper-soft)" font-size="15" font-weight="900">${c}</text><text x="18" y="50" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text><text x="562" y="50" fill="var(--paper-soft)" font-size="15" font-weight="900" text-anchor="end">${k}</text></g>`)
+          .map(([c, n, , ch], i) => `<g class="jump" transform="translate(0,${20 + i * 76})" data-act="jump" data-val="${ch}" role="button" tabindex="0" aria-label="${c}から始める"><rect width="580" height="62" rx="12" fill="var(--paper)"/><text x="18" y="24" fill="var(--paper-soft)" font-size="15" font-weight="900">${c}</text><text x="18" y="50" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text></g>`)
           .join("")}
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",

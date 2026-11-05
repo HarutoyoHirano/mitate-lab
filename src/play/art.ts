@@ -1267,19 +1267,20 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
   const cy = (r: number) => oy + H - (r + 0.5) * ch;
   let rects = "";
   for (const c of cells) {
-    const fill = c.slips ? "var(--stamp)" : c.first ? "color-mix(in srgb, var(--you) 45%, var(--panel))" : "var(--chip)";
+    const fill = c.slips ? "var(--stamp)" : c.first ? "color-mix(in srgb, var(--you) 75%, var(--panel))" : "color-mix(in srgb, var(--soft) 45%, var(--panel))";
     rects += `<rect x="${(col(c.x) * cw).toFixed(1)}" y="${(oy + H - (row(c.y) + 1) * ch).toFixed(1)}" width="${(cw + 0.4).toFixed(1)}" height="${(ch + 0.4).toFixed(1)}" fill="${fill}"/>`;
   }
   const shown = zoom ? marks.filter((m) => ys.some((q) => Math.abs(q - m.y) < 1e-6)) : marks;
   return `<g transform="translate(${x},${y})">
     <rect y="${oy}" width="${w}" height="${H}" fill="var(--panel)" stroke="var(--line)"/>${rects}
-    ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${(col(m.x) + 0.5) * cw + 12}" y="${cy(row(m.y)) - 10 - (zoom ? k * 16 : 0)}" fill="var(--ink)" font-size="14" font-weight="900">${m.label}</text>`).join("")}
-    <text x="${w / 2}" y="${oy + H + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">${axes.x} →</text>
-    ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="-14" y="${h / 2}" fill="var(--soft)" font-size="13" text-anchor="middle" transform="rotate(-90 -14 ${h / 2})">${axes.y} →</text>`}
-    <g transform="translate(-20,${h + 34})" font-size="15" font-weight="900">
-      <rect width="16" height="16" fill="var(--stamp)"/><text x="22" y="14" fill="var(--ink)">赤：見本と違うのに、ロボが「同じ」と言う（すり抜ける）</text>
-      <rect y="24" width="16" height="16" fill="color-mix(in srgb, var(--you) 45%, var(--panel))"/><text x="22" y="38" fill="var(--ink)">緑：ロボが見分けられる（または、見本とほぼ同じ）</text>
-      <rect y="48" width="16" height="16" fill="var(--chip)"/><text x="22" y="62" fill="var(--ink)">灰：いままでの数字で見分けられる</text>
+    ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${Math.min(w - 4, (col(m.x) + 0.5) * cw + 12)}" y="${cy(row(m.y)) - 10 - k * 18}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="${(col(m.x) + 0.5) * cw > w * 0.6 ? "end" : "start"}" stroke="var(--panel)" stroke-width="4" paint-order="stroke">${m.label}</text>`).join("")}
+    <text x="${w / 2}" y="${oy + H + 22}" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${axes.x} →</text>
+    <text x="0" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900">${xs[0]!.toFixed(1)}</text><text x="${w}" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${xs[xs.length - 1]!.toFixed(1)}</text>
+    ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="0" y="-10" fill="var(--ink)" font-size="17" font-weight="900">↑ ${axes.y}</text><text x="-6" y="${h - 2}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[0]!.toFixed(1)}</text><text x="-6" y="14" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[ys.length - 1]!.toFixed(1)}</text>`}
+    <g transform="translate(-20,${h + 40})" font-size="17" font-weight="900">
+      <rect width="22" height="22" rx="4" fill="var(--stamp)"/><text x="30" y="18" fill="var(--ink)">赤：すり抜ける（見本と違うのにロボが「同じ」）</text>
+      <rect y="30" width="22" height="22" rx="4" fill="color-mix(in srgb, var(--you) 75%, var(--panel))"/><text x="30" y="48" fill="var(--ink)">緑：ロボが見分けられる（か、見本とほぼ同じ）</text>
+      <rect y="60" width="22" height="22" rx="4" fill="color-mix(in srgb, var(--soft) 45%, var(--panel))"/><text x="30" y="78" fill="var(--ink)">灰：いままでの数字で見分けられる</text>
     </g>
   </g>`;
 }
