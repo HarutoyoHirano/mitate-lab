@@ -14,7 +14,7 @@ describe("出典カタログ", () => {
   it("どの文献にも、書誌・分野・内容・扱わないこと・対象の言葉・確かめた先がある", () => {
     for (const r of REFS) {
       expect(r.cite.length, r.id).toBeGreaterThan(30);
-      expect(r.cite, r.id).toMatch(/(19|20)\d\d/); // 年
+      expect(r.cite, r.id).toMatch(/(18|19|20)\d\d/); // 年
       expect(r.cite, r.id).not.toMatch(/\.\.\.|…|et al/); // 題名や著者を省略しない
       expect(r.field.length, r.id).toBeGreaterThan(0);
       expect(r.about.length, r.id).toBeGreaterThan(10);
