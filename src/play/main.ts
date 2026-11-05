@@ -1302,10 +1302,19 @@ function titleView(): View {
       </g>${robotArt("smug", 900, 40, 1)}`,
     who: "bot",
     text: state.line.text,
-    cmds: [
-      { act: "start", label: "謎1から始める", sub: "上の一覧を押すと、その謎から始められる", hot: true, disabled: state.busy },
-      { act: "n-enter", label: "つづきの謎だけ見る", ghost: true },
-    ],
+    cmds: (() => {
+      const sv = loadProgress();
+      return sv
+        ? [
+            { act: "resume", label: `続きから（${CH_NAME[sv.chapter]}）`, sub: "この端末に保存した進み具合から", hot: true, disabled: state.busy },
+            { act: "start-new", label: "はじめから", sub: "保存した進み具合を消して、謎1から", disabled: state.busy },
+            { act: "n-enter", label: "つづきの謎だけ見る", ghost: true },
+          ]
+        : [
+            { act: "start", label: "謎1から始める", sub: "上の一覧を押すと、その謎から始められる", hot: true, disabled: state.busy },
+            { act: "n-enter", label: "つづきの謎だけ見る", ghost: true },
+          ];
+    })(),
   };
 }
 
@@ -1583,7 +1592,7 @@ function panelHtml(): string {
       <ul>
         <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
         <li>うまくいかなくても、何度でも試せます。点数や順位はつけません。</li>
-        <li>名前などの個人の情報は、入力も保存もしません。</li>
+        <li>名前などの個人の情報は、入力も保存もしません。保存するのは進み具合だけで、この端末のブラウザの中に残ります（「はじめから」で消えます）。</li>
       </ul>
       <div class="row"><button class="cmd hot" data-act="panel-close" autofocus>わかった、はじめる</button></div></div></div>`;
   const body =
@@ -1650,7 +1659,62 @@ function render(): void {
   } else lastText = v.text;
 }
 
+// ---------- 自動セーブ（2026-11-06、作者の提案「（オート）セーブ・再開機能と新規スタートの2種類が選択できるとよい」） ----------
+// 保存するのは進み具合だけ（いまの謎の番号・記録・ロボの自信・あなたがつくった試作品の値）。名前などは保存しない。
+// 謎の途中から再開すると、その謎のはじめから（謎1の試作品Bは新しく選び直す。隠れた答えは保存しない）
+const SAVE_KEY = "mitate-lab:save:v1";
+const CH_NAME = ["謎1 見破れ", "謎2 仕掛けろ", "謎3 脈の見落とし", "謎4 膜の見落とし", "まとめ"] as const;
+type SaveData = { chapter: number; record: string[]; rtLog: Partial<Record<RetrainCase, string[]>>; duelLog: string[]; memLog: string[]; conf: number; at: number };
+function chapterOf(s: Scene): number | null {
+  if (s.startsWith("c1")) return 0;
+  if (s.startsWith("c2")) return 1;
+  if (s.startsWith("c3")) return 2;
+  if (s.startsWith("c4")) return 3;
+  if (s === "rt") return state.rt.c === "cartilage" ? 1 : state.rt.c === "vessel" ? 2 : 3;
+  if (s === "end" || s.startsWith("n-")) return 4;
+  return null;
+}
+function saveProgress(s: Scene): void {
+  const chapter = chapterOf(s);
+  if (chapter === null) return;
+  const data: SaveData = { chapter, record: state.record, rtLog: state.rtLog, duelLog: state.duelLog, memLog: state.memLog, conf: state.conf, at: Date.now() };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch {
+    /* 保存できない場所（プライベートな窓など）では、保存せずに進める */
+  }
+}
+function loadProgress(): SaveData | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as SaveData;
+    return typeof d.chapter === "number" && d.chapter >= 0 && d.chapter <= 4 ? d : null;
+  } catch {
+    return null;
+  }
+}
+function clearProgress(): void {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* 何もしない */
+  }
+}
+/** 謎のはじめ（導入ムービー）から始める。謎1は新しい試作品Bで */
+async function openChapter(i: number): Promise<void> {
+  await startSession({});
+  if (i === 0) {
+    if (state.moviePlaying) movieLoop();
+    return;
+  }
+  state.moviePlaying = false;
+  if (i === 1) startMovie(2, "はじまりの話：ロボの検査の手順を見直すために、わざと見落とさせる試作品をつくる。");
+  else if (i === 2) startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
+  else startMovie(5, "はじまりの話：膝が押された感じは、神経が脳へ知らせる。神経のチームは、その入口になる膜の試作品Bをつくった。");
+}
 function go(s: Scene): void {
+  saveProgress(s);
   state.scene = s;
   state.error = "";
   state.sel = null;
@@ -1964,6 +2028,27 @@ app.addEventListener("click", async (e) => {
       }
       render();
       break;
+    case "resume": {
+      const sv = loadProgress();
+      if (!sv) break;
+      if (sv.chapter === 4) {
+        await startSession({});
+        state.moviePlaying = false;
+      } else {
+        await openChapter(sv.chapter);
+      }
+      Object.assign(state, { record: sv.record ?? [], rtLog: sv.rtLog ?? {}, duelLog: sv.duelLog ?? [], memLog: sv.memLog ?? [], conf: typeof sv.conf === "number" ? sv.conf : 100 });
+      if (sv.chapter === 4) {
+        say("bot", "まとめまで進んでいました。三つの検査を並べます。");
+        go("end");
+      } else render();
+      break;
+    }
+    case "start-new":
+      clearProgress();
+      await startSession({});
+      if (state.moviePlaying) movieLoop();
+      break;
     case "start":
       await startSession({});
       if (state.moviePlaying) movieLoop();
@@ -1975,15 +2060,7 @@ app.addEventListener("click", async (e) => {
         app.querySelector<HTMLElement>('[data-act="n-enter"]')?.click();
         break;
       }
-      await startSession({});
-      if (i === 0) {
-        if (state.moviePlaying) movieLoop();
-        break;
-      }
-      state.moviePlaying = false;
-      if (i === 1) startMovie(2, "はじまりの話：ロボの検査の手順を見直すために、わざと見落とさせる試作品をつくる。");
-      else if (i === 2) startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
-      else startMovie(5, "はじまりの話：膝が押された感じは、神経が脳へ知らせる。神経のチームは、その入口になる膜の試作品Bをつくった。");
+      await openChapter(i);
       break;
     }
     case "movie-skip":
