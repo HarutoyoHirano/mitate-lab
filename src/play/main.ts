@@ -252,7 +252,7 @@ function movieLoop(): void {
 }
 const MOVIE_INFO: Record<MovieId, { chap: string; goal: string; go: string; label: string; sub: string }> = {
   1: { chap: "謎1 軟骨：見破れ", goal: "はじまりの話：試作人工軟骨と検査ロボ", go: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く" },
-  2: { chap: "謎1 軟骨：仕掛けろ", goal: "はじまりの話：ロボの検査の手順を見直す", go: "enter-c2", label: "設計台へ", sub: "ロボの検査の手順を見る" },
+  2: { chap: "謎1 軟骨：仕掛けろ", goal: "後半へ：見落としを見つけたら、次は検査の手順を見直す", go: "enter-c2", label: "設計台へ", sub: "ロボの検査の手順を見る" },
   4: { chap: "謎2 脈の見落とし", goal: "はじまりの話：膝へ血液を運ぶ人工血管と検査ロボ", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
   5: { chap: "謎3 膜の見落とし", goal: "はじまりの話：膝の感覚を伝える神経の膜と検査ロボ", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
 };
@@ -1739,7 +1739,7 @@ async function openChapter(i: number): Promise<void> {
     return;
   }
   state.moviePlaying = false;
-  if (i === 1) startMovie(2, "はじまりの話：ロボの検査の手順を見直すために、わざと見落とさせる試作品をつくる。");
+  if (i === 1) startMovie(2, "後半へ：ロボの検査の手順を見直すために、わざと見落とさせる試作品をつくる。");
   else if (i === 2) startMovie(4, "はじまりの話：膝のまわりの骨や筋肉には、心臓が送る血液を血管が運ぶ。血管のチームは、人工血管の試作品Bをつくった。");
   else startMovie(5, "はじまりの話：膝が押されると、神経の端がそれを感じとり、脳へ知らせる。ラボの神経のチームは、この神経の端をつつむ膜を人工でつくりなおそうとしていて、新しい膜（試作品B）ができた。");
 }
@@ -2350,7 +2350,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-c2":
       state.moviePlaying = false;
-      startMovie(2, "はじまりの話：見破れでロボの見落としが分かった。次は、ロボの検査の手順を見直す番。");
+      startMovie(2, "後半へ：見破れでロボの見落としが分かった。次は、ロボの検査の手順を見直す番。");
       break;
     case "enter-c2":
       state.moviePlaying = false;
