@@ -610,10 +610,19 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
   const L = 8;
   const R = 6;
   const T = 8;
-  const B = 8;
+  const B = o.legend ? 28 : 8;
   const tMax = o.push + 20;
-  const xPush = L + (o.w - L - R) * 0.18;
-  const xs = (t: number) => (t <= o.push ? L + ((xPush - L) * t) / o.push : xPush + ((o.w - R - xPush) * (t - o.push)) / (tMax - o.push));
+  const xPush = L + (o.w - L - R) * (o.legend ? 0.14 : 0.18);
+  // 凡例つき（説明の見比べ・正体）は、押し終わってから5秒までを横に広げる（下がる速さの違いが見えるように）
+  const x5 = xPush + (o.w - R - xPush) * 0.6;
+  const xs = (t: number) =>
+    t <= o.push
+      ? L + ((xPush - L) * t) / o.push
+      : !o.legend
+        ? xPush + ((o.w - R - xPush) * (t - o.push)) / (tMax - o.push)
+        : t - o.push <= 5
+          ? xPush + ((x5 - xPush) * (t - o.push)) / 5
+          : x5 + ((o.w - R - x5) * (t - o.push - 5)) / 15;
   const ys = (v: number) => T + (o.h - T - B) * (1 - v / o.yMax);
   const until = o.until ?? 99;
   const poly = (pts: readonly { t: number; force: number }[]) =>
@@ -623,6 +632,7 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
       .join(" ");
   return `<svg viewBox="0 0 ${o.w} ${o.h}" class="mini" aria-hidden="true">
     <rect x="${L}" y="${T}" width="${xPush - L}" height="${o.h - T - B}" fill="var(--band)"/>
+    ${o.legend ? [[o.push, "押し終わり"], [o.push + 5, "5秒後"], [tMax, "20秒後"]].map(([t, l], k) => `<line x1="${xs(t as number).toFixed(1)}" x2="${xs(t as number).toFixed(1)}" y1="${o.h - B}" y2="${o.h - B + 5}" stroke="var(--soft)" stroke-width="2"/><text x="${xs(t as number).toFixed(1)}" y="${o.h - 6}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="${k === 0 ? "start" : k === 2 ? "end" : "middle"}">${l}</text>`).join("") : ""}
     ${o.legend ? [1].filter((v) => v < o.yMax).map((v) => `<line x1="${L}" x2="${o.w - R}" y1="${ys(v).toFixed(1)}" y2="${ys(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${o.w - R}" y="${(ys(v) - 4).toFixed(1)}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${v} N</text>`).join("") : ""}
     ${o.legend ? `<g font-size="15" font-weight="900" fill="var(--ink)"><circle cx="${o.w - 150}" cy="20" r="5" fill="var(--you)"/><text x="${o.w - 140}" y="25">Bの記録</text><line x1="${o.w - 70}" x2="${o.w - 46}" y1="20" y2="20" stroke="${o.lineColor ?? "var(--gold)"}" stroke-width="3.5" stroke-dasharray="9 5"/><text x="${o.w - 42}" y="25">予想</text>${o.a ? `<line x1="${o.w - 150}" x2="${o.w - 126}" y1="44" y2="44" stroke="var(--soft)" stroke-width="2" stroke-dasharray="5 4"/><text x="${o.w - 120}" y="49">見本 A</text>` : ""}</g>` : ""}
     ${o.a ? `<polyline points="${poly(o.a)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="5 4"/>` : ""}
