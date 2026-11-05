@@ -9,12 +9,12 @@ import { fitCandidate, predictedCurve } from "../../server/model/fit.js";
 import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
-import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
+import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -125,6 +125,8 @@ const state = {
   // 謎3
   u: 0,
   vPlaying: false,
+  /** 謎3の正体の段（0＝やさしい説明、1＝試験装置の見立て、2＝電気の部品で書く） */
+  vExplain: 0,
   vBet: null as "r" | "c" | "unknown" | null,
   syncR: 1,
   syncC: 1.5,
@@ -844,7 +846,49 @@ function syncRig(mine: { r: number; c: number }): string {
   return `<text x="40" y="34" fill="var(--soft)" font-size="15" font-weight="900">あなたの試験装置</text>${machine(spec, run, k, machineScale(spec, [run]), { x: 20, y: 40, w: 460, h: 260, scale: 1.25 })}
     <text x="40" y="330" fill="var(--soft)" font-size="15" font-weight="800">ポンプ（心臓のかわり）→ ふくらむ人工血管 → 出口の細い管</text>`;
 }
+/** 謎3の正体・二段目：試験装置の見立て（見本Aと試作品Bを同じ時刻で動かす。Bの違った部品＝ふくらむ袋を光らせる） */
+let vRuns: { sa: NetPuzzleSpec; sb: NetPuzzleSpec; ra: ReturnType<typeof runNet>; rb: ReturnType<typeof runNet>; sc: MachineScale } | null = null;
+function vesselRigs() {
+  if (!vRuns) {
+    const base = PREPARED_NETS[0]!;
+    const mk = (c: number): NetPuzzleSpec => ({ ...base, parts: base.parts.map((p) => (p.type === "store" ? { ...p, C: c } : p)) });
+    const sa = mk(BASE_VESSEL.c);
+    const sb = mk(CASE_VESSEL_B.c);
+    const ra = runNet(sa, 120);
+    const rb = runNet(sb, 120);
+    vRuns = { sa, sb, ra, rb, sc: machineScale(sa, [ra, rb]) };
+  }
+  return vRuns;
+}
+function vesselRigView(): View {
+  const { sa, sb, ra, rb, sc } = vesselRigs();
+  const k = Math.round(((state.u % BEAT_S) / BEAT_S) * 120);
+  const lit = new Set(sb.parts.filter((p) => p.type === "store").map((p) => p.id));
+  const line = (yy: number, t: string, col = "var(--ink)") => `<text x="660" y="${yy}" fill="${col}" font-size="17" font-weight="900">${t}</text>`;
+  return {
+    chap: "謎3 正体",
+    goal: "試験装置の見立てで見る：Bはどの部品が違った？",
+    svg: `${machine(sa, ra, k, sc, { x: 16, y: 10, w: 610, h: 220, scale: 1.2, tag: "見本の血管 A" })}${machine(sb, rb, k, sc, { x: 16, y: 244, w: 610, h: 220, scale: 1.2, tag: "試作品の血管 B", tagColor: "var(--vessel-edge)", lit })}
+      ${beatChart(660, 30, 580, 170, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
+      ${line(252, "ポンプ（心臓のかわり）：1回の脈で同じ量を送る")}
+      ${line(278, "ふくらむ袋（血管）：ふくらんで受け止める")}
+      ${line(304, "細い管（出口）：その先へ流れ出す")}
+      ${line(346, "Bの袋はふくらみにくい（見本の半分）", "var(--gold)")}
+      ${line(372, "→ 同じ量を受け止めると、圧が高く上がる")}
+      ${line(398, "→ 流れ出すと、圧が低く下がる")}
+      ${line(440, "平均は出口の細い管で決まるので、同じ", "var(--soft)")}`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: [
+      { act: "v-more", label: "電気の部品でも書ける", sub: "同じ式の見立て", hot: true },
+      { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す" },
+      { act: "v-back", label: "前の説明へ", ghost: true },
+    ],
+  };
+}
 function c3Sync(): View {
+  if (state.syncDone && state.vExplain === 1) return vesselRigView();
+  if (state.syncDone && state.vExplain === 2) return vesselWiringView();
   const mine = { r: state.syncR, c: state.syncC };
   const j = judgeSync(CASE_VESSEL_B, mine);
   const asked = state.vBet !== null;
@@ -874,8 +918,39 @@ function c3Sync(): View {
           { act: "v-bet", val: "unknown", label: "まだ分からない", sub: "試験装置で確かめる" },
         ]
       : state.syncDone
-        ? [{ act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す", hot: true }]
+        ? [
+            { act: "v-more", label: "もう少しくわしく", sub: "試験装置の見立てで見る", hot: true },
+            { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す" },
+          ]
         : [{ act: "sync-hint", label: "ヒント", ghost: true }],
+  };
+}
+
+// ---------- 謎3の正体・三段目：電気の部品で書く（2026-11-06、作者の指示「機械的な要素と電気的な要素の２面から、軟骨のときと同じように視覚的に」。式の形が同じだけ） ----------
+let vFlowMax = 0;
+function vesselWiringView(): View {
+  if (!vFlowMax) for (let i = 0; i <= 200; i++) vFlowMax = Math.max(vFlowMax, pumpFlow((BEAT_S * i) / 200));
+  const u = state.u % BEAT_S;
+  const fl = pumpFlow(u);
+  const line = (yy: number, t: string, col = "var(--ink)") => `<text x="660" y="${yy}" fill="${col}" font-size="17" font-weight="900">${t}</text>`;
+  return {
+    chap: "謎3 正体",
+    goal: "電気の部品で書くと：同じ式になる",
+    svg: `${vesselCircuit(16, 10, BASE_VESSEL, pressureAt(BASE_VESSEL, u), fl, vFlowMax, "見本の血管 A を電気の部品で書くと", false)}${vesselCircuit(16, 244, CASE_VESSEL_B, pressureAt(CASE_VESSEL_B, u), fl, vFlowMax, "試作品の血管 B", true)}
+      ${beatChart(660, 30, 580, 170, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
+      ${line(252, "電流を送りこむもの ＝ ポンプ（心臓）")}
+      ${line(278, "コンデンサ ＝ ふくらむ血管　抵抗 ＝ 出口の細い管")}
+      ${line(304, "電圧 ＝ 圧の数字　電流 ＝ 流れ")}
+      ${line(346, "Bはコンデンサが小さい（ためにくい）", "var(--gold)")}
+      ${line(372, "→ 同じ電流をためると、電圧が大きく上がる")}
+      ${line(414, "式の形が同じだけ（人工血管に電気は流れていない）", "var(--soft)")}
+      ${line(440, "謎4の神経の膜では、本当に電気がたまる", "var(--you)")}`,
+    who: state.line.who,
+    text: state.line.text,
+    cmds: [
+      { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す", hot: true },
+      { act: "v-back", label: "前の説明へ", ghost: true },
+    ],
   };
 }
 
@@ -901,8 +976,8 @@ function c4Watch(): View {
   const have = state.evidence.some((e) => e.case === 4 && e.ok);
   return {
     chap: "謎4 膜の見落とし",
-    goal: "膜の電圧に違いが見える瞬間を撮ろう",
-    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B" }, 14, state.memChecked) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "膜 A", b: "膜 B", revealB: state.memChecked }),
+    goal: "見本の膜Aと試作品の膜B。電圧に違いが見える瞬間を撮ろう",
+    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B" }, 14, state.memChecked) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B", revealB: state.memChecked }),
     html: `<div class="scrub narrow" style="left:62.5%;top:0.5%"><button data-act="m-run">▶ 押して、離す</button><button data-act="m-tank">${state.memTank ? "膜の図" : "水槽のたとえ"}</button>
       <label><input type="range" id="mt" min="0" max="${RECORD_MS}" step="1" value="${state.memT}" aria-label="押し始めからの時間"></label><span>${state.memT} ms</span></div>`,
     who: state.line.who,
@@ -923,8 +998,8 @@ function c4Present(): View {
 }
 function c4Why(): View {
   const cards: { id: "g" | "c"; name: string; look: string }[] = [
-    { id: "g", name: "イオンの通りやすさが違う", look: "通り道の多さ（多いほど通りやすい＝抵抗が小さい）が違う。長く押したときの高さが変わるはず" },
-    { id: "c", name: "電気のためやすさが違う", look: "膜の電圧を同じだけ上げるのに要る電気の量（水槽なら広さ）が違う。上がり方と戻り方の速さが変わるはず" },
+    { id: "g", name: "イオンの通りやすさが違う", look: "いつも開いている通り道の数が違う（多いほど＋が外へ出やすい）。そうなら、離す直前の電圧が変わるはず" },
+    { id: "c", name: "電気のためやすさが違う", look: "膜の電圧を同じだけ上げるのに要る電気の量が違う。そうなら、上がり方と戻り方の速さが変わるはず" },
   ];
   const all = cards.every((c) => state.memWhy[c.id]);
   return {
@@ -932,7 +1007,7 @@ function c4Why(): View {
     goal: state.memChecked ? "膜Bは、電気をためやすい膜" : "二つの説明が、記録と合うか選ぼう",
     // 確かめる前は、グラフだけを大きく（記録の形から推理する）。確かめたあとは、膜の拡大図で「なぜ」を見せる
     svg: state.memChecked
-      ? `<g transform="translate(-290,0)">${membranePatch(300, 18, 1, BASE_MEM, "膜 A", "A", true, 60)}${membranePatch(300, 248, 1, CASE3_B, "膜 B", "B", true, 60)}</g>
+      ? `<g transform="translate(-290,0)">${membranePatch(300, 18, 1, BASE_MEM, "見本の膜 A", "A", true, 60)}${membranePatch(300, 248, 1, CASE3_B, "試作品の膜 B", "B", true, 60)}</g>
         <g font-size="17" font-weight="900">
           <text x="520" y="60" fill="var(--ink)">押して 60 ms のようす</text>
           <text x="520" y="150" fill="var(--ink)">同じくらいの電圧でも、</text>
@@ -945,7 +1020,7 @@ function c4Why(): View {
           <text x="520" y="392" fill="var(--soft)">いつも開いている通り道の数は</text>
           <text x="520" y="418" fill="var(--soft)">AとBで同じ</text>
         </g>`
-      : `${membraneGraph({ GL: 90, GR: 760, GT: 70, GB: 370 }, BASE_MEM, CASE3_B, 100, { a: "膜 A", b: "膜 B", top: 14, notes: false })}`,
+      : `${membraneGraph({ GL: 90, GR: 760, GT: 70, GB: 370 }, BASE_MEM, CASE3_B, 100, { a: "見本の膜 A", b: "試作品の膜 B", top: 14, notes: false })}`,
     html: `<div class="lineup" style="grid-template-columns:1fr;left:63%;right:2%;top:3%;bottom:3%">${cards
       .map((c) => {
         const tag = state.memWhy[c.id];
@@ -969,8 +1044,8 @@ function c4Duel(): View {
   return {
     chap: "謎4 仕掛けろ",
     goal: `ロボの「次の一手」では見本と同じ、別の時刻では違う膜をつくれ（ラウンド${round.id}）`,
-    svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "膜 A", "A", true, state.memT || 105, true)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105, true)}
-      ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "膜 A", b: "あなたの膜", top: 18, notes: false })}
+    svg: `${membranePatch(12, 6, 0.7, BASE_MEM, "見本の膜 A", "A", true, state.memT || 105, true)}${membranePatch(12, 154, 0.7, m, "あなたの膜", "B", true, state.memT || 105, true)}
+      ${membraneGraph({ GL: 420, GR: 850, GT: 40, GB: 250 }, BASE_MEM, m, state.memT || 105, { a: "見本の膜 A", b: "あなたの膜", top: 18, notes: false })}
       ${ruleCard(880, 20, "膜の検査の手順", [round.id === 1 ? "① 離す直前の膜の電圧" : "① 上がった高さが半分に戻る時間", `② 差が ${round.id === 1 ? ROBOT_STEADY_TOL + " mV" : HALF_TIME_TOL + " ms"} より小さい → 同じ`], 0, round.id === 2)}`,
     html: `<div class="knobs" style="left:1%;top:62%;width:27%">${(["g", "c"] as const)
       .map((k) => {
@@ -986,7 +1061,7 @@ function c4Duel(): View {
       }</div>`,
     who: state.line.who,
     text: state.line.text,
-    extra: state.duelHint ? `<p class="sub">${round.id === 1 ? "ロボが見るのは離す直前の高さだけ。十分長く押したときの高さは通りやすさで決まり、電気のためやすさは、上がり方と戻り方の速さを変える。" : "ロボが見るのは戻る時間だけ。戻るのにかかる時間は「ためやすさ÷通りやすさ」に比例する（ためやすいほど遅く、通りやすいほど速い）。"}${state.duelHint > 1 ? (round.id === 1 ? " 通りやすさは見本のままにして、ためやすさだけ動かすと？（大きすぎると、離す直前までに上がりきらない）" : " ためやすさと通りやすさを、同じ倍だけ（たとえばどちらも2倍に）変えると？") : ""}</p>` : "",
+    extra: state.duelHint ? `<p class="sub">${round.id === 1 ? "ロボが見るのは離す直前の高さだけ。その高さは、入口から入る＋と通り道から出ていく＋がつり合うところで、通りやすさで決まる。電気のためやすさは、上がり方と戻り方の速さを変える。" : "ロボが見るのは戻る時間だけ。戻るのにかかる時間は「ためやすさ÷通りやすさ」に比例する（ためやすいほど遅く、通りやすいほど速い）。"}${state.duelHint > 1 ? (round.id === 1 ? " 通りやすさは見本のままにして、ためやすさだけ動かすと？（大きすぎると、離す直前までに上がりきらない）" : " ためやすさと通りやすさを、同じ倍だけ（たとえばどちらも2倍に）変えると？") : ""}</p>` : "",
     cmds:
       state.duelPhase === "result" && state.duelCleared
         ? [round.id === 1 ? { act: "mduel-next", label: "ラウンド2へ", hot: true } : { act: "rt-enter", val: "membrane", label: "TEJUN を鍛えなおす", sub: "膜の検査で見る数字を、あなたが足す", hot: true }]
@@ -1035,6 +1110,55 @@ function rtMarks(): { x: number; y: number; label: string }[] {
     { x: CASE3_B.c, y: CASE3_B.g, label: "膜B" },
   ];
 }
+/**
+ * 血管・膜の鍛えなおし：見る数字の時刻を、波の形で見せる（2026-11-06、作者の指摘「脈の中の時刻が低いと何故正解になるのかが分からん」による）。
+ * 点線＝見本A、実線＝この謎のB、赤＝すり抜ける試作品（いま見る数字ではAと同じなのに、形が違う）。どれも判定と同じ格子の計算から描く
+ */
+function rtWave(res: RetrainResult): string {
+  const c = state.rt.c;
+  const vessel = c === "vessel";
+  const X = 540, Y = 62, W = 350, H = 220;
+  const T = vessel ? BEAT_S : RECORD_MS;
+  type P = { r: number; c: number } | { g: number; c: number };
+  const f = (m: P, t: number) => (vessel ? pressureAt(m as { r: number; c: number }, t) : REST_MV + deltaMv(m as { g: number; c: number }, t));
+  const A: P = vessel ? BASE_VESSEL : BASE_MEM;
+  const B: P = vessel ? CASE_VESSEL_B : CASE3_B;
+  const slips = res.cells.filter((x) => x.slips).sort((p, q) => p.x - q.x || p.y - q.y);
+  const pick = slips.length <= 6 ? slips : Array.from({ length: 6 }, (_, k) => slips[Math.round((k * (slips.length - 1)) / 5)]!);
+  const designs: P[] = pick.map((x) => (vessel ? { r: x.y, c: x.x } : { g: x.y, c: x.x }));
+  const N = 80;
+  const sample = (m: P) => Array.from({ length: N + 1 }, (_, i) => f(m, (T * i) / N));
+  const all = [A, B, ...designs].map(sample);
+  const flat = all.flat();
+  const lo = Math.floor(Math.min(...flat) - 2);
+  const hi = Math.ceil(Math.max(...flat) + 2);
+  const xs = (t: number) => X + (W * t) / T;
+  const ys = (v: number) => Y + H * (1 - (v - lo) / (hi - lo));
+  const poly = (vs: number[]) => vs.map((v, i) => `${xs((T * i) / N).toFixed(1)},${ys(v).toFixed(1)}`).join(" ");
+  const pts = retrainSpec(c).points;
+  const tOf = (id: string) => {
+    const i = pts.findIndex((p) => p.id === id);
+    return vessel ? VESSEL_POINTS[i]!.u : MEMBRANE_POINTS[i]!.t;
+  };
+  const sel = tOf(rtPicked());
+  return `<g>
+    <text x="${X - 10}" y="30" fill="var(--ink)" font-size="17" font-weight="900">${vessel ? "1回の脈の圧（mmHg）" : "膜の電圧（mV）"}</text>
+    <rect x="${X}" y="${Y}" width="${W}" height="${H}" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+    ${vessel ? "" : `<rect x="${xs(0)}" y="${Y}" width="${xs(PULSE_MS) - xs(0)}" height="${H}" fill="var(--band)"/>`}
+    ${designs.map((_, k) => `<polyline points="${poly(all[k + 2]!)}" fill="none" stroke="var(--stamp)" stroke-width="2" opacity=".8"/>`).join("")}
+    <polyline points="${poly(all[0]!)}" fill="none" stroke="var(--soft)" stroke-width="3" stroke-dasharray="7 5"/>
+    <polyline points="${poly(all[1]!)}" fill="none" stroke="var(--you)" stroke-width="4"/>
+    ${vessel ? "" : `<line x1="${xs(PULSE_MS)}" x2="${xs(PULSE_MS)}" y1="${Y}" y2="${Y + H}" stroke="var(--paper-soft)" stroke-width="2" stroke-dasharray="3 4"/>`}
+    ${state.rt.slots.map((id) => `<line x1="${xs(tOf(id))}" x2="${xs(tOf(id))}" y1="${Y}" y2="${Y + H}" stroke="var(--ink)" stroke-width="3" stroke-dasharray="2 4"/>`).join("")}
+    <line x1="${xs(sel)}" x2="${xs(sel)}" y1="${Y - 8}" y2="${Y + H}" stroke="var(--gold)" stroke-width="3"/>
+    <path d="M${xs(sel) - 8} ${Y - 14} h16 l-8 10 z" fill="var(--gold)"/>
+    <text x="${X}" y="${Y + H + 20}" fill="var(--soft)" font-size="14" font-weight="900">0</text>
+    <text x="${X + W}" y="${Y + H + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${vessel ? `${BEAT_S} 秒` : `${RECORD_MS} ms`}</text>
+    ${vessel ? "" : `<text x="${xs(PULSE_MS)}" y="${Y + H + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">離す</text>`}
+    <text x="${X - 10}" y="${Y + H + 46}" fill="var(--soft)" font-size="15" font-weight="900">点線＝見本A　緑の線＝この謎のB</text>
+    <text x="${X - 10}" y="${Y + H + 68}" fill="${slips.length ? "var(--stamp)" : "var(--you)"}" font-size="15" font-weight="900">${slips.length ? "赤＝すり抜ける試作品（見る数字はAと同じ）" : "すり抜ける試作品（赤）は、もうない"}</text>
+  </g>`;
+}
 function rtView(): View {
   const r = state.rt;
   const sp = retrainSpec(r.c);
@@ -1069,9 +1193,9 @@ function rtView(): View {
         ${r.done ? `<g class="pop" transform="translate(356,8) rotate(-8)"><rect width="100" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="50" y="24" fill="var(--stamp)" font-size="16" font-weight="900" text-anchor="middle">数字 ${1 + r.slots.length} つ</text></g>` : ""}
         ${rows}</g>
       ${badge(222, ok1, noB ? "謎1のBはまだ開けていない（すり抜けだけ確かめる）" : ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
-      ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（地図の赤）`)}
-      <text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">${r.c === "cartilage" ? "謎2" : r.c === "vessel" ? "謎3の試験装置" : "謎4"}のつまみでつくれる試作品の地図</text>
-      ${retrainMap(560, 48, 330, 270, res.cells, rtMarks(), sp.axes)}`,
+      ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（${r.c === "cartilage" ? "地図の赤" : "グラフの赤い線"}）`)}
+      ${r.c === "cartilage" ? `<text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">謎2のつまみでつくれる試作品の地図</text>
+      ${retrainMap(560, 48, 330, 270, res.cells, rtMarks(), sp.axes)}` : rtWave(res)}`,
     html: r.done
       ? ""
       : `<div class="picker" style="left:72%;top:3%;width:26.5%">${picker}
@@ -1560,7 +1684,7 @@ let vTimer = 0;
 function vLoop(): void {
   const s0 = performance.now() - (state.u / BEAT_S) * 2500;
   const tick = () => {
-    if (!state.vPlaying || (state.scene !== "c3-watch" && state.scene !== "c3-say")) return;
+    if (!state.vPlaying || (state.scene !== "c3-watch" && state.scene !== "c3-say" && !(state.scene === "c3-sync" && state.vExplain > 0))) return;
     state.u = (((performance.now() - s0) / 2500) * BEAT_S) % BEAT_S; // 一拍（0.8秒）を2.5秒かけて見せる
     const svg = app.querySelector("svg.st");
     if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
@@ -1705,6 +1829,8 @@ app.addEventListener("input", (e) => {
     if (b) b.textContent = rtLabel(rtPicked());
     const add = app.querySelector<HTMLButtonElement>('.picker button[data-act="rt-add"]');
     if (add) add.disabled = state.rt.slots.includes(rtPicked()) || state.rt.slots.length >= RETRAIN_SLOTS;
+    const svg = app.querySelector("svg.st"); // 波のグラフの時刻の線を動かす
+    if (svg) svg.innerHTML = VIEWS.rt().svg;
     return;
   }
   if (t.dataset.knob) {
@@ -2174,6 +2300,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-sync":
       state.mood = "calm";
+      state.vExplain = 0;
       say("you", "平均の圧は同じだった。違うのは、血管の出口の流れにくさ？ それとも血管のふくらみやすさ？");
       go("c3-sync");
       break;
@@ -2195,7 +2322,7 @@ app.addEventListener("click", async (e) => {
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
-      say("bot", `今度は神経の膜の検査です。膝の動きを脳へ伝える神経の端の膜の模型です。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
+      say("bot", `今度は神経の膜の検査です。膝の動きを脳へ伝える神経の端の膜の模型で、見本の膜A（いままでの膜）と、神経のチームがつくった試作品の膜Bをくらべます。押している100ミリ秒（0.1秒）のあいだ、入口から決まった量の電流が入り、離すと止まります。`);
       go("c4-say");
       break;
     case "c4-next":
@@ -2261,7 +2388,7 @@ app.addEventListener("click", async (e) => {
     case "m-check": {
       state.memChecked = true;
       const right = state.memWhy.g === "out" && state.memWhy.c === "match";
-      say("calc", `通りやすさだけが違うなら、長く押したときの上がった高さ（電流×抵抗。抵抗＝通りにくさ）が変わるはず。でも記録は、離す直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは、電気のためやすさのほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは電気のためやすさが ${CASE3_B.c} 倍。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}`);
+      say("calc", `通り道の数（イオンの通りやすさ）だけが違うなら、離す直前の電圧が変わるはず（入口から入る＋と、通り道から出ていく＋がつり合う高さが変わる）。でも記録は、離す直前の高さが同じで、途中の上がり方と戻り方だけが遅い。高さを変えずに速さだけ変わるのは、電気のためやすさのほう（違いは一つだけ、という約束のもとで）。だから「通りやすさ」は合わない。膜Bは電気のためやすさが ${CASE3_B.c} 倍。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}`);
       state.record.push("謎4 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();
@@ -2298,11 +2425,24 @@ app.addEventListener("click", async (e) => {
       await stamp("見る場所を変えた", "miss");
       break;
     // 検査ロボを鍛えなおす（1c-3）
+    case "v-more":
+      state.vExplain = Math.min(2, state.vExplain + 1);
+      say("guide", state.vExplain === 1 ? "試験装置で見ると、ポンプ・ふくらむ袋・細い管の三つ。見本Aと試作品Bを同じ時刻で動かした。光っている袋が、Bで違った部品。" : "同じ三つを電気の部品で書くこともできる。ポンプは電流を送りこむもの、ふくらむ血管は電気をためるコンデンサ、細い管は抵抗。圧を電圧と読みかえると、同じ式になる。");
+      state.vPlaying = !reduceMotion();
+      render();
+      if (state.vPlaying) vLoop();
+      break;
+    case "v-back":
+      state.vExplain = Math.max(0, state.vExplain - 1);
+      state.vPlaying = state.vExplain > 0 && !reduceMotion();
+      render();
+      if (state.vPlaying) vLoop();
+      break;
     case "rt-enter": {
       const c = val as RetrainCase;
       state.rt = { c, slots: [], tempo: "walk", step: 0, phase: "pre", t: c === "vessel" ? 10 : 0, hint: 0, done: false };
       state.mood = "calm";
-      say("bot", `私は、決められた数字しか見られません。${RT_PAGE[c].page}の検査で見る数字を、あなたが足してください。いままでの「${retrainSpec(c).firstRule}」に、二つまで足せます。`);
+      say("bot", `私は、決められた数字しか見られません。${RT_PAGE[c].page}の検査で見る数字を、あなたが足してください。いままでの「${retrainSpec(c).firstRule}」に、二つまで足せます。${c === "cartilage" ? "" : "グラフの赤い線は、私の見る数字ではAと同じなのに、形がちがう試作品です。赤い線がAの点線から離れている時刻を足すと、その試作品はすり抜けられなくなります。"}`);
       go("rt");
       break;
     }
@@ -2344,7 +2484,7 @@ app.addEventListener("click", async (e) => {
           : c === "vessel"
             ? h === 1
               ? "1回の脈の平均の圧は、ポンプが送る量が同じなら、出口の流れにくさで決まる。だから、いままで見ていた数字で、出口の流れにくさはおさえられている。残る部品は、ふくらみやすさ。それで変わる時刻を一つ足そう。"
-              : "ふくらみやすさが違うと、高い圧のころと低い圧のころ（脈のはじまり）が変わる。平均とほとんど同じ圧になる時刻では、差が出にくい。"
+              : "赤い線とBの線が、点線（A）から大きく離れている時刻を探そう。脈のはじまり（いちばん低いころ）と、いちばん高いころは離れている。線が交わっている時刻では、差が出ない。"
             : h === 1
               ? "離す直前の膜の電圧は、イオンの通りやすさで決まる。だから、いままで見ていた数字で、通りやすさはおさえられている。残る部品は、電気のためやすさ。それで変わる時刻を一つ足そう。"
               : "ためやすさが違うと、上がる途中と戻る途中が変わる。押し始めの瞬間や、離してずっとあとの時刻は、どの膜でも差がほとんどない。";

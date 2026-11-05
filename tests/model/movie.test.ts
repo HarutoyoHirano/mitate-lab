@@ -44,9 +44,12 @@ describe("テスト39：イメージムービー", () => {
     expect(m4.length).toBeGreaterThan(100);
     expect(m4).not.toMatch(/回路|コンデンサ|電流|電気|抵抗/);
     const main = readFileSync(new URL("../../src/play/main.ts", import.meta.url), "utf-8");
-    const vessel = main.slice(main.indexOf("// ---------- 謎3：脈の見落とし"), main.indexOf("// ---------- 謎4：膜の見落とし"));
+    // 謎3の正体の三段目（電気の部品で書く）だけは例外。2026-11-06 作者の指示。そこには「式の形が同じだけ」を必ず書く
+    const vessel = main.slice(main.indexOf("// ---------- 謎3：脈の見落とし"), main.indexOf("// ---------- 謎3の正体・三段目"));
     expect(vessel.length).toBeGreaterThan(1000);
     expect(vessel).not.toMatch(/回路|コンデンサ|電流源|抵抗R|抵抗 R/);
+    const wiring = main.slice(main.indexOf("// ---------- 謎3の正体・三段目"), main.indexOf("// ---------- 謎4：膜の見落とし"));
+    expect(wiring).toMatch(/式の形が同じだけ/);
     // 回路を外した章が残っていない
     expect(main).not.toMatch(/回路に見立てろ/);
   });

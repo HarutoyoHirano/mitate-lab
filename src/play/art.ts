@@ -920,6 +920,36 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
   </g>`;
 }
 
+/**
+ * 謎3の正体・三段目：人工血管を電気の部品で書いた回路（式の形が同じだけ。電気は流れていない）。
+ * 電圧＝圧の数字、流れ＝電流。コンデンサの板の長さ＝ふくらみやすさ、＋の数＝たまった量（ふくらみやすさ×圧）。計算値で動かす
+ */
+export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn: number, flowMax: number, tag: string, lit: boolean): string {
+  const plate = 40 + 50 * v.c;
+  const q = v.c * p;
+  const n = Math.max(0, Math.min(16, Math.round(q / 12)));
+  const marks = (sign: string, yy: number, col: string) => Array.from({ length: n }, (_, k) => `<text x="${300 - plate / 2 + 8 + ((k * (plate - 16)) / Math.max(1, n - 1))}" y="${yy}" fill="${col}" font-size="15" font-weight="900" text-anchor="middle">${sign}</text>`).join("");
+  const iw = Math.max(0, (8 * flowIn) / flowMax);
+  const ow = Math.max(1.5, (8 * (p / v.r)) / flowMax);
+  return `<g transform="translate(${x},${y})" stroke-linecap="round">
+    <rect width="600" height="216" rx="14" fill="var(--panel)" stroke="${lit ? "var(--vessel-edge)" : "var(--line)"}" stroke-width="${lit ? 2.5 : 1.5}"/>
+    <text x="16" y="28" fill="var(--ink)" font-size="17" font-weight="900">${tag}</text>
+    <text x="584" y="30" fill="var(--gold)" font-size="22" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">電圧 ${p.toFixed(0)}</text>
+    <g stroke="var(--ink)" stroke-width="3" fill="none">
+      <path d="M80 56 H500 M80 186 H500 M80 56 V88 M80 154 V186 M300 56 V${121 - 10} M300 ${121 + 10} V186 M500 56 V86 M500 156 V186"/>
+      <path d="M500 86 l-12 6 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l12 6"/>
+    </g>
+    <circle cx="80" cy="121" r="33" fill="var(--heart)" stroke="var(--heart-edge)" stroke-width="3"/>
+    ${iw > 0.3 ? `<path d="M80 140 V102" stroke="#fff" stroke-width="${(2 + iw).toFixed(1)}"/><path d="M70 110 l10 -10 l10 10" stroke="#fff" stroke-width="3" fill="none"/>` : `<path d="M80 140 V102" stroke="#fff" stroke-width="2" opacity=".5"/>`}
+    <path d="M${300 - plate / 2} 111 H${300 + plate / 2} M${300 - plate / 2} 131 H${300 + plate / 2}" stroke="${lit ? "var(--gold)" : "var(--you)"}" stroke-width="${lit ? 8 : 6}"/>
+    ${marks("＋", 102, "var(--plus)")}${marks("−", 152, "var(--minus)")}
+    <path d="M524 96 V146" stroke="var(--vessel-edge)" stroke-width="${ow.toFixed(1)}"/><path d="M516 138 l8 10 l8 -10" stroke="var(--vessel-edge)" stroke-width="3" fill="none"/>
+    <text x="80" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">電流を送りこむもの</text>
+    <text x="300" y="208" fill="${lit ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ（電気をためる部品）</text>
+    <text x="500" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">抵抗</text>
+  </g>`;
+}
+
 /** 心臓＝電流源、血管のやわらかさ＝コンデンサ、末梢＝抵抗（膜の等価回路と同じ形） */
 export function heartCircuit(x: number, y: number, r: number, c: number, labels: { src: string; cap: string; res: string; bat?: string } = { src: "心臓ポンプ＝電流を送りこむもの", cap: "血管のふくらみやすさ＝コンデンサ C（電気をためる部品）", res: "出口の流れにくさ＝抵抗 R" }): string {
   const plate = Math.max(18, Math.min(80, 28 * c));
@@ -1154,8 +1184,8 @@ export function memTestStrip(x: number, y: number, w: number, a: number, b: numb
     <path d="M${mid} ${y + 46} l-9 -12 h18 z" fill="var(--bot)"/>
     <text x="${mid}" y="${y + 26}" fill="var(--bot)" font-size="18" font-weight="900" text-anchor="middle">🔍 離す直前（押して 100 ms）</text>
     <text x="${mid}" y="${y + 150}" fill="var(--bot)" font-size="17" font-weight="900" text-anchor="middle">ロボは、ここの電圧だけを読む</text>
-    <g transform="translate(${mid - 250},${y + 170})"><rect width="230" height="50" rx="12" fill="var(--paper)"/><text x="115" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">A：${a.toFixed(1).replace("-", "−")} mV</text></g>
-    <g transform="translate(${mid + 20},${y + 170})"><rect width="230" height="50" rx="12" fill="var(--paper)"/><text x="115" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">B：${b.toFixed(1).replace("-", "−")} mV</text></g>
+    <g transform="translate(${mid - 270},${y + 170})"><rect width="250" height="50" rx="12" fill="var(--paper)"/><text x="125" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">見本 A：${a.toFixed(1).replace("-", "−")} mV</text></g>
+    <g transform="translate(${mid + 20},${y + 170})"><rect width="250" height="50" rx="12" fill="var(--paper)"/><text x="125" y="34" fill="var(--paper-ink)" font-size="21" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">試作品 B：${b.toFixed(1).replace("-", "−")} mV</text></g>
   </g>`;
 }
 
