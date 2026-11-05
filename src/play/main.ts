@@ -933,7 +933,7 @@ function titleView(): View {
     text: state.line.text,
     cmds: [
       { act: "start", label: "謎1を始める", sub: "人工軟骨の見落とし", hot: true, disabled: state.busy },
-      { act: "n-enter", label: "つづきの謎だけ見る", sub: "AIが組み立てる謎（謎1〜4の記録は残らない）", ghost: true },
+      { act: "n-enter", label: "つづきの謎だけ見る", ghost: true },
     ],
   };
 }

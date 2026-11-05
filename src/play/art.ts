@@ -119,7 +119,7 @@ function scenePrinter(s: number): string {
     <rect x="22" y="196" width="110" height="10" rx="3" fill="var(--metal-edge)"/>
     <rect x="34" y="166" width="86" height="30" rx="14" fill="var(--pad-a)" stroke="var(--pad-a-edge)" stroke-width="3"/>
     <text x="77" y="232" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">見本 A</text>
-    <text x="77" y="252" fill="var(--soft)" font-size="12" text-anchor="middle">性質が分かっている</text>
+    
     <rect x="168" y="26" width="214" height="236" rx="10" fill="none" stroke="var(--metal-edge)" stroke-width="5"/>
     <rect x="168" y="48" width="214" height="10" fill="var(--metal)"/>
     <line x1="${nx}" y1="58" x2="${nx}" y2="${ny}" stroke="var(--metal-edge)" stroke-width="6"/>
@@ -127,7 +127,7 @@ function scenePrinter(s: number): string {
     <rect x="190" y="236" width="170" height="10" rx="3" fill="var(--metal-edge)"/>
     <rect x="227" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
     ${Array.from({ length: layers }, (_, i) => `<line x1="231" x2="319" y1="${236 - 6 * (i + 1)}" y2="${236 - 6 * (i + 1)}" stroke="var(--pad-b-edge)" stroke-width="1" opacity=".5"/>`).join("")}
-    <text x="275" y="20" fill="var(--soft)" font-size="12" text-anchor="middle">3Dプリンタ</text>
+    <text x="275" y="20" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">3Dプリンタ</text>
     <text x="275" y="${p < 1 ? 280 : 280}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${p < 1 ? "印刷中…" : "試作品 B（新しい印刷条件）"}</text>
   </g>`;
 }
@@ -177,7 +177,7 @@ function sceneLeg(s: number): string {
     <path d="M${kx.toFixed(1)} ${ky.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}" stroke="var(--metal-edge)" stroke-width="14" fill="none" stroke-linecap="round"/>
     <path d="M${ax.toFixed(1)} ${ay.toFixed(1)} l26 4" stroke="var(--metal-edge)" stroke-width="11" stroke-linecap="round"/>
     <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="11" fill="var(--panel)" stroke="var(--you)" stroke-width="4"/>
-    <text x="96" y="${belt + 32}" fill="var(--soft)" font-size="11" text-anchor="middle">試験用の脚の模型</text>
+    
     <path d="M${(kx + 11).toFixed(1)} ${ky.toFixed(1)} L${cx - 84} ${cy}" stroke="var(--you)" stroke-width="1.5" stroke-dasharray="4 5"/>
     <defs><clipPath id="mv-zoom"><circle cx="${cx}" cy="${cy}" r="84"/></clipPath></defs>
     <circle cx="${cx}" cy="${cy}" r="84" fill="var(--panel)" stroke="var(--you)" stroke-width="3"/>
@@ -186,8 +186,8 @@ function sceneLeg(s: number): string {
       <rect x="${cx - 60}" y="${top}" width="120" height="${thick}" rx="8" fill="var(--pad-a)" stroke="var(--pad-a-edge)" stroke-width="3"/>
       <path d="M${cx - 70} ${plate} H${cx + 70} V${cy + 110} H${cx - 70} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="3"/>
     </g>
-    ${stance ? `<path d="M${cx} ${cy - 120} v22 m-8 -9 l8 9 l8 -9" stroke="var(--bot)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="${cx + 14}" y="${cy - 104}" fill="var(--bot)" font-size="12" font-weight="900">体重</text>` : ""}
-    <text x="${cx}" y="${cy + 104}" fill="var(--soft)" font-size="12" text-anchor="middle">膝の中（拡大）</text>
+    ${stance ? `<path d="M${cx} ${cy - 120} v22 m-8 -9 l8 9 l8 -9" stroke="var(--bot)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="${cx + 14}" y="${cy - 104}" fill="var(--bot)" font-size="15" font-weight="800">体重</text>` : ""}
+    
   </g>`;
 }
 
@@ -237,7 +237,7 @@ function sceneDesign(s: number): string {
   const h = 6 + 34 * p;
   const nx = 270 + 60 * Math.sin(s * 5.2) * (p < 1 ? 1 : 0);
   const ny = 236 - h - 14;
-  const knob = (cx: number, a: number, label: string) => `<g transform="translate(${cx},96)"><circle r="24" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/><line x1="0" y1="0" x2="${(18 * Math.sin(a)).toFixed(1)}" y2="${(-18 * Math.cos(a)).toFixed(1)}" stroke="var(--you)" stroke-width="5" stroke-linecap="round"/><text y="44" fill="var(--soft)" font-size="12" text-anchor="middle">${label}</text></g>`;
+  const knob = (cx: number, a: number, label: string) => `<g transform="translate(${cx},96)"><circle r="24" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/><line x1="0" y1="0" x2="${(18 * Math.sin(a)).toFixed(1)}" y2="${(-18 * Math.cos(a)).toFixed(1)}" stroke="var(--you)" stroke-width="5" stroke-linecap="round"/></g>`;
   return frame(`
     ${knob(56, Math.sin(s * 1.7) * 1.4, "つまみ 1")}${knob(126, Math.cos(s * 1.3) * 1.4, "つまみ 2")}
     <text x="91" y="40" fill="var(--you)" font-size="14" font-weight="900" text-anchor="middle">設計はあなた</text>
@@ -248,7 +248,7 @@ function sceneDesign(s: number): string {
     <path d="M${nx - 12} ${ny} h24 l-12 12z" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
     <rect x="196" y="236" width="170" height="10" rx="3" fill="var(--metal-edge)"/>
     <rect x="233" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--you)" opacity=".35" stroke="var(--you)" stroke-width="3"/>
-    <text x="280" y="20" fill="var(--soft)" font-size="12" text-anchor="middle">3Dプリンタ</text>
+    <text x="280" y="20" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">3Dプリンタ</text>
     <text x="280" y="280" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">試験用の軟骨</text>
     
     
@@ -288,7 +288,7 @@ function sceneHeart(s: number): string {
   return frame(`
     ${heartArt(80, 140, k)}
     <text x="80" y="226" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">心臓</text>
-    ${q > 1 ? `<path d="M118 132 h40 m-10 -8 l10 8 l-10 8" stroke="var(--heart-edge)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="138" y="116" fill="var(--heart-edge)" font-size="12" font-weight="900" text-anchor="middle">ドクン</text>` : ""}
+    ${q > 1 ? `<path d="M118 132 h40 m-10 -8 l10 8 l-10 8" stroke="var(--heart-edge)" stroke-width="4" fill="none" stroke-linecap="round"/><text x="138" y="116" fill="var(--heart-edge)" font-size="15" font-weight="800" text-anchor="middle">ドクン</text>` : ""}
     ${vesselTube(160, 340, 140, p, "var(--pad-a-edge)", "var(--pad-a)")}
     <path d="M340 140 h30" stroke="var(--pad-a-edge)" stroke-width="6"/>
     <path d="M356 ${140 - 8 - 6 * out} l10 ${8 + 6 * out} l-10 ${8 + 6 * out}" stroke="var(--pad-a-edge)" stroke-width="${(2 + 3 * out).toFixed(1)}" fill="none" stroke-linecap="round"/>
@@ -302,7 +302,7 @@ function gaugeArt(x: number, y: number, p: number, label: string): string {
   return `<g transform="translate(${x},${y})"><circle r="40" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
     ${[0, 50, 100, 150].map((v) => `<line x1="${(30 * Math.cos(ang(v))).toFixed(1)}" y1="${(30 * Math.sin(ang(v))).toFixed(1)}" x2="${(38 * Math.cos(ang(v))).toFixed(1)}" y2="${(38 * Math.sin(ang(v))).toFixed(1)}" stroke="var(--paper-soft)" stroke-width="2"/>`).join("")}
     <line x1="0" y1="0" x2="${(30 * Math.cos(ang(p))).toFixed(1)}" y2="${(30 * Math.sin(ang(p))).toFixed(1)}" stroke="var(--stamp)" stroke-width="4" stroke-linecap="round"/><circle r="4" fill="var(--paper-ink)"/>
-    <text y="58" fill="var(--soft)" font-size="12" text-anchor="middle">${label}</text></g>`;
+    <text y="58" fill="var(--ink)" font-size="15" font-weight="800" text-anchor="middle">${label}</text></g>`;
 }
 function sceneRig(s: number): string {
   const u = (s / BEAT_SLOW) % BEAT_S;
@@ -311,7 +311,7 @@ function sceneRig(s: number): string {
   return frame(`
     <rect x="20" y="96" width="76" height="80" rx="12" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="3"/>
     ${heartArt(58, 130, 0.36 * (1 - Math.min(0.16, q / 2400)))}
-    <text x="58" y="88" fill="var(--soft)" font-size="12" text-anchor="middle">心臓ポンプ</text>
+    <text x="58" y="88" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">心臓ポンプ</text>
     <path d="M96 136 h24" stroke="var(--metal-edge)" stroke-width="8"/>
     ${vesselTube(120, 290, 136, p, "var(--vessel-edge)", "var(--vessel)")}
     <text x="205" y="196" fill="var(--ink)" font-size="14" font-weight="900" text-anchor="middle">人工血管</text>
@@ -369,10 +369,10 @@ function sceneMembrane(s: number): string {
     <rect x="${gx0}" y="${gy0}" width="${gx1 - gx0}" height="${gy1 - gy0}" fill="none" stroke="var(--line)"/>
     <rect x="${gx0}" y="${gy0}" width="${xs(PULSE_MS) - gx0}" height="${gy1 - gy0}" fill="var(--gold)" opacity=".08"/>
     
-    <text x="${gx0 - 4}" y="${gy1 + 4}" fill="var(--soft)" font-size="10" text-anchor="end">−70</text>
-    <text x="${gx0 - 4}" y="${ys(10) + 4}" fill="var(--soft)" font-size="10" text-anchor="end">−60</text>
+    <text x="${gx0 - 4}" y="${gy1 + 4}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">−70</text>
+    <text x="${gx0 - 4}" y="${ys(10) + 4}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">−60</text>
     <polyline points="${pts.join(" ")}" fill="none" stroke="var(--soft)" stroke-width="2.5"/>
-    <text x="${gx1}" y="${gy1 + 16}" fill="var(--soft)" font-size="10" text-anchor="end">${RECORD_MS} ms</text>`);
+    <text x="${gx1}" y="${gy1 + 16}" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="end">${RECORD_MS} ms</text>`);
 }
 /** 謎4 ③ ロボは電流を止める直前の膜の電圧だけを読む */
 function sceneRobotMem(s: number): string {
@@ -382,7 +382,7 @@ function sceneRobotMem(s: number): string {
   return frame(`
     ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
     <g transform="translate(200,60)"><rect width="170" height="84" rx="12" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
-      <text x="85" y="26" fill="var(--paper-soft)" font-size="12" text-anchor="middle">膜の電圧計</text>
+      <text x="85" y="26" fill="var(--paper-soft)" font-size="15" font-weight="800" text-anchor="middle">膜の電圧計</text>
       <text x="85" y="62" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${mv.toFixed(1).replace("-", "−")} mV</text></g>
     <rect x="200" y="160" width="170" height="16" rx="8" fill="var(--chip)"/>
     <rect x="200" y="160" width="${((170 * t) / PULSE_MS).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
@@ -424,7 +424,7 @@ const MOVIES: Record<MovieId, Movie> = {
   4: {
     scenes: [
       { dur: 6, tag: "① 軟骨から血管へ", cap: ["膝の軟骨には血管がない。栄養は、まわりの液からしみこむようにして届く。", "膝のまわりの骨や筋肉へは、心臓が脈（ドクン）ごとに送る血液を、血管が運ぶ。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
-      { dur: 6, tag: "① 軟骨から血管へ", cap: ["心臓と血管のまねをした試験装置で、人工血管の試作品Bを調べる。", "ポンプが脈ごとに液を送り、人工血管がふくらんで受け止め、その先の細い管へ流す。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
+      { dur: 6, tag: "② 試験装置で調べる", cap: ["心臓と血管のまねをした試験装置で、人工血管の試作品Bを調べる。", "ポンプが脈ごとに液を送り、人工血管がふくらんで受け止め、その先の細い管へ流す。"], short: "血管はふくらんで受け止める", draw: sceneHeart },
       { dur: 5, tag: "③ 検査ロボの検査", cap: ["ロボは、1回の脈の平均の圧を読み、見本と比べる。", "答えは「区別できません」。"], short: "ロボ「区別できません」", draw: sceneRobotMean },
     ],
     end: ["でも、1回の脈の中の圧の動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
