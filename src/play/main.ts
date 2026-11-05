@@ -884,6 +884,31 @@ function vesselRigs() {
   }
   return vRuns;
 }
+/** もし①や③が違ったら：同じ式で計算した仮の血管の圧（①は送る量1.3倍＝圧も1.3倍、③は流れにくさ1.3倍） */
+function whatIfPressure(wi: "p" | "r", u: number): number {
+  return wi === "p" ? 1.3 * pressureAt(BASE_VESSEL, u) : pressureAt({ ...BASE_VESSEL, r: BASE_VESSEL.r * 1.3 }, u);
+}
+function whatIfWaves(): { v: number[]; color: string; dash?: string; width?: number }[] {
+  const wi = state.vWhatIf;
+  const N = 80;
+  const wave = (f: (u: number) => number) => Array.from({ length: N + 1 }, (_, i) => f((BEAT_S * i) / N));
+  return [
+    { v: wave((u) => pressureAt(BASE_VESSEL, u)), color: "var(--soft)", dash: "6 4", width: 2.5 },
+    { v: wave((u) => pressureAt(CASE_VESSEL_B, u)), color: "var(--vessel-edge)", width: wi ? 2.5 : 3.5 },
+    ...(wi ? [{ v: wave((u) => whatIfPressure(wi, u)), color: "var(--gold)", width: 4 }] : []),
+  ];
+}
+function whatIfButtons(names: [string, string, string]): string {
+  return `<div class="choices"><span class="choices-lead">もし、ほかの部品が違ったら？</span>${(
+    [
+      ["p", names[0]],
+      ["r", names[1]],
+      ["", names[2]],
+    ] as const
+  )
+    .map(([v, l]) => `<button class="choice ${state.vWhatIf === (v || null) ? "on" : ""}" data-act="v-whatif" data-val="${v}">${l}</button>`)
+    .join("")}</div>`;
+}
 function vesselRigView(): View {
   const { sa, sb, ra, rb, sc } = vesselRigs();
   const k = Math.round(((state.u % BEAT_S) / BEAT_S) * 120);
@@ -895,13 +920,7 @@ function vesselRigView(): View {
   // もし①や③が違ったら（2026-11-06、作者の提案「①と③が違った場合はどうなるかも解説したらよい」）。同じ式で計算した仮の血管。
   // ① ポンプが1回に送る量が1.3倍 → この模型は送る量に比例するので、圧が全体に1.3倍。③ 細い管の流れにくさが1.3倍
   const wi = state.vWhatIf;
-  const N = 80;
-  const wave = (f: (u: number) => number) => Array.from({ length: N + 1 }, (_, i) => f((BEAT_S * i) / N));
-  const waves: { v: number[]; color: string; dash?: string; width?: number }[] = [
-    { v: wave((u) => pressureAt(BASE_VESSEL, u)), color: "var(--soft)", dash: "6 4", width: 2.5 },
-    { v: wave((u) => pressureAt(CASE_VESSEL_B, u)), color: "var(--vessel-edge)", width: wi ? 2.5 : 3.5 },
-    ...(wi === "p" ? [{ v: wave((u) => 1.3 * pressureAt(BASE_VESSEL, u)), color: "var(--gold)", width: 4 }] : wi === "r" ? [{ v: wave((u) => pressureAt({ ...BASE_VESSEL, r: BASE_VESSEL.r * 1.3 }, u)), color: "var(--gold)", width: 4 }] : []),
-  ];
+  const waves = whatIfWaves();
   const concl: [string, string, string] =
     wi === "p"
       ? ["もし①が1回に送る量が多かったら", "圧が全体に上がる（金の線）", "平均も上がるので、ロボも見分けられる"]
@@ -923,15 +942,7 @@ function vesselRigView(): View {
       <text x="660" y="444" fill="var(--gold)" font-size="20" font-weight="900">${concl[2]}</text>`,
     who: state.line.who,
     text: state.line.text,
-    extra: `<div class="choices"><span class="choices-lead">もし、ほかの部品が違ったら？</span>${(
-      [
-        ["p", "① ポンプが違ったら"],
-        ["r", "③ 細い管が違ったら"],
-        ["", "② 実際のB"],
-      ] as const
-    )
-      .map(([v, l]) => `<button class="choice ${state.vWhatIf === (v || null) ? "on" : ""}" data-act="v-whatif" data-val="${v}">${l}</button>`)
-      .join("")}</div>`,
+    extra: whatIfButtons(["① ポンプが違ったら", "③ 細い管が違ったら", "② 実際のB"]),
     cmds: [
       { act: "v-more", label: "電気の部品でも書ける", sub: "同じ式の見立て", hot: true },
       { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す" },
@@ -985,6 +996,7 @@ function vesselWiringView(): View {
   if (!vFlowMax) for (let i = 0; i <= 200; i++) vFlowMax = Math.max(vFlowMax, pumpFlow((BEAT_S * i) / 200));
   const u = state.u % BEAT_S;
   const fl = pumpFlow(u);
+  const wi = state.vWhatIf;
   // 前のページと同じ①②③で、試験装置の部品と電気の部品を一行ずつ対応させる（2026-11-06、作者の指摘「回路図だけ出てきても意味がわからん。何と何が対応するか分かりやすく」）
   const row = (yy: number, n: string, dev: "pump" | "bag" | "tube", devName: string, el: "src" | "cap" | "res", elName: string, hot = false) =>
     `${numBadge(676, yy - 7, n, hot)}${partIcon(dev, 724, yy - 7)}<text x="750" y="${yy}" fill="${hot ? "var(--gold)" : "var(--ink)"}" font-size="19" font-weight="900">${devName}</text>
@@ -992,19 +1004,26 @@ function vesselWiringView(): View {
   return {
     chap: "謎2 正体",
     goal: "同じ ①②③ を電気の部品で書くと、同じ形の式になる",
-    svg: `${vesselCircuit(16, 10, BASE_VESSEL, pressureAt(BASE_VESSEL, u), fl, vFlowMax, "見本の血管 A を電気の部品で書くと", false)}${vesselCircuit(16, 244, CASE_VESSEL_B, pressureAt(CASE_VESSEL_B, u), fl, vFlowMax, "試作品の血管 B", true)}
-      ${beatChart(660, 30, 580, 110, BASE_VESSEL, CASE_VESSEL_B, state.u, [])}
-      ${row(196, "①", "pump", "ポンプ（心臓）", "src", "電流を送りこむもの（電流源）")}
-      ${row(240, "②", "bag", "ふくらむ袋（血管）", "cap", "コンデンサ", true)}
-      ${row(284, "③", "tube", "細い管（出口）", "res", "抵抗")}
+    svg: `${vesselCircuit(16, 10, BASE_VESSEL, pressureAt(BASE_VESSEL, u), fl, vFlowMax, "見本の血管 A を電気の部品で書くと", null)}${
+      wi === "p"
+        ? vesselCircuit(16, 244, BASE_VESSEL, whatIfPressure("p", u), 1.3 * fl, vFlowMax, "もし①が違ったら（電流が1.3倍）", "src")
+        : wi === "r"
+          ? vesselCircuit(16, 244, { ...BASE_VESSEL, r: BASE_VESSEL.r * 1.3 }, whatIfPressure("r", u), fl, vFlowMax, "もし③が違ったら（抵抗が1.3倍）", "res")
+          : vesselCircuit(16, 244, CASE_VESSEL_B, pressureAt(CASE_VESSEL_B, u), fl, vFlowMax, "試作品の血管 B", "cap")
+    }
+      ${waveChart(660, 30, 580, 110, whatIfWaves(), u / BEAT_S, 40, 150, [60, 100, 140], wi ? `点線＝A　線＝B　金＝もし${wi === "p" ? "①" : "③"}が違ったら` : "1回の脈の圧（mmHg）＝電圧　点線＝A、線＝B")}
+      ${row(196, "①", "pump", "ポンプ（心臓）", "src", "電流を送りこむもの（電流源）", wi === "p")}
+      ${row(240, "②", "bag", "ふくらむ袋（血管）", "cap", "コンデンサ", !wi)}
+      ${row(284, "③", "tube", "細い管（出口）", "res", "抵抗", wi === "r")}
       <g transform="translate(656,306)"><rect width="590" height="112" rx="12" fill="var(--paper)"/>
         <text x="14" y="30" fill="var(--paper-ink)" font-size="18" font-weight="900">血管：② × 圧の上がる速さ ＝ ①の流れ − 圧 ÷ ③</text>
         <text x="14" y="62" fill="var(--paper-ink)" font-size="18" font-weight="900">回路：② × 電圧の上がる速さ ＝ ①の電流 − 電圧 ÷ ③</text>
         <text x="14" y="94" fill="var(--paper-soft)" font-size="16" font-weight="900">どちらも「たまる分 ＝ 入る分 − 出ていく分」。圧↔電圧、流れ↔電流</text></g>
-      <text x="660" y="442" fill="var(--gold)" font-size="18" font-weight="900">Bは②が小さい → 同じ①でも、電圧（圧）が大きく上下</text>
+      <text x="660" y="442" fill="var(--gold)" font-size="18" font-weight="900">${wi === "p" ? "①の電流が多いと → 電圧が全体に上がる（平均も上がる）" : wi === "r" ? "③の抵抗が大きいと → 電圧が全体に上がる（平均も上がる）" : "Bは②が小さい → 同じ①でも、電圧（圧）が大きく上下"}</text>
       <text x="660" y="466" fill="var(--soft)" font-size="16" font-weight="900">式の形が同じだけ（人工血管に電気は流れていない）</text>`,
     who: state.line.who,
     text: state.line.text,
+    extra: whatIfButtons(["① 電流源が違ったら", "③ 抵抗が違ったら", "② 実際のB"]),
     cmds: [
       { act: "rt-enter", val: "vessel", label: "TEJUN を鍛えなおす", sub: "人工血管の検査で見る数字を、あなたが足す", hot: true },
       { act: "v-back", label: "前の説明へ", ghost: true },
@@ -2573,7 +2592,8 @@ app.addEventListener("click", async (e) => {
       break;
     case "v-whatif":
       state.vWhatIf = val === "p" || val === "r" ? val : null;
-      say("guide", state.vWhatIf === "p" ? "もし①ポンプが1回に送る量が1.3倍だったら（金の線）。圧が全体に上がり、平均も上がる。これならロボの検査（平均）でも見分けられる。" : state.vWhatIf === "r" ? "もし③細い管の流れにくさが1.3倍だったら（金の線）。血液が出ていきにくく、圧が全体に上がる。平均も上がるので、ロボも見分けられる。" : "実際のBは②だけが違った。平均は変わらず、高い圧と低い圧の差だけが変わる。だから、平均だけを見るロボは見落とした。");
+      if (state.vExplain === 2) say("guide", state.vWhatIf === "p" ? "もし①の電流源が1.3倍の電流を送りこんだら（金の線）。コンデンサにたまる電気が増え、電圧が全体に上がる。平均も上がるので、ロボも見分けられる。" : state.vWhatIf === "r" ? "もし③の抵抗が1.3倍だったら（金の線）。電気が出ていきにくく、電圧が全体に上がる。平均も上がるので、ロボも見分けられる。" : "実際のBは②のコンデンサだけが小さい。平均の電圧は変わらず、上下の幅だけが大きくなる。だから、平均だけを見るロボは見落とした。");
+      else say("guide", state.vWhatIf === "p" ? "もし①ポンプが1回に送る量が1.3倍だったら（金の線）。圧が全体に上がり、平均も上がる。これならロボの検査（平均）でも見分けられる。" : state.vWhatIf === "r" ? "もし③細い管の流れにくさが1.3倍だったら（金の線）。血液が出ていきにくく、圧が全体に上がる。平均も上がるので、ロボも見分けられる。" : "実際のBは②だけが違った。平均は変わらず、高い圧と低い圧の差だけが変わる。だから、平均だけを見るロボは見落とした。");
       render();
       if (state.vPlaying) vLoop();
       break;

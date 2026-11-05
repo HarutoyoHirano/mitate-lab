@@ -956,7 +956,8 @@ export function partIcon(kind: "pump" | "bag" | "tube" | "src" | "cap" | "res", 
   if (kind === "cap") return g(`<path d="M0 -18 V-5 M0 5 V18" stroke="var(--ink)" stroke-width="3"/><path d="M-15 -5 H15 M-15 5 H15" stroke="var(--you)" stroke-width="5"/>`);
   return g(`<path d="M-20 0 h6 l3 -8 l5 16 l5 -16 l5 16 l5 -16 l3 8 h6" stroke="var(--ink)" stroke-width="3" fill="none"/>`);
 }
-export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn: number, flowMax: number, tag: string, lit: boolean): string {
+export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn: number, flowMax: number, tag: string, hot: "src" | "cap" | "res" | null): string {
+  const lit = hot === "cap";
   const plate = 40 + 50 * v.c;
   const q = v.c * p;
   const n = Math.max(0, Math.min(16, Math.round(q / 12)));
@@ -964,22 +965,22 @@ export function vesselCircuit(x: number, y: number, v: Vessel, p: number, flowIn
   const iw = Math.max(0, (8 * flowIn) / flowMax);
   const ow = Math.max(1.5, (8 * (p / v.r)) / flowMax);
   return `<g transform="translate(${x},${y})" stroke-linecap="round">
-    <rect width="600" height="216" rx="14" fill="var(--panel)" stroke="${lit ? "var(--vessel-edge)" : "var(--line)"}" stroke-width="${lit ? 2.5 : 1.5}"/>
+    <rect width="600" height="216" rx="14" fill="var(--panel)" stroke="${hot ? "var(--vessel-edge)" : "var(--line)"}" stroke-width="${hot ? 2.5 : 1.5}"/>
     <text x="16" y="28" fill="var(--ink)" font-size="17" font-weight="900">${tag}</text>
     <text x="584" y="30" fill="var(--gold)" font-size="22" font-weight="900" text-anchor="end" font-variant-numeric="tabular-nums">電圧 ${p.toFixed(0)}</text>
     <g stroke="var(--ink)" stroke-width="3" fill="none">
       <path d="M80 56 H500 M80 186 H500 M80 56 V88 M80 154 V186 M300 56 V${121 - 10} M300 ${121 + 10} V186 M500 56 V86 M500 156 V186"/>
-      <path d="M500 86 l-12 6 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l12 6"/>
-    </g>
-    <circle cx="80" cy="121" r="33" fill="var(--heart)" stroke="var(--heart-edge)" stroke-width="3"/>
+      </g>
+    <path d="M500 86 l-12 6 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l24 7 l-24 7 l12 6" stroke="${hot === "res" ? "var(--gold)" : "var(--ink)"}" stroke-width="${hot === "res" ? 5 : 3}" fill="none"/>
+    <circle cx="80" cy="121" r="33" fill="var(--heart)" stroke="${hot === "src" ? "var(--gold)" : "var(--heart-edge)"}" stroke-width="${hot === "src" ? 6 : 3}"/>
     ${iw > 0.3 ? `<path d="M80 140 V102" stroke="#fff" stroke-width="${(2 + iw).toFixed(1)}"/><path d="M70 110 l10 -10 l10 10" stroke="#fff" stroke-width="3" fill="none"/>` : `<path d="M80 140 V102" stroke="#fff" stroke-width="2" opacity=".5"/>`}
     <path d="M${300 - plate / 2} 111 H${300 + plate / 2} M${300 - plate / 2} 131 H${300 + plate / 2}" stroke="${lit ? "var(--gold)" : "var(--you)"}" stroke-width="${lit ? 8 : 6}"/>
     ${marks("＋", 102, "var(--plus)")}${marks("−", 152, "var(--minus)")}
     <path d="M524 96 V146" stroke="var(--vessel-edge)" stroke-width="${ow.toFixed(1)}"/><path d="M516 138 l8 10 l8 -10" stroke="var(--vessel-edge)" stroke-width="3" fill="none"/>
-    <text x="80" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">電流を送りこむもの</text>
+    <text x="${hot === "src" ? 16 : 80}" y="208" fill="${hot === "src" ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="${hot === "src" ? "start" : "middle"}">電流を送りこむもの${hot === "src" ? " ×1.3" : ""}</text>
     <text x="300" y="208" fill="${lit ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ${lit ? "（小さい）" : ""}</text>
-    <text x="500" y="208" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">抵抗</text>
-    ${numBadge(128, 84, "①")}${numBadge(300 + plate / 2 + 24, 121, "②", lit)}${numBadge(462, 84, "③")}
+    <text x="500" y="208" fill="${hot === "res" ? "var(--gold)" : "var(--soft)"}" font-size="15" font-weight="900" text-anchor="middle">抵抗${hot === "res" ? " ×1.3" : ""}</text>
+    ${numBadge(128, 84, "①", hot === "src")}${numBadge(300 + plate / 2 + 24, 121, "②", lit)}${numBadge(462, 84, "③", hot === "res")}
   </g>`;
 }
 
