@@ -1157,7 +1157,7 @@ export function balloonWhy(x: number, y: number, a: { max: number; min: number }
     <rect width="470" height="350" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
     ${one(120, "見本の血管 A", 92, a, "var(--pad-a)", "var(--pad-a-edge)", "よくふくらむ → 圧は少し")}
     ${one(350, "血管 B", 62, b, "var(--vessel)", "var(--vessel-edge)", "ふくらみにくい → 圧が大きく")}
-    <text x="235" y="292" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">1回の脈で、同じ量の液が入って出ていく（点線＝脈のあいだ）</text>
+    <text x="235" y="292" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">1回の脈で、同じ量の液が入って出ていく（点線＝脈のあいだ）</text>
     <text x="235" y="322" fill="var(--gold)" font-size="18" font-weight="900" text-anchor="middle">平均は同じでも、圧の上がり下がりの幅が違う</text>
   </g>`;
 }
