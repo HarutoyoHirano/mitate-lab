@@ -1,6 +1,6 @@
 // テスト41（CLAUDE.md 1e-2）：部品箱と、AIが組み立てた模型の確かめ。
 import { describe, expect, it } from "vitest";
-import { metricOf, partDiff, runNet, verifyNetPuzzle, withB, type NetPuzzleSpec } from "../../server/model/partsNet.js";
+import { metricOf, partDiff, runNet, topicProblem, verifyNetPuzzle, withB, type NetPuzzleSpec } from "../../server/model/partsNet.js";
 import { PREPARED_NETS, netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
 import { BASE_VESSEL, CASE_VESSEL_B, steadyBeat, summarize } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, potentialMv } from "../../server/model/membraneGame.js";
@@ -244,5 +244,13 @@ describe("41 部品箱", () => {
       if (rec.previous?.startsWith("file:")) prev = (JSON.parse(readFileSync(join(dir, rec.previous.slice(5)), "utf8")) as { output: NetPuzzleSpec }).output;
       expect(verifyNetPuzzle(rec.output, prev).ok, f).toBe(rec.expectOk);
     }
+  });
+  it("題材の入力（1e-4）：空・長すぎる・病気につながる言葉は、AIを呼ぶ前に止める", () => {
+    expect(topicProblem("胃")).toBeNull();
+    expect(topicProblem("  目の中の水 ")).toBeNull();
+    expect(topicProblem("   ")).not.toBeNull();
+    expect(topicProblem("あ".repeat(21))).not.toBeNull();
+    expect(topicProblem("心臓の病気")).not.toBeNull();
+    expect(topicProblem("薬の効き方")).not.toBeNull();
   });
 });

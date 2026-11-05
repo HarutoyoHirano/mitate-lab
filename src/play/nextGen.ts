@@ -46,25 +46,44 @@ export function recordFor(topic: string, prev: NetPuzzleSpec): Rec | undefined {
 }
 
 let worker: Worker | null = null;
+let workerBroken = false;
 let seq = 0;
-const waiting = new Map<number, (v: NetVerdict) => void>();
+const waiting = new Map<number, { res: (v: NetVerdict) => void; spec: unknown; prev?: NetPuzzleSpec }>();
+/** 裏の処理が使えないとき（公開ページの制限など）は、待っているものをその場で確かめる */
+function fallBack(): void {
+  workerBroken = true;
+  worker?.terminate();
+  worker = null;
+  for (const [id, w] of waiting) {
+    waiting.delete(id);
+    w.res(verifyNetPuzzle(w.spec, w.prev));
+  }
+}
 /** 確かめ（裏の処理で。使えなければその場で） */
 export function verifyAsync(spec: unknown, prev?: NetPuzzleSpec): Promise<NetVerdict> {
+  if (workerBroken) return new Promise((res) => setTimeout(() => res(verifyNetPuzzle(spec, prev)), 30));
   try {
     if (!worker) {
       worker = new VerifyWorker();
       worker.onmessage = (e: MessageEvent<{ id: number; verdict?: NetVerdict; error?: string }>) => {
-        const f = waiting.get(e.data.id);
+        const w = waiting.get(e.data.id);
         waiting.delete(e.data.id);
-        if (f) f(e.data.verdict ?? verifyNetPuzzle(spec, prev));
+        if (w) w.res(e.data.verdict ?? verifyNetPuzzle(w.spec, w.prev));
       };
+      worker.onerror = () => fallBack();
+      worker.onmessageerror = () => fallBack();
     }
     const id = ++seq;
     return new Promise((res) => {
-      waiting.set(id, res);
+      waiting.set(id, { res, spec, prev });
       worker!.postMessage({ id, spec, prev });
+      // 応答が来ないまま長く止まらないように（心臓でも裏の処理なら十数秒以内）
+      setTimeout(() => {
+        if (waiting.has(id)) fallBack();
+      }, 45000);
     });
   } catch {
+    workerBroken = true;
     return Promise.resolve(verifyNetPuzzle(spec, prev));
   }
 }

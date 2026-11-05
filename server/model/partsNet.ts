@@ -150,6 +150,15 @@ export const SEE_REL = 0.08;
 export const HALF_REL = 0.03;
 const BANNED = /病|症|患者|診断|治療|薬|投与|処方|服用|手術|がん|癌|死|血圧が(高|低)|異常|mg|ミリグラム|発火|活動電位|臨床/;
 
+/** つづきの謎の題材の入力（1e-4）を、AIを呼ぶ前に確かめる。問題がなければ null */
+export function topicProblem(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return "題材を入れてください。";
+  if (t.length > 20) return "題材は20字までにしてください。";
+  if (BANNED.test(t)) return "病気・診断・治療・薬などにつながる言葉は、題材に使えません。体のはたらきの名前で入れてください。";
+  return null;
+}
+
 const PARAMS: Record<PartType, readonly string[]> = {
   store: ["C"],
   chamber: ["Emin", "Emax", "V0"],

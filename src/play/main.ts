@@ -18,7 +18,7 @@ import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stam
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
 import { PREPARED_NETS } from "../../server/puzzle/netPrompt.js";
-import { probeSeries, runNet, SEE_REL, type DiffType, type NetPuzzleSpec } from "../../server/model/partsNet.js";
+import { probeSeries, runNet, SEE_REL, topicProblem, type DiffType, type NetPuzzleSpec } from "../../server/model/partsNet.js";
 import { refById } from "../../server/model/refs.js";
 
 type Scene =
@@ -163,6 +163,8 @@ const state = {
     mplaying: false,
     live: false,
     topic: "",
+    /** 題材の入力欄の文字（1e-4。題材の名前だけ。チャット欄ではない） */
+    input: "",
   },
 };
 
@@ -829,6 +831,12 @@ function nxTopicCmds(prev: NetPuzzleSpec): Cmd[] {
     return { act: "n-topic", val: t, label: t, sub: state.nx.live ? "AIがいま組み立てる" : rec ? "AIが11/5に組み立てた記録" : "この場ではつくれない（AIを使える場所で）", hot: can, disabled: !can };
   });
 }
+/** 題材の入力欄（題材の名前だけ。20字まで） */
+function nxTopicBox(style: string): string {
+  return `<form class="topicbox" style="${style}" data-form="nx"><label for="nx-topic">題材を入れる（20字まで）</label>
+    <div><input id="nx-topic" type="text" maxlength="20" autocomplete="off" placeholder="例：胃、目の中の水、筋肉" value="${esc(state.nx.input)}" ${state.busy ? "disabled" : ""}>
+    <button type="submit" class="cmd" data-act="n-free" ${state.busy ? "disabled" : ""}>この題材で組み立てる</button></div></form>`;
+}
 function nPick(): View {
   const prev = state.nx.prev;
   const topics = prev.nextTopics.slice(0, 3);
@@ -843,8 +851,9 @@ function nPick(): View {
           <g transform="translate(0,-20) scale(0.62)">${organ(guess(t), 0.5, 0)}</g>
           <text x="0" y="104" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text></g>`;
       }).join("")}
-      <text x="640" y="380" fill="var(--soft)" font-size="15" text-anchor="middle">候補は、前の謎でAIが出した題材。AIは部品箱から模型の形ごと組み立て、計算プログラムが本当に動き、本当に解けるかを確かめる。</text>
-      <text x="640" y="404" fill="var(--soft)" font-size="13" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録があるものだけ選べる（確かめは、いま計算する）。"}</text>`,
+      <text x="640" y="368" fill="var(--soft)" font-size="15" text-anchor="middle">候補は、前の謎でAIが出した題材。下の欄に、調べたい題材を自分で入れてもよい。</text>
+      <text x="640" y="390" fill="var(--soft)" font-size="13" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、本当に動き、本当に解けるかを確かめる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録がある題材だけつくれる（確かめは、いま計算する）。"}</text>`,
+    html: nxTopicBox("left:22%;top:83%;width:56%"),
     who: state.line.who,
     text: state.line.text,
     cmds: [...nxTopicCmds(prev), { act: "to-end-back", label: "まとめに戻る", ghost: true }],
@@ -932,6 +941,7 @@ function nReveal(): View {
     chap: nxChap(),
     goal: "正体：赤く光った部品が見本と違った",
     svg: nxStage(lit),
+    html: nxTopicBox("left:63.5%;top:74%;width:35%"),
     who: state.line.who,
     text: state.line.text,
     cmds: [...nxTopicCmds(m.spec), { act: "panel", val: "refs", label: "出典と部品の役わり", sub: "文献で知られている模型による", ghost: true }],
@@ -1312,6 +1322,10 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
 
 app.addEventListener("input", (e) => {
   const t = e.target as HTMLInputElement;
+  if (t.id === "nx-topic") {
+    state.nx.input = t.value;
+    return;
+  }
   if (t.id === "t-pass") {
     const w = app.querySelector<HTMLElement>("#t-cause-wrap");
     if (w) w.hidden = t.value.length === 0;
@@ -1379,6 +1393,8 @@ app.addEventListener("input", (e) => {
   }
 });
 
+// 題材の入力欄：Enter で送ると、ブラウザが「この題材で組み立てる」ボタンを押したことにする（click で処理）。ページは移動させない
+app.addEventListener("submit", (e) => e.preventDefault());
 app.addEventListener("click", async (e) => {
   const target = e.target as Element;
   if ((target as HTMLElement).id === "panel-back") {
@@ -1910,6 +1926,27 @@ app.addEventListener("click", async (e) => {
     case "n-back":
       go("n-pick");
       break;
+    case "n-free": {
+      const t = state.nx.input.trim();
+      const problem = topicProblem(t);
+      if (problem) {
+        say("guide", problem);
+        render();
+        break;
+      }
+      const prev = state.scene === "n-reveal" && state.nx.made ? state.nx.made.spec : state.nx.prev;
+      if (!state.nx.live && !recordFor(t, prev)) {
+        say("guide", `この場ではAIを呼べないので、記録にない題材「${t}」はつくれない。候補のボタンから選ぼう。公開ページで開くと、あなたの Claude で、入れた題材をその場で組み立てられる。`);
+        render();
+        break;
+      }
+      if (state.scene === "n-reveal" && state.nx.made) {
+        state.nx.prev = state.nx.made.spec;
+        state.conf = 100;
+      }
+      await nxMake(t);
+      break;
+    }
     case "n-topic":
       if (state.scene === "n-reveal" && state.nx.made) {
         state.nx.prev = state.nx.made.spec;
