@@ -574,7 +574,7 @@ function c2Map(): View {
       <rect y="40" width="22" height="22" fill="var(--bot)"/><text x="32" y="58" fill="var(--ink)" font-size="18" font-weight="800">ラウンド2で通る ${n2} 通り</text>
       <text y="110" fill="var(--gold)" font-size="20" font-weight="900">両方で通る：${n3} 通り</text>
       <text y="146" fill="var(--soft)" font-size="15">答えは一つではない。でも、</text><text y="170" fill="var(--soft)" font-size="15">測り方が変わると、通る場所も変わる。</text>
-      <text y="206" fill="var(--soft)" font-size="13">（つまみを0.05ずつ変えたすべての組み合わせを、</text><text y="226" fill="var(--soft)" font-size="13">ロボと同じ判定で計算して塗った）</text></g>`,
+      </g>`,
     who: "bot",
     text: state.line.text,
     cmds: [{ act: "rt-enter", val: "cartilage", label: "TEJUN を鍛えなおす", sub: "人工軟骨の検査で見る数字を、あなたが足す", hot: true }],
@@ -634,7 +634,7 @@ function syncRig(mine: { r: number; c: number }): string {
   const run = runNet(spec, 120);
   const k = Math.round(((state.u % BEAT_S) / BEAT_S) * 120);
   return `<text x="40" y="34" fill="var(--soft)" font-size="15" font-weight="900">あなたの試験装置</text>${machine(spec, run, k, machineScale(spec, [run]), { x: 20, y: 40, w: 460, h: 260, scale: 1.25 })}
-    <text x="40" y="330" fill="var(--soft)" font-size="13">ポンプ（心臓のかわり）→ ふくらむ人工血管 → 出口の細い管</text>`;
+    <text x="40" y="330" fill="var(--soft)" font-size="15" font-weight="800">ポンプ（心臓のかわり）→ ふくらむ人工血管 → 出口の細い管</text>`;
 }
 function c3Sync(): View {
   const mine = { r: state.syncR, c: state.syncC };
@@ -879,7 +879,7 @@ function endCard(x: number, title: string, sub: string, pic: string, rows: [stri
     <text x="16" y="28" fill="var(--ink)" font-size="18" font-weight="900">${title}</text><text x="388" y="28" fill="var(--soft)" font-size="12" text-anchor="end">${sub}</text>
     ${pic}
     ${rows.map(([a, b], k) => `<text x="16" y="${178 + k * 23}" fill="var(--ink)" font-size="14" font-weight="800">${a}</text><text x="388" y="${178 + k * 23}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="end">${b}</text>`).join("")}
-    <text x="16" y="262" fill="${electric ? "var(--you)" : "var(--soft)"}" font-size="12" font-weight="800">${electric ? "本当に電気がたまり、イオンが流れる" : "式の形が同じだけ（電気は流れていない）"}</text></g>`;
+    <text x="16" y="262" fill="${electric ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="900">${electric ? "本当に電気がたまり、イオンが流れる" : "式の形が同じだけ（電気は流れていない）"}</text></g>`;
 }
 /** まとめの一行：ロボが見る数字（1c-3）。足した数字の数は記録から */
 function endNotebook(): string {
@@ -1036,7 +1036,7 @@ function nxStage(lit: Set<string>): string {
     ${machine(m.spec, v.runB!, k, state.nx.sc!, { x: 6, y: 238, w: 790, h: 232, tag: "試作品B", tagColor: "var(--you)", lit, scale: 1.3 })}
     ${lineChart(810, 14, 460, 300, v.runA!.t, nxSeries("a"), nxSeries("b"), k, w.label, unitOf(m.spec, w.probe), m.spec.clock.timeUnit, m.spec.clock.on)}
     <text x="1040" y="338" fill="var(--soft)" font-size="13" text-anchor="middle">${m.spec.clock.kind === "beats" ? "落ち着いた1回分" : "一度送って止めたあと"}・${fmtv(v.runA!.t[k]!)} ${esc(m.spec.clock.timeUnit)}</text>
-    <text x="1270" y="470" fill="var(--soft)" font-size="11" text-anchor="end">${esc(nxSourceLabel())}。値は模型の値で、体の値や病気の判定を表さない</text>`;
+    <text x="1270" y="470" fill="var(--soft)" font-size="14" font-weight="800" text-anchor="end">${esc(nxSourceLabel())}</text>`;
 }
 function nWatch(): View {
   const m = state.nx.made!;
