@@ -288,7 +288,7 @@ function c1Say(): View {
       ${bubble(360, 70, lab, l1, l2, 570)}${robotArt(state.mood, 960, 40, 0.95)}
       <g transform="translate(40,300)"><rect width="820" height="74" rx="12" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
         <text x="18" y="30" fill="var(--ink)" font-size="17" font-weight="900">A＝見本：いままでの人工軟骨。性質が分かっていて、比べる基準になる</text>
-        <text x="18" y="58" fill="var(--ink)" font-size="17" font-weight="900">B＝試作品：新しい印刷条件でつくった人工軟骨。見本と同じか、調べたい</text></g>`,
+        <text x="18" y="58" fill="var(--ink)" font-size="17" font-weight="900">B＝試作品：新しくつくった人工軟骨。見本と同じか、調べたい</text></g>`,
     who: "bot",
     text: state.line.text,
     cmds: !asked
@@ -336,7 +336,7 @@ function c1Run(): View {
     chap: "謎1 見破れ",
     goal: run ? "AとBの差が大きかった一歩（赤い丸）を選んで、証拠に保存しよう" : "テンポを決めて、見本Aと試作品Bを12歩ずつ走らせよう",
     svg: `${beatLane(60, 16, notes, state.playing)}
-      ${legsStage({ dentA: state.dents.a, dentB: state.dents.b, contact: state.dents.contact, impact: state.dents.impact, labelA: "見本 A（いままでの軟骨）", labelB: "試作品 B（新しい印刷条件）", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, y0: 30, scale: 0.92 })}`,
+      ${legsStage({ dentA: state.dents.a, dentB: state.dents.b, contact: state.dents.contact, impact: state.dents.impact, labelA: "見本 A", labelB: "試作品 B", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, y0: 30, scale: 0.92 })}`,
     html: `<div class="tempo">
       ${TEMPOS.map((t) => {
         const runs = v.runs.filter((r) => Math.abs(r.period - t.period) < 1e-9);

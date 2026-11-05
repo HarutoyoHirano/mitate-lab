@@ -128,7 +128,7 @@ function scenePrinter(s: number): string {
     <rect x="227" y="${236 - h}" width="96" height="${h}" rx="${Math.min(14, h / 2)}" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
     ${Array.from({ length: layers }, (_, i) => `<line x1="231" x2="319" y1="${236 - 6 * (i + 1)}" y2="${236 - 6 * (i + 1)}" stroke="var(--pad-b-edge)" stroke-width="1" opacity=".5"/>`).join("")}
     <text x="275" y="20" fill="var(--soft)" font-size="15" font-weight="800" text-anchor="middle">3Dプリンタ</text>
-    <text x="275" y="${p < 1 ? 280 : 280}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${p < 1 ? "印刷中…" : "試作品 B（新しい印刷条件）"}</text>
+    <text x="275" y="${p < 1 ? 280 : 280}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle">${p < 1 ? "印刷中…" : "試作品 B"}</text>
   </g>`;
 }
 
