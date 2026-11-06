@@ -259,7 +259,7 @@ function sceneRobot(s: number): string {
       <line x1="0" y1="0" x2="${(18 * Math.sin(ang * (Math.PI / 180))).toFixed(1)}" y2="${(-18 * Math.cos(ang * (Math.PI / 180))).toFixed(1)}" stroke="var(--paper-ink)" stroke-width="3" stroke-linecap="round"/>
       <text x="0" y="46" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${sec} 秒</text></g>
     <text x="281" y="284" fill="var(--gold)" font-size="16" font-weight="900" text-anchor="middle">${s < 0.6 ? "① 押しこむ" : !done ? "② 20秒待つ" : "③ 力を読む"}</text>
-    ${done ? `<g transform="translate(170,172) rotate(-8)"><rect width="200" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="100" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}
+    ${done ? `<g transform="translate(170,172) rotate(-8)"><rect width="200" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="100" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">判定：同じ</text></g>` : ""}
   </g>`;
 }
 
@@ -384,7 +384,7 @@ function sceneRobotMean(s: number): string {
     <rect x="190" y="180" width="160" height="22" rx="11" fill="var(--chip)"/>
     <rect x="190" y="180" width="${(160 * fill).toFixed(1)}" height="22" rx="11" fill="var(--gold)"/>
     
-    ${done ? stampMark(176, 200, "区別できません") : ""}
+    ${done ? stampMark(176, 200, "判定：同じ") : ""}
     `);
 }
 
@@ -452,7 +452,7 @@ function sceneRobotMem(s: number): string {
     <text x="200" y="152" fill="var(--ink)" font-size="16" font-weight="900">押している → 離す直前</text>
     <rect x="200" y="162" width="170" height="16" rx="8" fill="var(--chip)"/>
     <rect x="200" y="162" width="${(170 * f).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
-    ${done ? stampMark(176, 210, "区別できません") : ""}
+    ${done ? stampMark(176, 210, "判定：同じ") : ""}
     `);
 }
 
@@ -473,7 +473,7 @@ const MOVIES: Record<MovieId, Movie> = {
     scenes: [
       { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで人工軟骨の試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は一歩ごとに押されてへこむ", draw: sceneLeg },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「20秒後の力は区別できません」", draw: sceneRobot },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは押して20秒後の力だけ比べて「同じ」と判定", draw: sceneRobot },
     ],
     end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
   },
@@ -489,7 +489,7 @@ const MOVIES: Record<MovieId, Movie> = {
     scenes: [
       { dur: 6, tag: "① 膝のまわりの血管", short: "膝のまわりには心臓が送る血液を血管が運ぶ", draw: sceneHeart },
       { dur: 6, tag: "② 試験装置", short: "人工血管の試作品Bを心臓のまねをする装置につなぐ", draw: sceneRig },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「1回の脈の平均の圧は区別できません」", draw: sceneRobotMean },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは1回の脈の平均の圧だけ比べて「同じ」と判定", draw: sceneRobotMean },
     ],
     end: ["でも、1回の脈の中で圧が上がり下がりする動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },
@@ -497,7 +497,7 @@ const MOVIES: Record<MovieId, Movie> = {
     scenes: [
       { dur: 6, tag: "① 膝から脳へ", short: "膝が押されると神経が脳に知らせる", draw: sceneNerve },
       { dur: 8, tag: "② 神経の端の膜", short: "押すと＋が入って膜の電圧が上がる", draw: sceneMembrane },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボ「離す直前の電圧は区別できません」", draw: sceneRobotMem },
+      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは離す直前の電圧だけ比べて「同じ」と判定", draw: sceneRobotMem },
     ],
     end: ["でも、押している途中や離したあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
   },

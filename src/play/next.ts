@@ -410,7 +410,7 @@ function nextScene(i: number, spec: NetPuzzleSpec, runA: NetRun, s: number, sc: 
   return movieFrame(`${robotArt(s > 2.6 ? "smug" : "scan", 60, 60, 0.46)}
     <g transform="translate(140,30) scale(0.7)">${bubble(0, 0, "検査ロボ TEJUN", wrapLines(spec.robot.says, 12, 2)[0] ?? "", wrapLines(spec.robot.says, 12, 2)[1] ?? "", 330)}</g>
     <text x="270" y="190" fill="var(--bot)" font-size="30" font-weight="900" text-anchor="middle">${fmtv(robotA)}<tspan font-size="14"> ${esc(unit)}</tspan></text>
-    ${s > 2.6 ? `<g transform="translate(176,212) rotate(-6)"><rect width="190" height="44" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="95" y="30" fill="var(--stamp)" font-size="19" font-weight="900" text-anchor="middle">区別できません</text></g>` : ""}`);
+    ${s > 2.6 ? `<g transform="translate(176,212) rotate(-6)"><rect width="190" height="44" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="95" y="30" fill="var(--stamp)" font-size="19" font-weight="900" text-anchor="middle">判定：同じ</text></g>` : ""}`);
 }
 
 export function nextMovie(spec: NetPuzzleSpec, runA: NetRun, robotA: number, t: number, sc: MachineScale): string {
