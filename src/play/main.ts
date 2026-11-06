@@ -892,7 +892,11 @@ function c3Say(): View {
     svg: `<g transform="translate(-40,120) scale(0.72)">${c3Stage()}</g>${quietNow() ? "" : bubble(480, 20, lab, l1, l2, 540, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
-    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : state.line.who === "bot" && state.line.rest.length > 0 ? [quietCmd] : [
+          { act: "v-pred", val: "same", label: "同じ", sub: "ロボの言うとおり" },
+          { act: "v-pred", val: "differ", label: "同じじゃない", sub: "脈の途中で違いが出そう" },
+          { act: "v-pred", val: "unknown", label: "分からない", sub: "脈を見てから考える" },
+        ],
   };
 }
 function c3Watch(): View {
@@ -1162,7 +1166,11 @@ function c4Say(): View {
     svg: `${nerveWhole(16, 16, false)}${memTestStrip(330, 240, 700, a, b)}${quietNow() ? "" : bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
-    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : state.line.who === "bot" && state.line.rest.length > 0 ? [quietCmd] : [
+          { act: "m-pred", val: "same", label: "同じ", sub: "ロボの言うとおり" },
+          { act: "m-pred", val: "differ", label: "同じじゃない", sub: "押している途中で違いが出そう" },
+          { act: "m-pred", val: "unknown", label: "分からない", sub: "押して離してから考える" },
+        ],
   };
 }
 function c4Watch(): View {
@@ -2629,13 +2637,13 @@ app.addEventListener("click", async (e) => {
       break;
     case "c3-next":
       state.say++;
-      say("bot", state.say === 1 ? "人工血管の検査では、1回の脈の平均の圧を測ります。平均が同じなら、同じ人工血管とみなします。" : "……1回の脈の平均を測れば十分です。脈の途中まで見る必要はありません。");
+      say("bot", state.say === 1 ? "人工血管の検査では、1回の脈の平均の圧を測ります。平均が同じなら、同じ人工血管とみなします。" : "……1回の脈の平均を測っただけです。平均が同じなら、1回の脈の中の圧の動きも、AとBは同じはずです。");
       render();
       break;
-    case "to-watch3":
+    case "v-pred":
       state.vPlaying = false;
       cancelAnimationFrame(vTimer);
-      say("you", "1回の脈の途中で止めて、AとBの圧を比べよう。");
+      say("you", val === "same" ? "予想：同じ。脈の途中で止めて確かめよう。" : val === "differ" ? "予想：同じじゃない。脈の途中で止めて違いを見つけよう。" : "分からない。脈の途中で止めて、AとBの圧を比べよう。");
       go("c3-watch");
       break;
     case "v-play":
@@ -2691,10 +2699,11 @@ app.addEventListener("click", async (e) => {
       break;
     case "c4-next":
       state.say++;
-      say("bot", state.say === 1 ? "離す直前の膜の電圧が同じなら、同じ膜です。" : "……離す直前を測れば十分です。離した後のことは、見ていません。");
+      say("bot", state.say === 1 ? "離す直前の膜の電圧が同じなら、同じ膜です。" : "……離す直前を測っただけです。離す直前が同じなら、押している途中も離したあとも、AとBは同じはずです。");
       render();
       break;
-    case "to-watch4":
+    case "m-pred":
+      say("you", val === "same" ? "予想：同じ。押して離して確かめよう。" : val === "differ" ? "予想：同じじゃない。押して離して違いを見つけよう。" : "分からない。押して離してから考える。");
       say("guide", "膝が押されると、神経の端の入口が開いて、＋の電気をもつイオンが流れ込む。離すと入口が閉じる。膜のまわりの電気と、膜の電圧のグラフを見比べよう。");
       go("c4-watch");
       break;
