@@ -337,16 +337,16 @@ function c1Say(): View {
       ${usualTest({ t: state.sayT, valueA: r.base, valueB: r.force, diff: r.diff, tol: r.tolerance })}`,
     who: "bot",
     text: state.line.text,
-    cmds: selfIntro
+    cmds: selfIntro || (asked && state.line.who === "bot" && state.line.rest.length > 0)
       ? [quietCmd]
       : !asked
       ? [
           { act: "c1-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
         ]
       : [
-          { act: "bet", val: "midSame", label: "走っても同じ", sub: "ロボが区別できないなら" },
-          { act: "bet", val: "midDiffer", label: "どこかで違う", sub: "体重のかけ方しだいで差が出そう" },
-          { act: "bet", val: "unknown", label: "まだ分からない", sub: "走らせてから考える" },
+          { act: "bet", val: "midSame", label: "同じ", sub: "ロボの言うとおり" },
+          { act: "bet", val: "midDiffer", label: "同じじゃない", sub: "走ると違いが出そう" },
+          { act: "bet", val: "unknown", label: "分からない", sub: "走らせてから考える" },
         ],
   };
 }
@@ -2354,13 +2354,13 @@ app.addEventListener("click", async (e) => {
       if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の検査の手順です。");
       else {
         state.mood = "calm";
-        say("bot", "……一回押して、20秒待っただけです。それで十分でしょう？ 膝の軟骨には、一歩ごとに体重がかかるそうですが。");
+        say("bot", "……一回押して、20秒待っただけです。膝の軟骨には一歩ごとに体重がかかるそうですが、走らせても、AとBは同じはずです。");
       }
       render();
       break;
     case "bet":
       state.bet = val as PredictionChoice;
-      say("you", val === "midSame" ? "予想：走っても同じ。確かめよう。" : val === "midDiffer" ? "予想：どこかで違う。走らせて見つけよう。" : "まだ分からない。走らせてから考える。");
+      say("you", val === "midSame" ? "予想：同じ。走らせて確かめよう。" : val === "midDiffer" ? "予想：同じじゃない。走らせて違いを見つけよう。" : "分からない。走らせてから考える。");
       go("c1-run");
       break;
     case "go-run":
