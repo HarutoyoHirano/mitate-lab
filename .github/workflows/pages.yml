@@ -1,9 +1,9 @@
 # 試用版（サーバーなし）を GitHub Pages に出す。計算・判定・画面は本番と同じコード（CLAUDE.md 第8章）。
 # 試用版では隠れた試作品Bもブラウザの中にあり、Claude はページから呼ばない（つづきの謎は確かめに通った記録で動く）。
 name: pages
+# 本体のリポジトリが非公開のあいだは手動でだけ動かす（11/7 に公開したら push でも動かす）。
+# いまの遊ぶ入口は、公開リポジトリ mitate-lab-play（試用版の HTML 一枚だけ）。
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

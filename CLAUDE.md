@@ -511,7 +511,7 @@ API応答とClaudeへの入力は、公開型と証拠型だけから組み立�
 - 画面：Vite＋TypeScript、SVG/Canvas。入口 `index.html`（新しい画面、`src/play/`）、`game.html`（1b のゲーム版、`src/game/`）、`lab.html`（詳しい実験室、`src/main.ts`）
 - サーバー：Node＋TypeScript（観測生成器・仮説比較器・計画支援・Claude連携・セッション管理）
 - **試用版（サーバーなし）**（2026-11-04 夜。作者の依頼「実際に動いているのを試したい」による）：`npm run build:trial` で、同じ `server/app.ts` の処理をブラウザの中で動かす一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくる。`/api/` への要求をブラウザ内で受ける置きかえ（`src/trial/`）だけを足し、計算・判定・画面は本番と同じコード。APIキーは使わない（Claudeは休止中、決まった文の手がかり）。先生用の合言葉は試用版だけ `mitate`。**試用版では隠れた試作品Bもブラウザの中にある**ため、授業・提出の構成には使わない（第6章の分離は本番のサーバー構成で守る）。`dist-trial/` はリポジトリに入れない
-  - **GitHub Pages で公開する**（2026-11-06、作者の決定。審査員がログインなしで遊べる入口）：`.github/workflows/pages.yml` が main への push ごとに試用版をつくり、`scripts/pages-page.mjs` でふつうの文書に包んで出す。隠れた試作品Bがブラウザの中にあることは README に書く（遊ぶ人がコードを読めばBが分かるだけで、ほかの情報は持たない）。ページから Claude は呼ばないので、つづきの謎は確かめに通った記録で動く。Claude がその場で組み立てる場面は claude.ai の公開ページ（sample）で見せる
+  - **GitHub Pages で公開する**（2026-11-06、作者の決定。審査員がログインなしで遊べる入口）：`.github/workflows/pages.yml` が main への push ごとに試用版をつくり、`scripts/pages-page.mjs` でふつうの文書に包んで出す。隠れた試作品Bがブラウザの中にあることは README に書く（遊ぶ人がコードを読めばBが分かるだけで、ほかの情報は持たない）。ページから Claude は呼ばないので、つづきの謎は確かめに通った記録で動く。Claude がその場で組み立てる場面は claude.ai の公開ページ（sample）で見せる。本体のリポジトリが非公開のあいだ（無料のアカウントでは非公開のリポジトリに Pages を出せない）は、試用版の HTML 一枚（`_site/index.html` と `.nojekyll`）だけを入れた公開リポジトリ `mitate-lab-play` から出し、ワークフローは手動でだけ動かす（作者の決定）
 - テスト：Vitest
 - Skill「つづきの謎の記録を足す」（`.claude/skills/add-ai-puzzle-record/`、道具は `scripts/net-record.ts`）：指示文を出す→Claude の出力を確かめる→一度だけ作り直す→手を加えずに `tests/fixtures/ai-nets` へ記録（だれがいつ出力したかを書く）→テスト41（2026-11-06）
 - ディレクトリ：`src/`（画面）、`server/model/`（式・生成器・比較器・計画支援・回路）、`server/claude/`、`server/session/`、`scenarios/`（課題データ。隠れた範囲はサーバーだけが読む）、`tests/model/`
