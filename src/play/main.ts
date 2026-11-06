@@ -115,7 +115,7 @@ const state = {
   curveId: "",
   tags: {} as Partial<Record<CandidateId, Tag>>,
   /** 確かめたあと、一枚のカードのグラフを大きく見る */
-  zoom: null as CandidateId | null,
+  zoom: null as CandidateId | "pair" | null,
   boardView: null as PublicSessionView | null,
   nextSpeed: null as number | null,
   translation: null as Translation | null,
@@ -527,6 +527,7 @@ function mismatchOf(id: CandidateId): { t: number; force: number; diff: number; 
 function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checked: boolean, win: CandidateId | null): string {
   const id = state.zoom;
   if (!checked || !id) return "";
+  if (id === "pair") return pairHtml(c, yMax, win);
   const fit = fitFor(id);
   if (!fit) return "";
   const out = c.excluded.includes(id);
@@ -535,6 +536,31 @@ function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checke
     <div class="zhead"><b>${CANDIDATES[id].label}</b><span class="${out ? "zout" : "zok"}">${out ? "計算：合わない" : win === id ? "正体" : ""}</span><button data-act="zoom" data-val="">カードに戻る</button></div>
     <p class="zwhy">${why}</p>
     ${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 1000, h: 320, legend: true, mark: out ? mismatchOf(id) : null, big: true })}
+  </div>`;
+}
+/**
+ * 正体と、合わなかった説明の一つを大きく見比べる（2026-11-07、外部の模擬評価26「4枚の細かな曲線を同時に読ませる。
+ * 代表の二つを大きく比較し、終点は合う／途中が外れるを一箇所だけ強調」による）。
+ * 合わなかった説明は、長く待ったあと以外の場所でいちばんずれたものを選ぶ（終わりは合うのに途中が外れる例）。
+ */
+function pairHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, win: CandidateId | null): string {
+  if (!win) return "";
+  const fitW = fitFor(win);
+  const outs = c.excluded.map((x) => ({ x, m: mismatchOf(x) })).filter((o) => o.m && fitFor(o.x));
+  const mid = outs.filter((o) => o.m!.where !== "長く待ったあと").sort((a, b) => Math.abs(b.m!.diff) - Math.abs(a.m!.diff));
+  const rival = (mid[0] ?? outs[0])?.x;
+  if (!fitW || !rival) return "";
+  const m = mismatchOf(rival)!;
+  const graph = (x: CandidateId, mark: boolean) =>
+    miniGraph({ b: c.b, line: predictedCurve(fitFor(x)!.params, c.pushSeconds), lineColor: COLOR[x], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 560, h: 300, legend: true, mark: mark ? m : null, big: true });
+  const sentence =
+    m.where === "長く待ったあと"
+      ? `「${CANDIDATES[rival].label}」の線は、右のほう（長く待ったあと）で、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`
+      : `長く待ったあと（右のほう）は、どちらの線もBの点に近い。違うのは${m.where}：「${CANDIDATES[rival].label}」の線は、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`;
+  return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった説明を見比べる" style="--c:var(--you)">
+    <div class="zhead"><b>正体と、合わなかった説明を見比べる</b><button data-act="zoom" data-val="">カードに戻る</button></div>
+    <p class="zwhy">${sentence}</p>
+    <div class="pair"><div><h4 style="color:${COLOR[win]}">正体：${CANDIDATES[win].label}</h4>${graph(win, false)}</div><div><h4 style="color:${COLOR[rival]}">計算：合わない：${CANDIDATES[rival].label}</h4>${graph(rival, true)}</div></div>
   </div>`;
 }
 /** 合わない説明の、ずれの場所と大きさを一文で（計算プログラムの文と、大きく見る画面で同じ文を使う） */
@@ -580,7 +606,10 @@ function c1Line(): View {
         { act: "hint", label: state.claude ? "相棒に、見どころを聞く" : "手がかりを見る", ghost: true, disabled: v.hintsLeft <= 0 || state.busy },
       ]
     : narrowed
-      ? [{ act: "reveal", label: "正体を開ける", hot: true, disabled: state.busy }]
+      ? [
+          { act: "reveal", label: "正体を開ける", hot: true, disabled: state.busy },
+          { act: "zoom", val: state.zoom === "pair" ? "" : "pair", label: state.zoom === "pair" ? "カードに戻る" : "正体と、合わなかった説明を見比べる", ghost: true },
+        ]
       : [
           ...([0.2, 1, 5] as const).map((p) => ({ act: "push", val: String(p), label: `${SPEED[p]}押す`, sub: p === state.nextSpeed ? "押し終わった瞬間の高さを予想してから" : "", hot: state.nextSpeed === p })),
         ];
@@ -746,7 +775,7 @@ function c1SolvedWhich(): View {
       <text x="${xs(MODEL_T_END)}" y="${gy + gh - 10}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${t.toFixed(1)} 秒</text>
       ${tx(40, 340, l1, 26, "var(--stamp)")}
       ${tx(40, 376, l2, 21)}
-      ${tx(40, 406, "この模型は、工学では「標準線形固体」と呼ばれる", 16, "var(--paper-soft)")}
+      ${tx(40, 406, "この模型は、工学では「標準線形固体」と呼ばれる（Fung『Biomechanics』1993 第2章）", 16, "var(--paper-soft)")}
     </g>`,
     who: "guide",
     text: state.line.text,
@@ -772,7 +801,7 @@ function c1SolvedModel(): View {
   const story = [
     "押した瞬間：ダンパは急には動けない。右のばねも縮んで押し返す → かたい",
     "待つあいだ：ダンパがゆっくり縮んで、右のばねがのび、力が抜けていく",
-    "しばらく待つと：左のばねだけが押し返す → 20秒後のAとBは同じ",
+    "しばらく待つと：左のばねだけが押し返す → 20秒後のAとBはほぼ同じ",
   ];
   const which: Record<string, string> = {
     instant: "Bは、右のばねにあたるかたさが見本と違った（押した直後に足されるかたさ）",
@@ -788,7 +817,7 @@ function c1SolvedModel(): View {
       ${step2
         ? `${t(40, 300, which[hl ?? ""] ?? d.explanation, 24, "var(--stamp)")}
            ${t(40, 340, hl === "relax" ? "力が抜けていく時間 ＝ ダンパのねばり ÷ 右のばねのかたさ" : "力が抜けていく時間は、ダンパのねばり ÷ 右のばねのかたさ で決まる", 19)}
-           ${t(40, 376, "この模型は、工学では「標準線形固体」と呼ばれる", 17, "var(--paper-soft)")}`
+           ${t(40, 376, "この模型は、工学では「標準線形固体」と呼ばれる（Fung『Biomechanics』1993 第2章）", 17, "var(--paper-soft)")}`
         : story.map((l, k) => t(40, 300 + k * 38, l, 20, k === modelPhase(state.modelT) ? "var(--stamp)" : "var(--paper-ink)")).join("")}
     </g>`,
     who: "guide",
@@ -1105,7 +1134,7 @@ function vesselWiringView(): View {
         <text x="14" y="62" fill="var(--paper-ink)" font-size="18" font-weight="900">回路：② × 電圧の上がる速さ ＝ ①の電流 − 電圧 ÷ ③</text>
         <text x="14" y="94" fill="var(--paper-soft)" font-size="16" font-weight="900">どちらも「たまる分 ＝ 入る分 − 出ていく分」。圧↔電圧、流れ↔電流</text></g>
       <text x="660" y="442" fill="var(--gold)" font-size="18" font-weight="900">${wi === "p" ? "①の電流が多いと → 電圧が全体に上がる（平均も上がる）" : wi === "r" ? "③の抵抗が大きいと → 電圧が全体に上がる（平均も上がる）" : "Bは②が小さい → 同じ①でも、電圧（圧）が大きく上下"}</text>
-      <text x="660" y="466" fill="var(--soft)" font-size="16" font-weight="900">式の形が同じだけ（人工血管に電気は流れていない）</text>`,
+      <text x="660" y="466" fill="var(--soft)" font-size="16" font-weight="900">式の形が同じだけ（電気は流れていない）。Westerhof ほか 2009</text>`,
     who: state.line.who,
     text: state.line.text,
     extra: whatIfButtons(["① 電流源が違ったら", "③ 抵抗が違ったら", "② 実際のB"]),
@@ -1164,7 +1193,7 @@ function membraneWiringView(): View {
         <text x="14" y="58" fill="var(--paper-ink)" font-size="18" font-weight="900">上がりきる高さ ＝ ① × ③　　かかる時間 ＝ ③ × ②</text>
         <text x="14" y="88" fill="var(--paper-soft)" font-size="16" font-weight="900">●：かかる時間で約6割まで上がる（離すと約4割まで戻る）</text></g>
       <text x="660" y="444" fill="var(--gold)" font-size="17" font-weight="900">${wi === "p" ? "①が1.3倍 → 高さも1.3倍 → 離す直前が変わる（ロボも気づく）" : wi === "r" ? "③が1.3倍 → 高さも時間も1.3倍 → 離す直前が変わる" : `Bは②が${CASE3_B.c}倍 → 時間は${CASE3_B.c}倍、高さは同じ → 離す直前はそろう`}</text>
-      <text x="660" y="468" fill="var(--soft)" font-size="15" font-weight="900">膜は本当に電気をためる（工学では「CR回路の過渡現象」）</text>`,
+      <text x="660" y="468" fill="var(--soft)" font-size="15" font-weight="900">膜は本当に電気をためる（工学では「CR回路の過渡現象」。Hodgkin と Rushton 1946）</text>`,
     who: state.line.who,
     text: state.line.text,
     extra: whatIfButtons(["① 入口の電流が違ったら", "③ 抵抗が違ったら", "② 実際のB"], "m-whatif", state.mWhatIf),
@@ -1687,8 +1716,14 @@ function nxRefsHtml(): string {
   if (!m) return "<p>まだ謎がありません。</p>";
   const s = m.spec;
   return `<h2>${esc(s.title)}（${esc(nxSourceLabel())}）</h2>
-    <p>計算と判定は計算プログラムが確かめた。体の何にあたるかはAIの見立てで、先生の確認前。部品の見立ては出典の文献で知られている模型により、実物を完全に表すものではない。</p>
-    <table>${s.parts.map((p) => `<tr><th>${esc(p.name)}</th><td>${esc(p.role)}<br><small>出典：${esc(refById(p.ref)?.cite ?? "—")}</small></td></tr>`).join("")}</table>
+    <p>計算プログラムが確かめたのは、部品のつなぎ方と数値、ロボの数字では区別できないこと、別の時刻なら違いが見えること、出典が登録した文献でその部品の種類と対象を扱っていること。体の何にあたるか、文献の内容がその説明を本当に支えるかはAIの見立てで、先生の確認前。部品の見立ては出典の文献で知られている模型により、実物を完全に表すものではない。</p>
+    <table>${s.parts
+      .map((p) => {
+        const r = refById(p.ref);
+        const link = r?.doi ? ` <a href="https://doi.org/${esc(r.doi)}" target="_blank" rel="noopener">doi:${esc(r.doi)}</a>` : "";
+        return `<tr><th>${esc(p.name)}</th><td>${esc(p.role)}<br><small>出典：${esc(r?.cite ?? "—")}${link}${r ? `<br>この文献で知られていること：${esc(r.about)}` : ""}</small></td></tr>`;
+      })
+      .join("")}</table>
     <p><b>見立て：</b>${esc(s.analogy)}</p>
     <p><b>この模型で扱わないこと：</b>${s.outOfScope.map(esc).join("、")}</p>
     ${s.missingParts?.length ? `<p><b>部品箱にないが、本当は要る部品（AIの申告）：</b>${s.missingParts.map(esc).join("、")}</p>` : ""}
@@ -2387,7 +2422,16 @@ app.addEventListener("click", async (e) => {
       } else {
         await openChapter(sv.chapter);
       }
-      Object.assign(state, { record: sv.record ?? [], rtLog: sv.rtLog ?? {}, duelLog: sv.duelLog ?? [], memLog: sv.memLog ?? [], conf: typeof sv.conf === "number" ? sv.conf : 100 });
+      // その謎はもう一度はじめから遊ぶので、その謎でつくった試作品の記録は持ち越さない（古い記録と新しい遊びを混ぜない。2026-11-07、外部の模擬評価73）
+      Object.assign(state, {
+        record: sv.record ?? [],
+        rtLog: sv.rtLog ?? {},
+        duelLog: sv.chapter <= 1 ? [] : (sv.duelLog ?? []),
+        memLog: sv.chapter === 3 ? [] : (sv.memLog ?? []),
+        conf: typeof sv.conf === "number" ? sv.conf : 100,
+      });
+      if (sv.chapter === 0) say("guide", "続きから：謎1のはじめから。試作品Bは、新しく届いたもの（前に調べたBとは別）。");
+      else if (sv.chapter === 1) say("guide", "続きから：謎1の仕掛けろから。見破れで開けたBは保存していないので、鍛えなおしでは「すり抜けが残らないか」だけを確かめる。");
       if (sv.chapter === 4) {
         say("bot", "まとめまで進んでいました。三つの検査を並べます。");
         go("end");
@@ -2550,7 +2594,7 @@ app.addEventListener("click", async (e) => {
       }
       break;
     case "zoom":
-      state.zoom = val ? (val as CandidateId) : null;
+      state.zoom = val ? (val as CandidateId | "pair") : null;
       render();
       break;
     case "tag": {

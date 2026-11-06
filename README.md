@@ -80,6 +80,13 @@ AIが役に立つのは、用意した問いの**続き**を、物理・化学�
 |---|---|
 | アプリ全体のコード：仮想素材のモデル（標準線形固体の解析解）、観測生成器、仮説比較器（区間計算と二層の判定）、実験計画の支援、血管・膜・部品箱の計算と確かめ、検査ロボの鍛えなおしの判定、出典カタログ、画面と導入ムービー、Claude 連携、テスト | 粘弾性の基礎式（標準線形固体）、抵抗とコンデンサの回路、受け身の膜、2要素ウィンドケッセル、時間とともに変わる弾性など、教科書と出典カタログに挙げた文献で知られている模型 |
 
+本編3題の模型の出典（画面の正体の段にも短く出す）：
+- 軟骨（標準線形固体）：Fung YC. Biomechanics: Mechanical Properties of Living Tissues. 2nd ed. Springer; 1993. Chapter 2: The Meaning of the Constitutive Equation. [doi:10.1007/978-1-4757-2257-4_2](https://doi.org/10.1007/978-1-4757-2257-4_2)
+- 血管（2要素ウィンドケッセル）：Westerhof N, Lankhaar J-W, Westerhof BE. The arterial Windkessel. Medical & Biological Engineering & Computing. 2009;47(2):131–141. [doi:10.1007/s11517-008-0359-2](https://doi.org/10.1007/s11517-008-0359-2)
+- 神経の膜（受け身の膜）：Hodgkin AL, Rushton WAH. The electrical constants of a crustacean nerve fibre. Proceedings of the Royal Society of London. Series B: Biological Sciences. 1946;133(873):444–479. [doi:10.1098/rspb.1946.0024](https://doi.org/10.1098/rspb.1946.0024)
+
+つづきの謎の出典は `server/model/refs.ts` のカタログ（作者側で書誌を確かめた文献だけ）。画面の「出典と部品の役わり」から DOI へ飛べる。値と物語は作品のための設定で、文献の値ではない。
+
 既存の研究コード・研究データは使っていません。
 
 **外部の素材**：画面の絵・アニメーション・効果音は、すべて期間中に書いたコード（SVG と Web Audio）で描き、鳴らしています。外から持ち込んだ画像・音源・データはありません。デモ動画のナレーションは VOICEVOX（四国めたん・ずんだもん）を使い、動画の中にクレジットを表示しています。
