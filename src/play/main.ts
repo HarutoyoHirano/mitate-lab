@@ -224,12 +224,17 @@ const roll = (v: string, delay = 0) => `<span data-roll="${v}" data-delay="${del
 
 /** メッセージ窓に出す。長い文は「。」の切れ目で分け、窓を押すと次へ送る（一度に一つか二つの文） */
 function say(who: Who, text: string): void {
-  const parts = text.split(/(?<=[。？！])/).filter((x) => x.trim());
+  // "\f" はそこで必ず次の文へ分ける（自己紹介と結果を同じ窓に混ぜないため）
   const pages: string[] = [];
-  for (const p of parts) {
-    const last = pages[pages.length - 1];
-    if (last !== undefined && last.length + p.length <= 52) pages[pages.length - 1] = last + p;
-    else pages.push(p);
+  for (const block of text.split("\f")) {
+    const parts = block.split(/(?<=[。？！])/).filter((x) => x.trim());
+    let first = true;
+    for (const p of parts) {
+      const last = pages[pages.length - 1];
+      if (!first && last !== undefined && last.length + p.length <= 52) pages[pages.length - 1] = last + p;
+      else pages.push(p);
+      first = false;
+    }
   }
   state.line = { who, text: pages[0] ?? "", rest: pages.slice(1) };
   logLine(who, state.line.text);
@@ -2311,7 +2316,8 @@ app.addEventListener("click", async (e) => {
     case "to-c1say":
       state.moviePlaying = false;
       state.mood = "smug";
-      say("bot", introLine);
+      // ロボはここで初めて出るので、まず自己紹介（2026-11-06、作者の指示）
+      say("bot", `私は検査ロボ TEJUN。このラボの試作品を、決まった手順で検査しています。\f${introLine}`);
       go("c1-say");
       sayLoop();
       break;
