@@ -9,7 +9,7 @@ import { fitCandidate, predictedCurve } from "../../server/model/fit.js";
 import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
-import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
+import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, recheckDesign, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
@@ -1336,6 +1336,34 @@ function rtMarks(): { x: number; y: number; label: string }[] {
     { x: CASE3_B.c, y: CASE3_B.g, label: "膜B" },
   ];
 }
+/** 仕掛けろであなたがつくった試作品を、書きなおした規則で検査しなおす（2026-11-07、外部の模擬評価の提案による） */
+function rtRechecks() {
+  const c = state.rt.c;
+  if (c === "vessel") return [];
+  const log = c === "cartilage" ? state.duelLog : state.memLog;
+  return log.map((s, i) => {
+    const [a, b] = s.split(",").map(Number) as [number, number];
+    // 軟骨は「E1, τ」、膜は「g, C」で記録している
+    const r = recheckDesign(c, state.rt.slots, b, a);
+    return { name: `${c === "cartilage" ? "仕掛けろ" : "謎3"}のあなた（${i + 1}）`, ...r };
+  });
+}
+function rtRecheckCard(): string {
+  const list = rtRechecks();
+  if (!state.rt.done || !list.length) return "";
+  const d = state.rt.c === "membrane" ? 2 : 3;
+  const unit = state.rt.c === "membrane" ? " mV" : "";
+  const rows = list
+    .map((r, i) => {
+      const best = r.diffs.reduce((m, x) => (Math.abs(x.diff) > Math.abs(m.diff) ? x : m), r.diffs[0] ?? { diff: 0, label: "", caught: false, id: "" });
+      return `<g transform="translate(16,${66 + i * 92})"><text fill="var(--paper-ink)" font-size="17" font-weight="900">${esc(r.name)}</text>
+        <text y="26" fill="var(--paper-soft)" font-size="15" font-weight="900">いままでの検査：${r.slippedBefore ? "「同じ」とすり抜けた" : "見分けられていた"}</text>
+        <text y="52" fill="${r.caught ? "var(--stamp)" : "var(--paper-soft)"}" font-size="16" font-weight="900">新しい検査：${r.caught ? `見分けた（差 ${sgn(best.diff, d)}${unit}）` : "まだ同じ"}</text></g>`;
+    })
+    .join("");
+  return `<g class="pop" transform="translate(930,72)"><rect width="320" height="${70 + list.length * 92}" rx="14" fill="var(--paper)"/>
+    <text x="16" y="34" fill="var(--paper-soft)" font-size="16" font-weight="900">あなたの試作品を検査しなおす</text>${rows}</g>`;
+}
 /**
  * 血管・膜の鍛えなおし：見る数字の時刻を、波の形で見せる（2026-11-06、作者の指摘「脈の中の時刻が低いと何故正解になるのかが分からん」による）。
  * 点線＝見本A、実線＝この謎のB、赤＝すり抜ける試作品（いま見る数字ではAと同じなのに、形が違う）。どれも判定と同じ格子の計算から描く
@@ -1421,7 +1449,7 @@ function rtView(): View {
       ${badge(222, ok1, noB ? "見破れのBはまだ開けていない（すり抜けだけ確かめる）" : ok1 ? "この謎のBを見分けられる" : "この謎のBを、まだ見分けられない")}
       ${badge(262, ok2, ok2 ? "すり抜ける試作品は残らない（つまみの範囲で計算）" : `すり抜ける試作品：${res.slipCount} 通り（${r.c === "cartilage" ? "地図の赤" : "グラフの赤い線"}）`)}
       ${r.c === "cartilage" ? `<text x="540" y="30" fill="var(--ink)" font-size="17" font-weight="900">仕掛けろのつまみでつくれる試作品の地図</text>
-      ${retrainMap(580, 72, 310, 230, res.cells, rtMarks(), sp.axes)}` : rtWave(res)}`,
+      ${retrainMap(580, 72, 310, 230, res.cells, rtMarks(), sp.axes)}` : rtWave(res)}${rtRecheckCard()}`,
     html: r.done
       ? ""
       : `<div class="picker" style="left:72%;top:3%;width:26.5%">${picker}
@@ -2968,7 +2996,9 @@ app.addEventListener("click", async (e) => {
         state.conf = 100;
         state.mood = "smug";
         state.record.push(`鍛えなおし 🛠 ${RT_PAGE[c].page}の検査：見る数字を${state.rt.slots.length}つ足した ✔`);
-        say("bot", `これからは、${RT_PAGE[c].page}の検査で数字を ${1 + state.rt.slots.length} つ見ます。つまみの範囲で調べた ${res.cells.length} 通りの試作品では、すり抜けは 0。この範囲なら、もう見落としません。……ただし、違う部品が三つになれば、また数字が要ります。`);
+        const rc = rtRechecks().filter((x) => x.slippedBefore);
+        const back = rc.length ? `${rc.length === 1 ? rc[0]!.name : "あなたがつくった試作品"}は、前の検査では「同じ」とすり抜けました。新しい検査では、${rc.every((x) => x.caught) ? (rc.length === 1 ? "見分けられます" : "どれも見分けられます") : "まだ見分けられないものがあります"}。\f` : "";
+        say("bot", `${back}これからは、${RT_PAGE[c].page}の検査で数字を ${1 + state.rt.slots.length} つ見ます。つまみの範囲で調べた ${res.cells.length} 通りの試作品では、すり抜けは 0。……ただし、調べたのはこの範囲だけ。違う部品が三つになれば、また数字が要るかもしれません。`);
         render();
         await stamp("鍛えなおした！", "win", 0.5);
       } else {

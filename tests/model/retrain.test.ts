@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { BASE } from "../../server/model/public.js";
 import { HIDDEN_CAUSES } from "../../scenarios/material1.js";
-import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
+import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, recheckDesign, retrainSpec, VESSEL_POINTS, type RetrainCase } from "../../server/model/retrain.js";
 import { stepDents, TEMPOS, STEP_PHASES } from "../../server/model/steps.js";
 import { duelMaterial, finalCheckDiff } from "../../server/model/duel.js";
 
@@ -84,5 +84,22 @@ describe("42 検査ロボの鍛えなおし", () => {
     expect(VESSEL_POINTS.length).toBe(17);
     expect(MEMBRANE_POINTS.length).toBe(41);
     expect(new Set(CARTILAGE_POINTS.map((p) => p.id)).size).toBe(32);
+  });
+
+  it("仕掛けろで通った試作品は、いままでの検査ではすり抜け、二点を足した検査では見分けられる（再検査の報酬）", () => {
+    const ids = ["jog:0:land", "jog:0:lift"];
+    // 通しの確認で仕掛けろのラウンド1・2を通った設計（E1, τ）
+    for (const [e1, tau] of [[1.0, 3.0], [0.5, 1.0]] as const) {
+      expect(recheckDesign("cartilage", [], tau, e1).caught).toBe(false);
+      const r = recheckDesign("cartilage", ids, tau, e1);
+      expect(r.slippedBefore).toBe(true);
+      expect(r.caught).toBe(true);
+    }
+    // 膜：謎3の仕掛けろのラウンド1・2を通った設計（g, C）
+    const mids = ["m:20", "m:105"];
+    for (const [g, c] of [[1.0, 0.4], [2.0, 2.0]] as const) {
+      const r = recheckDesign("membrane", mids, c, g);
+      expect(r.diffs.length).toBe(2);
+    }
   });
 });

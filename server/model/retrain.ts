@@ -215,3 +215,41 @@ export function judgeRetrain(c: RetrainCase, ids: readonly string[], bCartilage:
   const slipCount = cells.filter((x) => x.slips).length;
   return { bDiffs, catchesB, cells, slipCount, cleared: idx.length > 0 && catchesB && slipCount === 0 };
 }
+
+/** あなたが仕掛けろでつくった試作品を、書きなおした規則で検査しなおした結果 */
+export interface Recheck {
+  /** 最初の規則（いままでの検査）では「同じ」とされたか（すり抜けたか） */
+  readonly slippedBefore: boolean;
+  /** 足した数字ごとの、見本との差 */
+  readonly diffs: readonly { id: string; label: string; diff: number; caught: boolean }[];
+  /** 足した数字のどれかで見分けたか */
+  readonly caught: boolean;
+}
+
+/**
+ * 仕掛けろでプレイヤーがつくった試作品を、書きなおした規則で検査しなおす（2026-11-07、外部の模擬評価の提案
+ * 「自作した試作品を、改良前の検査は見落とし、改良後は捕まえる。この再検査を成功の報酬にする」による）。
+ * 軟骨は x＝かたさが消えるまでの時間（τ）、y＝押した直後だけ増えるかたさ（E1）。膜は x＝ためやすさ（C）、y＝通りやすさ（g）。
+ * 判定の幅は鍛えなおしと同じ（ロボの「同じ」の幅）。
+ */
+export function recheckDesign(c: "cartilage" | "membrane", ids: readonly string[], x: number, y: number): Recheck {
+  const s = SPECS[c];
+  const idx = ids.map((id) => s.points.findIndex((p) => p.id === id)).filter((i) => i >= 0);
+  const a = s.valuesA();
+  let v: readonly number[];
+  let slippedBefore: boolean;
+  if (c === "cartilage") {
+    const p = duelMaterial(y, x);
+    v = cartPointValues(p);
+    slippedBefore = Math.abs(finalCheckDiff(p).diff) <= ROBOT_PASS + 1e-12;
+  } else {
+    const m: Membrane = { g: y, c: x };
+    v = MEMBRANE_POINTS.map((q) => deltaMv(m, q.t));
+    slippedBefore = Math.abs(deltaMv(m, PULSE_MS) - deltaMv(BASE_MEM, PULSE_MS)) <= ROBOT_STEADY_TOL + 1e-9;
+  }
+  const diffs = idx.map((i) => {
+    const diff = v[i]! - a[i]!;
+    return { id: s.points[i]!.id, label: s.points[i]!.label, diff, caught: Math.abs(diff) > s.tol + 1e-12 };
+  });
+  return { slippedBefore, diffs, caught: diffs.some((d) => d.caught) };
+}
