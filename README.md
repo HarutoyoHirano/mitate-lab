@@ -92,4 +92,7 @@ AIが役に立つのは、用意した問いの**続き**を、物理・化学�
 - 数値を AI に書かせて、そのまま見せること（数値と判定は計算プログラムが出す）
 
 ## ライセンス
-MIT License（`LICENSE`）。Copyright (c) 2026 Harutoyo Hirano
+GNU Affero General Public License v3.0（AGPL-3.0-only。全文は `LICENSE`）。Copyright (C) 2026 Harutoyo Hirano
+
+- 授業や研究で使う・改造する・配ることは自由です。改造した版を配ったり、サーバーで提供したりするときは、その版のソースも AGPL-3.0 で公開してください
+- AGPL-3.0 の条件では使えない場合（ソースを公開できない製品に組み込むなど）は、作者に別の契約についてご相談ください
