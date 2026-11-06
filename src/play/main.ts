@@ -94,6 +94,10 @@ const state = {
   mood: "smug" as Mood,
   panel: "notice" as null | "notice" | "about" | "refs",
   line: { who: "bot" as Who, text: "", rest: [] as string[] },
+  /** メッセージ窓に出した文の記録（「◀ 前の文」で一つずつ戻って読み返す。2026-11-06、作者の提案「会話を飛ばしたときに一つ戻る機能が欲しい」による） */
+  log: [] as { who: Who; text: string }[],
+  /** 読み返している文の番号（null＝いまの文） */
+  peek: null as number | null,
   view: null as PublicSessionView | null,
   debrief: null as Debrief | null,
   evidence: [] as Evidence[],
@@ -225,6 +229,14 @@ function say(who: Who, text: string): void {
     else pages.push(p);
   }
   state.line = { who, text: pages[0] ?? "", rest: pages.slice(1) };
+  logLine(who, state.line.text);
+}
+function logLine(who: Who, text: string): void {
+  state.peek = null;
+  const last = state.log[state.log.length - 1];
+  if (!text || (last && last.who === who && last.text === text)) return;
+  state.log.push({ who, text });
+  if (state.log.length > 60) state.log.shift();
 }
 
 async function damage(n: number): Promise<void> {
@@ -1732,9 +1744,17 @@ function trailHtml(): string {
 
 let typeToken = 0;
 let lastText = "";
+/** いま窓に出ている（読み返しでない）文 */
+let curText = "";
 function render(): void {
   const v = VIEWS[state.scene]();
   const focusId = (document.activeElement as HTMLElement | null)?.dataset?.act;
+  const peeking = state.peek !== null && !!state.log[state.peek];
+  const shown = peeking ? state.log[state.peek!]! : { who: v.who, text: v.text };
+  const lastLog = state.log.length - 1;
+  const canBack = peeking ? state.peek! > 0 : lastLog >= (state.log[lastLog]?.text === v.text ? 1 : 0) && lastLog >= 0;
+  const backRow = canBack || peeking ? `<p class="back-row">${canBack ? `<button class="mini-btn" data-act="back">◀ 前の文</button>` : ""}${peeking ? `<button class="mini-btn" data-act="fwd">次の文 ▶</button>` : ""}</p>` : "";
+  curText = v.text;
   app.innerHTML = `<div class="game"><div class="screen">
     <header class="hud">
       <span class="chap">${esc(v.chap)}</span>${trailHtml()}<span class="goal">${phrase(v.goal)}</span>
@@ -1745,7 +1765,7 @@ function render(): void {
     </header>
     <div class="stage ${v.svg ? "" : "flow"}"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
-      <div><span class="who ${v.who}">${WHO_LABEL[v.who]}</span><p class="text ${state.line.rest.length ? "more" : ""}" aria-live="polite" ${state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(v.text)}</p>${state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
+      <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && state.line.rest.length ? "more" : ""}" aria-live="polite" ${!peeking && state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${!peeking && state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
       <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
@@ -1756,7 +1776,7 @@ function render(): void {
   if (focusId) app.querySelector<HTMLElement>(`[data-act="${focusId}"]`)?.focus({ preventScroll: true });
   // メッセージは一文字ずつ（動きを減らす設定では一度に）
   const t = app.querySelector<HTMLElement>(".text");
-  if (t && v.text !== lastText && !reduceMotion()) {
+  if (t && !peeking && v.text !== lastText && !reduceMotion()) {
     lastText = v.text;
     const token = ++typeToken;
     const full = v.text;
@@ -1770,7 +1790,10 @@ function render(): void {
       if (i < full.length) setTimeout(tick, 18);
     };
     tick();
-  } else lastText = v.text;
+  } else {
+    if (peeking) typeToken++;
+    lastText = v.text;
+  }
 }
 
 // ---------- 自動セーブ（2026-11-06、作者の提案「（オート）セーブ・再開機能と新規スタートの2種類が選択できるとよい」） ----------
@@ -2138,11 +2161,29 @@ app.addEventListener("click", async (e) => {
   const val = el.dataset.val ?? "";
   const v = state.view;
   beep("tap");
+  if (act !== "back" && act !== "fwd") state.peek = null;
   switch (act) {
     case "more":
-      if (state.line.rest.length) state.line = { ...state.line, text: state.line.rest[0]!, rest: state.line.rest.slice(1) };
+      if (state.line.rest.length) {
+        state.line = { ...state.line, text: state.line.rest[0]!, rest: state.line.rest.slice(1) };
+        logLine(state.line.who, state.line.text);
+      }
       render();
       break;
+    case "back": {
+      const last = state.log.length - 1;
+      const cur = state.peek ?? (state.log[last]?.text === curText ? last : last + 1);
+      if (cur > 0) state.peek = cur - 1;
+      render();
+      break;
+    }
+    case "fwd": {
+      const last = state.log.length - 1;
+      const nxt = (state.peek ?? last) + 1;
+      state.peek = nxt > last || (nxt === last && state.log[last]!.text === curText) ? null : nxt;
+      render();
+      break;
+    }
     case "sound":
       sound.on = !sound.on;
       render();
