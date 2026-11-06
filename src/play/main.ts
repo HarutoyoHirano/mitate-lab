@@ -302,14 +302,14 @@ function startMovie(id: MovieId, line: string): void {
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string, string][] = [
-    ["証言 1 / 2", "「押して20秒後の力は", `　A：${r.base.toFixed(3)} [N]　　B：${r.force.toFixed(3)} [N]`, `　ちがいは、わずか ${Math.abs(r.diff).toFixed(3)} [N]」`],
-    ["証言 2 / 2", `「私の手順では、ちがいが ${r.tolerance} [N] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ軟骨です」"],
+    ["ロボが測った数字", "「押して20秒後の力は", `　A：${r.base.toFixed(3)} [N]　　B：${r.force.toFixed(3)} [N]`, `　ちがいは、わずか ${Math.abs(r.diff).toFixed(3)} [N]」`],
+    ["ロボの判定", `「私の手順では、ちがいが ${r.tolerance} [N] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ軟骨です」"],
   ];
   const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   const asked = state.say >= 2;
   return {
     chap: "謎1 軟骨：見破れ",
-    goal: "ロボの証言を聞き、確かめ方を考えよう",
+    goal: "ロボの話を聞き、確かめ方を考えよう",
     svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 [N] 未満 → 同じ"], usualPhase(state.sayT).step, false)}
       ${bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
       ${usualTest({ t: state.sayT, valueA: r.base, valueB: r.force, diff: r.diff, tol: r.tolerance })}`,
@@ -317,7 +317,7 @@ function c1Say(): View {
     text: state.line.text,
     cmds: !asked
       ? [
-          { act: "c1-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
+          { act: "c1-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
         ]
       : [
           { act: "bet", val: "midSame", label: "走っても同じ", sub: "ロボが区別できないなら" },
@@ -408,7 +408,7 @@ function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, 
   return {
     chap: c === 1 ? "謎1 軟骨の見落とし" : c === 3 ? "謎2 脈の見落とし" : "謎3 膜の見落とし",
     goal,
-    svg: `${bubble(470, 80, "証言 2 / 2", testimony[0], testimony[1], 400)}${robotArt(state.mood, 960, 40, 0.95)}`,
+    svg: `${bubble(470, 80, "ロボの判定", testimony[0], testimony[1], 400)}${robotArt(state.mood, 960, 40, 0.95)}`,
     html: `<div class="tray">${cards
       .map(
         (e) => `<button class="card-ev ${state.sel === e.id ? "on" : ""} ${e.id === base.id ? "dim" : ""}" data-act="sel" data-val="${e.id}" aria-pressed="${state.sel === e.id}">
@@ -858,17 +858,17 @@ function c3Stage(): string {
 }
 function c3Say(): View {
   const lines: [string, string, string, string][] = [
-    ["証言 1 / 2", "「1回の脈の平均の圧は", `　A：${VA.mean.toFixed(1)} [mmHg]　　B：${VB.mean.toFixed(1)} [mmHg]`, `　ちがいは、わずか ${Math.abs(VB.mean - VA.mean).toFixed(1)} [mmHg]」`],
-    ["証言 2 / 2", `「私の手順では、ちがいが ${VESSEL_ROBOT_TOL} [mmHg] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ人工血管です」"],
+    ["ロボが測った数字", "「1回の脈の平均の圧は", `　A：${VA.mean.toFixed(1)} [mmHg]　　B：${VB.mean.toFixed(1)} [mmHg]`, `　ちがいは、わずか ${Math.abs(VB.mean - VA.mean).toFixed(1)} [mmHg]」`],
+    ["ロボの判定", `「私の手順では、ちがいが ${VESSEL_ROBOT_TOL} [mmHg] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ人工血管です」"],
   ];
   const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   return {
     chap: "謎2 脈の見落とし",
-    goal: "人工血管の試作品Bの検査。ロボの証言を聞こう",
+    goal: "人工血管の試作品Bの検査。ロボの話を聞こう",
     svg: `<g transform="translate(-40,120) scale(0.72)">${c3Stage()}</g>${bubble(480, 20, lab, l1, l2, 540, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
-    cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
+    cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
   };
 }
 function c3Watch(): View {
@@ -1128,17 +1128,17 @@ function c4Say(): View {
   const a = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
   const b = REST_MV + deltaMv(CASE3_B, PULSE_MS);
   const lines: [string, string, string, string][] = [
-    ["証言 1 / 2", "「離す直前の膜の電圧は", `　A：${mvs(a)} [mV]　　B：${mvs(b)} [mV]`, `　ちがいは、わずか ${Math.abs(b - a).toFixed(2)} [mV]」`],
-    ["証言 2 / 2", `「私の手順では、ちがいが ${ROBOT_STEADY_TOL} [mV] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ膜です」"],
+    ["ロボが測った数字", "「離す直前の膜の電圧は", `　A：${mvs(a)} [mV]　　B：${mvs(b)} [mV]`, `　ちがいは、わずか ${Math.abs(b - a).toFixed(2)} [mV]」`],
+    ["ロボの判定", `「私の手順では、ちがいが ${ROBOT_STEADY_TOL} [mV] より`, "　小さければ「同じ」とみなします。", "　だから、AとBは同じ膜です」"],
   ];
   const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   return {
     chap: "謎3 膜の見落とし",
-    goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの証言を聞こう",
+    goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの話を聞こう",
     svg: `${nerveWhole(16, 16, false)}${memTestStrip(330, 240, 700, a, b)}${bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
-    cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "次の証言" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
+    cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
   };
 }
 function c4Watch(): View {
@@ -1777,8 +1777,8 @@ function panelHtml(): string {
 function stepTrail(): { names: string[]; at: number } | null {
   const sc = state.scene;
   const c1 = ["見破れ", "なぜ？", "正体", "仕掛けろ", "鍛えなおす"];
-  const c3 = ["証言", "観察", "なぜ？", "正体", "鍛えなおす"];
-  const c4 = ["証言", "観察", "なぜ？", "正体", "仕掛けろ", "鍛えなおす"];
+  const c3 = ["ロボの話", "観察", "なぜ？", "正体", "鍛えなおす"];
+  const c4 = ["ロボの話", "観察", "なぜ？", "正体", "仕掛けろ", "鍛えなおす"];
   if (sc === "c1-say" || sc === "c1-run" || sc === "c1-present") return { names: c1, at: 0 };
   if (sc === "c1-line") return { names: c1, at: 1 };
   if (sc === "c1-solved") return { names: c1, at: 2 };
@@ -2380,7 +2380,7 @@ app.addEventListener("click", async (e) => {
     }
     case "to-present":
       state.mood = "smug";
-      say("bot", "証言2。だから、AとBは同じ軟骨です。……何か、ありますか？");
+      say("bot", "だから、AとBは同じ軟骨です。……何か、ありますか？");
       go("c1-present");
       break;
     case "back-watch":
@@ -2634,7 +2634,7 @@ app.addEventListener("click", async (e) => {
     }
     case "to-present3":
       state.mood = "smug";
-      say("bot", "証言2。だから、AとBは同じ人工血管です。");
+      say("bot", "だから、AとBは同じ人工血管です。");
       go("c3-present");
       break;
     case "to-sync":
@@ -2713,7 +2713,7 @@ app.addEventListener("click", async (e) => {
     }
     case "to-present4":
       state.mood = "smug";
-      say("bot", "証言2。だから、AとBは同じ膜です。");
+      say("bot", "だから、AとBは同じ膜です。");
       go("c4-present");
       break;
     case "to-why4":
