@@ -512,6 +512,7 @@ API応答とClaudeへの入力は、公開型と証拠型だけから組み立�
 - サーバー：Node＋TypeScript（観測生成器・仮説比較器・計画支援・Claude連携・セッション管理）
 - **試用版（サーバーなし）**（2026-11-04 夜。作者の依頼「実際に動いているのを試したい」による）：`npm run build:trial` で、同じ `server/app.ts` の処理をブラウザの中で動かす一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくる。`/api/` への要求をブラウザ内で受ける置きかえ（`src/trial/`）だけを足し、計算・判定・画面は本番と同じコード。APIキーは使わない（Claudeは休止中、決まった文の手がかり）。先生用の合言葉は試用版だけ `mitate`。**試用版では隠れた試作品Bもブラウザの中にある**ため、授業・提出の構成には使わない（第6章の分離は本番のサーバー構成で守る）。`dist-trial/` はリポジトリに入れない
 - テスト：Vitest
+- Skill「つづきの謎の記録を足す」（`.claude/skills/add-ai-puzzle-record/`、道具は `scripts/net-record.ts`）：指示文を出す→Claude の出力を確かめる→一度だけ作り直す→手を加えずに `tests/fixtures/ai-nets` へ記録（だれがいつ出力したかを書く）→テスト41（2026-11-06）
 - ディレクトリ：`src/`（画面）、`server/model/`（式・生成器・比較器・計画支援・回路）、`server/claude/`、`server/session/`、`scenarios/`（課題データ。隠れた範囲はサーバーだけが読む）、`tests/model/`
 
 ## 9. 禁止事項
