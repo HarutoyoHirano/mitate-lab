@@ -408,8 +408,6 @@ interface MovieScene {
 }
 interface Movie {
   scenes: readonly MovieScene[];
-  /** 結び：[前提（小さい字）, 問い（大きい字）] */
-  end: readonly [string, string];
 }
 /** 導入ムービーの番号（内部の番号。謎は三つ：1＝謎1 見破れ、2＝謎1 仕掛けろ、4＝謎2（血管）、5＝謎3（膜）） */
 export type MovieId = 1 | 2 | 4 | 5;
@@ -419,7 +417,6 @@ const MOVIES: Record<MovieId, Movie> = {
       { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで人工軟骨の試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は一歩ごとに押されてへこむ", draw: sceneLeg },
     ],
-    end: ["ロボは押して20秒後の力だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、走るときの押され方まで、本当に見本と同じ？"],
   },
   2: {
     scenes: [
@@ -427,40 +424,34 @@ const MOVIES: Record<MovieId, Movie> = {
       { dur: 6, tag: "② わざと見落とさせる", short: "見本と違うのにロボが見分けられない軟骨をつくる", draw: sceneDesign },
       { dur: 6, tag: "③ ロボも負けていない", short: "見落とすとロボは見る場所を変える", draw: sceneRuleChange },
     ],
-    end: ["二回戦では、ロボの見る場所が変わる。", "ロボには「同じ」と言わせて、ほかのところには違いを残せ。"],
   },
   4: {
     scenes: [
       { dur: 6, tag: "① 膝のまわりの血管", short: "膝のまわりには心臓が送る血液を血管が運ぶ", draw: sceneHeart },
       { dur: 6, tag: "② 試験装置", short: "人工血管の試作品Bを心臓のまねをする装置につなぐ", draw: sceneRig },
     ],
-    end: ["ロボは1回の脈の平均の圧だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、1回の脈の中で圧が上がり下がりする動きまで、本当に見本と同じ？"],
   },
   5: {
     scenes: [
       { dur: 6, tag: "① 膝から脳へ", short: "膝が押されると神経が脳に知らせる", draw: sceneNerve },
       { dur: 8, tag: "② 神経の端の膜", short: "押すと＋が入って膜の電圧が上がる", draw: sceneMembrane },
     ],
-    end: ["ロボは離す直前の膜の電圧だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、押している途中や離したあとまで、本当に見本と同じ？"],
   },
 };
-/** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
+/** 実時間（秒）。これ以後は終わりの絵（場面を並べる。結びの文は置かない：次の画面でロボが同じことを言うため） */
 export function movieLength(id: MovieId): number {
   return MOVIES[id].scenes.reduce((a, sc) => a + sc.dur, 0);
 }
-export function movieOutline(id: MovieId): { scenes: number; length: number; end: string } {
-  return { scenes: MOVIES[id].scenes.length, length: movieLength(id), end: MOVIES[id].end.join("") };
+export function movieOutline(id: MovieId): { scenes: number; length: number } {
+  return { scenes: MOVIES[id].scenes.length, length: movieLength(id) };
 }
 /** 各場面は一行だけを大きく出す（長い字幕は読まれないため。2026-11-05 夜、作者の指摘）。結びでも同じ一行を並べる */
 export function introMovie(id: MovieId, t: number): string {
   const mv = MOVIES[id];
   if (t >= movieLength(id)) {
     return `<g>
-      ${mv.scenes.map((sc, i) => `<g transform="translate(${(1280 - mv.scenes.length * 416 + 16) / 2 + i * 416},24)">${sc.draw(sc.dur)}
-        <text x="200" y="326" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
-      <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
-        <text x="450" y="34" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
-        <text x="450" y="72" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
+      ${mv.scenes.map((sc, i) => `<g transform="translate(${(1280 - mv.scenes.length * 416 + 16) / 2 + i * 416},64)">${sc.draw(sc.dur)}
+        <text x="200" y="330" fill="var(--ink)" font-size="18" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
     </g>`;
   }
   let from = 0;
