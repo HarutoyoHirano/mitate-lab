@@ -1683,7 +1683,7 @@ function panelHtml(): string {
     return `<div class="panel-back" id="panel-back"><div class="panel notice" role="dialog" aria-modal="true" aria-labelledby="notice-h">
       <h2 id="notice-h">はじめる前に</h2>
       <ul>
-        <li>ラボ・試作品・検査ロボは架空です。計算でつくった模型で、実在の医療機器・体の値・病気の判定を表しません。</li>
+        <li>ラボ・試作品・検査ロボは架空です。値は、一般的なヒトの値を目安に置いた模型の値で、実際の機器を測った値や、病気の判定ではありません。</li>
         <li>うまくいかなくても、何度でも試せます。点数や順位はつけません。</li>
         <li>名前などの個人の情報は、入力も保存もしません。保存するのは進み具合だけで、この端末のブラウザの中に残ります（「はじめから」で消えます）。</li>
       </ul>
@@ -1695,8 +1695,8 @@ function panelHtml(): string {
       ? `<h2>このゲームについて</h2>
       <p class="about-ai">AI（Claude）が動くのは、つづきの謎で、次の謎をつくるときだけです。そのときは上の段に「Claude（AI）」と出ます。${state.claude ? "謎1では、相棒の Claude（AI）も手伝います（隠れた答えは知りません）。" : ""}</p>
       <p class="about-ai">検査ロボ TEJUN と、答えが合っているかの確かめは、AIではなく、決まった式で動くプログラムです。</p>
-      <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の見破れの記録には測るたびのぶれがあり、それ以外はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
-      <details><summary>先生用の設定</summary><p><label>合言葉 <input type="password" id="t-pass"></label>
+      <p class="about-ai">ラボ・試作品・検査ロボは架空です。値は、一般的なヒトの値を目安に置いた模型の値で、実際の機器を測った値や、病気の判定ではありません。</p>
+      <details><summary>先生用：謎1の試作品Bを決めて始める（授業で全員を同じBにする）</summary><p><label>合言葉 <input type="password" id="t-pass"></label>
         <label id="t-cause-wrap" hidden>隠れた原因 <select id="t-cause"><option value="">ランダム</option><option value="instantUp">押した直後だけ増えるかたさが大きい</option><option value="instantDown">押した直後だけ増えるかたさが小さい</option><option value="relaxSlow">増えたかたさが消えるのが遅い</option><option value="relaxFast">増えたかたさが消えるのが速い</option></select></label>
         <label>乱数の種 <input id="t-seed" inputmode="numeric" size="6"></label> <button class="mini-btn" data-act="start-teacher">先生モードで始める</button></p></details>`
       : "";
