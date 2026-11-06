@@ -11,8 +11,8 @@ import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
 import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
-import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
-import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF, tauMs, type Membrane } from "../../server/model/membraneGame.js";
+import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SLIDERS } from "../../server/model/vessel.js";
+import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
 import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
@@ -565,7 +565,7 @@ function c1Line(): View {
         ];
   return {
     chap: "謎1 軟骨：なぜ？",
-    goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
+    goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "4つの説明の中では、正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
     svg: "",
     html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null)}`,
     who: state.line.who,
@@ -597,7 +597,7 @@ function c1Solved(): View {
   const fit = win ? fitFor(win) : null;
   const yMax = c ? Math.max(2.2, ...c.b.map((p) => p.force + 0.2)) : 2.2;
   // 説明は、だれにでも通じる三行だけ（ばねとダンパの模型は出さない：作者の指摘「非常に分かりにくい」）
-  const lines = ["押された直後、軟骨は少しかたくなる。", "そのかたさは、時間がたつと消えていく。", "20秒待てば消えるので、AとBは同じ。", win === "instant" ? "でも走ると、押された直後のかたさが一歩ごとに効く。" : "でも走ると、消えきる前に次の一歩が来る。", "だから、一歩ごとのへこみがAと違った。"];
+  const lines = ["押された直後、軟骨は少しかたくなる。", "そのかたさは、時間がたつと消えていく。", "20秒待つと、ちがいは 0.03 より小さい。", win === "instant" ? "でも走ると、そのかたさが一歩ごとに効く。" : "でも走ると、消えきる前に次の一歩が来る。", "だから、一歩ごとのへこみがAと違った。"];
   return {
     chap: "謎1 軟骨：正体",
     goal: "Bの正体が分かった",
@@ -1552,7 +1552,7 @@ function nMake(): View {
     chap: "つづきの謎",
     goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
     svg: `${partsBox(20, 40, used)}
-      <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : "Claude（AI）が部品を選んでいる…"}</text>
+      <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : /記録/.test(state.line.text) ? "記録の部品を読み込んでいる…" : "Claude（AI）が部品を選んでいる…"}</text>
       ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="spin" r="60" fill="none" stroke="${fail1 ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 ? "組み立て直し中" : "組み立て中"}</text></g>`}
       ${back}${board}
       ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
@@ -2653,7 +2653,7 @@ app.addEventListener("click", async (e) => {
       state.u = u;
       const pa = pressureAt(BASE_VESSEL, u);
       const pb = pressureAt(CASE_VESSEL_B, u);
-      const ok = Math.abs(pb - pa) > VESSEL_SEE_DIFF;
+      const ok = Math.abs(pb - pa) > VESSEL_ROBOT_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `v:${u}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
       say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${Math.abs(pb - pa).toFixed(1)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。証拠に保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${Math.abs(pb - pa).toFixed(1)} [mmHg]。小さすぎて証拠にならない。`);
@@ -2733,7 +2733,7 @@ app.addEventListener("click", async (e) => {
       const t = state.memT;
       const a = REST_MV + deltaMv(BASE_MEM, t);
       const b = REST_MV + deltaMv(CASE3_B, t);
-      const ok = Math.abs(b - a) > SEE_DIFF;
+      const ok = Math.abs(b - a) > ROBOT_STEADY_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `m:${t}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
       say("you", ok ? `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。証拠に保存した。` : `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。小さすぎて証拠にならない。`);
@@ -2897,12 +2897,12 @@ app.addEventListener("click", async (e) => {
         state.conf = 100;
         state.mood = "smug";
         state.record.push(`鍛えなおし 🛠 ${RT_PAGE[c].page}の検査：見る数字を${state.rt.slots.length}つ足した ✔`);
-        say("bot", `これからは、${RT_PAGE[c].page}の検査で数字を ${1 + state.rt.slots.length} つ見ます。このつまみの範囲なら、もう見落としません。……ただし、違う部品が三つになれば、また数字が要ります。`);
+        say("bot", `これからは、${RT_PAGE[c].page}の検査で数字を ${1 + state.rt.slots.length} つ見ます。つまみの範囲で調べた ${res.cells.length} 通りの試作品では、すり抜けは 0。この範囲なら、もう見落としません。……ただし、違う部品が三つになれば、また数字が要ります。`);
         render();
         await stamp("鍛えなおした！", "win", 0.5);
       } else {
         state.mood = "calm";
-        const why = [!res.catchesB ? "足した数字では、この謎のBとのちがいが小さすぎる。まだBを見分けられない。" : "", res.slipCount ? `地図の赤います ${res.slipCount} 通りの試作品が、この数字ではロボをすり抜ける。` : ""].join("");
+        const why = [!res.catchesB ? "足した数字では、この謎のBとのちがいが小さすぎる。まだBを見分けられない。" : "", res.slipCount ? `調べた ${res.cells.length} 通りのうち ${res.slipCount} 通りの試作品（${c === "cartilage" ? "地図の赤" : "赤い線"}）が、この数字ではロボをすり抜ける。` : ""].join("");
         say("calc", `${why}数字を選びなおそう。`);
         render();
         await stamp("まだ見落とす", "miss");
@@ -2938,7 +2938,7 @@ app.addEventListener("click", async (e) => {
       }
       const prev = state.scene === "n-reveal" && state.nx.made ? state.nx.made.spec : state.nx.prev;
       if (!state.nx.live && !recordFor(t, prev)) {
-        say("guide", `この場ではAIを呼べないので、記録にない題材「${t}」はつくれない。候補のボタンから選ぼう。公開ページで開くと、あなたの Claude で、入れた題材をその場で組み立てられる。`);
+        say("guide", `この場ではAIを呼べないので、記録にない題材「${t}」はつくれない。上の題材のカードから選ぼう。`);
         render();
         break;
       }

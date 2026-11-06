@@ -997,7 +997,7 @@ export function membraneCircuit(x: number, y: number, m: Membrane, dv: number, p
     <path d="M${290 - plate / 2} 113 H${290 + plate / 2} M${290 - plate / 2} 129 H${290 + plate / 2}" stroke="${hot === "cap" ? "var(--gold)" : "var(--membrane-edge)"}" stroke-width="${hot === "cap" ? 8 : 6}"/>
     ${marks("＋", 104, "var(--plus)")}${marks("−", 150, "var(--minus)")}
     <path d="M500 84 V128" stroke="var(--plus)" stroke-width="${ow.toFixed(1)}" opacity=".85"/><path d="M492 120 l8 10 l8 -10" stroke="var(--plus)" stroke-width="3" fill="none"/>
-    <text x="110" y="208" fill="${gold(hot === "src")}" font-size="15" font-weight="900" text-anchor="middle">${pushing ? "押している：電流が入る" : "離した：電流なし"}${hot === "src" ? " ×1.3" : ""}</text>
+    <text x="110" y="208" fill="${gold(hot === "src")}" font-size="15" font-weight="900" text-anchor="middle">${pushing ? "押している：電流が入る" : "離した：入口の電流が止まる"}${hot === "src" ? " ×1.3" : ""}</text>
     <text x="290" y="208" fill="${gold(hot === "cap")}" font-size="15" font-weight="900" text-anchor="middle">コンデンサ${hot === "cap" ? `（${m.c}倍）` : ""}</text>
     <text x="470" y="208" fill="${gold(hot === "res")}" font-size="15" font-weight="900" text-anchor="middle">抵抗${hot === "res" ? " ×1.3" : ""}＋電池</text>
     ${numBadge(156, 84, "①", hot === "src")}${numBadge(290 + plate / 2 + 22, 121, "②", hot === "cap")}${numBadge(434, 104, "③", hot === "res")}${numBadge(434, 160, "④")}
