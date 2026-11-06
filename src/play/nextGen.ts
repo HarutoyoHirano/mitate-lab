@@ -90,6 +90,8 @@ export function verifyAsync(spec: unknown, prev?: NetPuzzleSpec): Promise<NetVer
 
 export interface MakeHooks {
   onStatus: (s: string, who: "cl" | "calc" | "ai") => void;
+  /** 確かめが一回終わるたびに呼ぶ（画面が、落ちた理由と作り直しを見せるため） */
+  onAttempt?: (a: Attempt, index: number) => void;
   signal?: AbortSignal;
 }
 
@@ -103,12 +105,14 @@ export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks)
     h.onStatus("計算プログラムが、組み立てた模型を計算して確かめています。", "calc");
     let verdict = await verifyAsync(spec, prev);
     attempts.push({ spec, verdict });
+    h.onAttempt?.(attempts[0]!, 0);
     if (!verdict.ok) {
       const failed: Check[] = verdict.checks.filter((c) => !c.ok);
       h.onStatus("確かめに通らなかった点を伝えて、一度だけ組み立て直してもらっています。", "ai");
       spec = await sample.json(netRetryPrompt(topic, prev, spec, failed), { signal: h.signal, cache: false });
       verdict = await verifyAsync(spec, prev);
       attempts.push({ spec, verdict });
+      h.onAttempt?.(attempts[1]!, 1);
     }
     return { made: verdict.ok ? { spec: spec as NetPuzzleSpec, verdict, source: "live", attempts, topic } : null, attempts };
   }

@@ -371,3 +371,9 @@ button { font: inherit; }
 .back-row { display: flex; gap: 8px; margin: 6px 0 0; }
 .back-row .mini-btn { font-size: 14px; font-weight: 800; }
 .peek-tag { margin-left: 8px; font-size: 14px; font-weight: 800; color: var(--gold); }
+/* つづきの謎：作り直しの矢印と、組み立て中の輪（動きを減らす設定では止める） */
+.dashmove { animation: dashmove 0.9s linear infinite; }
+@keyframes dashmove { to { stroke-dashoffset: -24; } }
+.spin { transform-box: fill-box; transform-origin: center; animation: spin 2.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dashmove, .spin { animation: none; } }

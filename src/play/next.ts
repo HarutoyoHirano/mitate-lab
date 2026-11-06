@@ -361,17 +361,32 @@ export function partsBox(x: number, y: number, used: Set<string>): string {
       .join("")}</g>`;
 }
 
-/** 確かめの一覧（shown 個まで ✓／✗ を出す） */
-export function checkBoard(x: number, y: number, checks: Check[], shown: number): string {
-  const rows = checks.slice(0, 16);
-  return `<g transform="translate(${x},${y})"><rect width="400" height="${40 + rows.length * 25}" rx="14" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
-    <text x="16" y="26" fill="var(--ink)" font-size="15" font-weight="900">計算プログラムの確かめ</text>
+/** 確かめの一覧（shown 個まで ✓／✗ を出す）。history＝これまでの確かめ（✗ で落ちた回・✓ で通った回）、stamp＝全部出したあとのハンコ */
+export function checkBoard(x: number, y: number, checks: Check[], shown: number, o: { history?: ("ok" | "ng" | "wait")[]; stamp?: "pass" | "fail" | null; title?: string } = {}): string {
+  const rows = checks.slice(0, 15);
+  const h = 72 + rows.length * 24;
+  const hist = o.history ?? [];
+  const chips = hist
+    .map((r, i) => {
+      const col = r === "ok" ? "var(--you)" : r === "ng" ? "var(--stamp)" : "var(--soft)";
+      return `<g transform="translate(${16 + i * 128},38)"><rect width="118" height="26" rx="13" fill="none" stroke="${col}" stroke-width="2.5"/><text x="59" y="19" fill="${col}" font-size="15" font-weight="900" text-anchor="middle">${i + 1}回目 ${r === "ok" ? "✓ 合格" : r === "ng" ? "✗ 不合格" : "確かめ中"}</text></g>`;
+    })
+    .join("");
+  const stamp =
+    o.stamp === "pass"
+      ? `<g class="pop" transform="translate(250,${Math.min(h - 40, 150)}) rotate(-10)"><rect x="-74" y="-30" width="148" height="60" rx="10" fill="var(--paper)" stroke="var(--you)" stroke-width="5"/><text y="12" fill="var(--you)" font-size="30" font-weight="900" text-anchor="middle">合格</text></g>`
+      : o.stamp === "fail"
+        ? `<g class="pop" transform="translate(250,${Math.min(h - 40, 150)}) rotate(-10)"><rect x="-84" y="-30" width="168" height="60" rx="10" fill="var(--paper)" stroke="var(--stamp)" stroke-width="5"/><text y="12" fill="var(--stamp)" font-size="30" font-weight="900" text-anchor="middle">不合格</text></g>`
+        : "";
+  return `<g transform="translate(${x},${y})"><rect width="410" height="${h}" rx="14" fill="var(--panel)" stroke="${o.stamp === "fail" ? "var(--stamp)" : "var(--line)"}" stroke-width="${o.stamp === "fail" ? 3 : 2}"/>
+    <text x="16" y="26" fill="var(--ink)" font-size="16" font-weight="900">${esc(o.title ?? "計算プログラムの確かめ")}</text>${chips}
     ${rows
       .map((c, i) => {
         const on = i < shown;
-        return `<text x="16" y="${52 + i * 25}" fill="${!on ? "var(--line)" : c.ok ? "var(--you)" : "var(--stamp)"}" font-size="13" font-weight="800">${on ? (c.ok ? "✓" : "✗") : "・"} ${esc(c.label.length > 26 ? c.label.slice(0, 25) + "…" : c.label)}</text>`;
+        const bad = on && !c.ok;
+        return `${bad ? `<rect x="8" y="${76 + i * 24}" width="394" height="22" rx="5" fill="var(--stamp)" opacity=".16"/>` : ""}<text x="16" y="${92 + i * 24}" fill="${!on ? "var(--line)" : c.ok ? "var(--you)" : "var(--stamp)"}" font-size="14" font-weight="800">${on ? (c.ok ? "✓" : "✗") : "・"} ${esc(c.label.length > 25 ? c.label.slice(0, 24) + "…" : c.label)}</text>`;
       })
-      .join("")}</g>`;
+      .join("")}${stamp}</g>`;
 }
 
 // ---------- 導入ムービー（AIの場面と結び、見本Aの計算値から自動で描く） ----------

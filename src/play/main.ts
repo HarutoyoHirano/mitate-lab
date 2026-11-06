@@ -175,6 +175,9 @@ const state = {
     attempts: [] as Attempt[],
     sc: null as MachineScale | null,
     shown: 0,
+    /** 作り直しの見せ方（2026-11-06）："" ＝ふつう、fail1＝1回目が確かめに落ちて作り直し中、check2＝2回目を確かめ中 */
+    phase: "" as "" | "fail1" | "check2",
+    failShown: 0,
     k: 0,
     playing: false,
     watch: 0,
@@ -1490,13 +1493,28 @@ function nMake(): View {
   const used = new Set<string>(spec && Array.isArray(spec.parts) ? [...spec.parts.map((p) => p.type), ...(spec.nodes ?? []).filter((n) => typeof n.fixed === "number" && n.fixed !== 0).map(() => "battery")] : []);
   const v = m?.verdict ?? att?.verdict;
   const done = !!m && state.nx.shown >= (v?.checks.length ?? 0);
+  const at = state.nx.attempts;
+  const history: ("ok" | "ng" | "wait")[] = at.map((a) => (a.verdict.ok ? "ok" : "ng"));
+  if (state.nx.phase === "fail1" && state.busy) history.push("wait");
+  const fail1 = state.nx.phase === "fail1" && at[0] && !at[0].verdict.ok;
+  const f0 = fail1 ? at[0]!.verdict : null;
+  const failAll = !!f0 && state.nx.failShown >= f0.checks.length;
+  const board = f0
+    ? checkBoard(850, 20, f0.checks, state.nx.failShown, { history, stamp: failAll ? "fail" : null, title: "計算プログラムの確かめ（1回目）" })
+    : v
+      ? checkBoard(850, 20, v.checks, state.nx.shown, { history: at.length > 1 ? history : [], stamp: done ? "pass" : null, title: at.length > 1 ? "計算プログラムの確かめ（2回目）" : "計算プログラムの確かめ" })
+      : "";
+  const back = failAll
+    ? `<g><path class="dashmove" d="M846 ${120} C 700 ${70}, 480 ${70}, 330 ${120}" fill="none" stroke="var(--stamp)" stroke-width="5" stroke-dasharray="14 10"/><path d="M342 108 l-16 13 l20 6" fill="none" stroke="var(--stamp)" stroke-width="5"/>
+        <rect x="438" y="44" width="300" height="34" rx="17" fill="var(--paper)" stroke="var(--stamp)" stroke-width="2.5"/><text x="588" y="67" fill="var(--stamp)" font-size="17" font-weight="900" text-anchor="middle">落ちた理由を Claude へ戻す</text></g>`
+    : "";
   return {
     chap: "つづきの謎",
     goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
     svg: `${partsBox(20, 40, used)}
       <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : "Claude（AI）が部品を選んでいる…"}</text>
-      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,200)"><circle r="60" fill="none" stroke="var(--line)" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="var(--soft)" font-size="16" text-anchor="middle">組み立て中</text></g>`}
-      ${v ? checkBoard(850, 20, v.checks, state.nx.shown) : ""}
+      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="spin" r="60" fill="none" stroke="${fail1 ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 ? "組み立て直し中" : "組み立て中"}</text></g>`}
+      ${back}${board}
       ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
     who: state.line.who,
     text: state.line.text,
@@ -1621,6 +1639,8 @@ async function nxMake(topic: string): Promise<void> {
   state.nx.attempts = [];
   state.nx.shown = 0;
   state.nx.sc = null;
+  state.nx.phase = "";
+  state.nx.failShown = 0;
   say("ai", `「${topic}」の謎を組み立てます。前の謎「${state.nx.prev.title}」から、部品を足したり置きかえたりします。`);
   go("n-make");
   state.busy = true;
@@ -1628,8 +1648,27 @@ async function nxMake(topic: string): Promise<void> {
   try {
     const { made, attempts } = await makeNext(topic, state.nx.prev, {
       onStatus: (text, who) => {
+        if (state.nx.phase === "fail1") return; // 落ちた理由を読んでいるあいだは、窓の文を替えない
         say(who, text);
         render();
+      },
+      onAttempt: (a, i) => {
+        if (i !== 0 || a.verdict.ok) return;
+        // 1回目が落ちた：確かめを一つずつ点け、落ちた行を赤くし、不合格のハンコと「理由を戻す」矢印を出す（作り直しの返事を待つあいだ）
+        state.nx.attempts = [a];
+        state.nx.phase = "fail1";
+        state.nx.failShown = 0;
+        const bad = a.verdict.checks.filter((c) => !c.ok);
+        say("calc", `1回目は、確かめに通らなかった。落ちたのは「${bad[0]?.label ?? "形"}」${bad.length > 1 ? `ほか ${bad.length - 1} 件` : ""}。理由を Claude に戻して、組み立て直してもらう。`);
+        render();
+        void (async () => {
+          for (let k = 1; k <= a.verdict.checks.length; k++) {
+            state.nx.failShown = k;
+            const svg = app.querySelector("svg.st");
+            if (svg && state.scene === "n-make") svg.innerHTML = nMake().svg;
+            await sleep(reduceMotion() ? 0 : 150);
+          }
+        })();
       },
     });
     state.nx.attempts = attempts;
@@ -1642,7 +1681,10 @@ async function nxMake(topic: string): Promise<void> {
     }
     state.nx.made = made;
     state.nx.sc = machineScale(made.spec, [made.verdict.runA!, made.verdict.runB!]);
-    say("calc", "計算プログラムが、組み立てた装置をそのまま計算して確かめる。");
+    const redo = attempts.length > 1;
+    state.nx.phase = redo ? "check2" : "";
+    if (redo) await sleep(reduceMotion() ? 0 : 600);
+    say("calc", redo ? "組み立て直した装置を、もう一度、そのまま計算して確かめる。" : "計算プログラムが、組み立てた装置をそのまま計算して確かめる。");
     render();
     const n = made.verdict.checks.length;
     for (let i = 1; i <= n; i++) {
