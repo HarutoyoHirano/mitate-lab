@@ -164,6 +164,8 @@ const state = {
   rtLog: {} as Partial<Record<RetrainCase, string[]>>,
   memLog: [] as string[],
   c2cursor: null as number | null,
+  /** ロボの話の前置き（紹介）の文。この文のあいだは吹き出しを出さない（言っていない台詞を先に見せない） */
+  quiet: [] as string[],
   solvedStep: 0,
   modelT: 1,
   sayT: USUAL_CYCLE - 0.5,
@@ -223,8 +225,8 @@ function phrase(text: string): string {
 const roll = (v: string, delay = 0) => `<span data-roll="${v}" data-delay="${delay}">${v}</span>`;
 
 /** メッセージ窓に出す。長い文は「。」の切れ目で分け、窓を押すと次へ送る（一度に一つか二つの文） */
-function say(who: Who, text: string): void {
-  // "\f" はそこで必ず次の文へ分ける（自己紹介と結果を同じ窓に混ぜないため）
+/** メッセージ窓の文を一枚ずつに分ける（"\f" はそこで必ず分ける） */
+function paginate(text: string): string[] {
   const pages: string[] = [];
   for (const block of text.split("\f")) {
     const parts = block.split(/(?<=[。？！])/).filter((x) => x.trim());
@@ -236,6 +238,11 @@ function say(who: Who, text: string): void {
       first = false;
     }
   }
+  return pages;
+}
+function say(who: Who, text: string): void {
+  // "\f" はそこで必ず次の文へ分ける（自己紹介と結果を同じ窓に混ぜないため）
+  const pages = paginate(text);
   state.line = { who, text: pages[0] ?? "", rest: pages.slice(1) };
   logLine(who, state.line.text);
 }
@@ -304,6 +311,14 @@ function startMovie(id: MovieId, line: string): void {
   go("movie");
   if (state.moviePlaying) movieLoop();
 }
+const SELF_INTRO = "私は検査ロボ TEJUN。このラボの試作品を、決まった手順で検査しています。";
+/** ロボの話の入口：前置き（吹き出しなし）→ 測った数字（吹き出しあり）の順に話す */
+function robotTalk(lead: string, result: string): void {
+  state.quiet = paginate(lead);
+  say("bot", `${lead}\f${result}`);
+}
+const quietNow = () => state.say === 0 && state.quiet.includes(state.line.text);
+const quietCmd = { act: "more", label: "続きを聞く", hot: true };
 function c1Say(): View {
   const r = state.view!.intro;
   const lines: [string, string, string, string][] = [
@@ -312,15 +327,19 @@ function c1Say(): View {
   ];
   const [lab, l1, l2, l3] = lines[Math.min(state.say, 1)]!;
   const asked = state.say >= 2;
+  // ロボの自己紹介のあいだは吹き出しを出さない（言っていない台詞が先に出ないように。2026-11-06、作者の指摘）
+  const selfIntro = quietNow();
   return {
     chap: "謎1 軟骨：見破れ",
     goal: "ロボの話を聞き、確かめ方を考えよう",
     svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 [N] 未満 → 同じ"], usualPhase(state.sayT).step, false)}
-      ${bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
+      ${selfIntro ? "" : bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
       ${usualTest({ t: state.sayT, valueA: r.base, valueB: r.force, diff: r.diff, tol: r.tolerance })}`,
     who: "bot",
     text: state.line.text,
-    cmds: !asked
+    cmds: selfIntro
+      ? [quietCmd]
+      : !asked
       ? [
           { act: "c1-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true },
         ]
@@ -870,10 +889,10 @@ function c3Say(): View {
   return {
     chap: "謎2 脈の見落とし",
     goal: "人工血管の試作品Bの検査。ロボの話を聞こう",
-    svg: `<g transform="translate(-40,120) scale(0.72)">${c3Stage()}</g>${bubble(480, 20, lab, l1, l2, 540, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
+    svg: `<g transform="translate(-40,120) scale(0.72)">${c3Stage()}</g>${quietNow() ? "" : bubble(480, 20, lab, l1, l2, 540, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
     who: "bot",
     text: state.line.text,
-    cmds: state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch3", label: "脈を観察する", sub: "1回の脈の途中で止めて撮る", hot: true }],
   };
 }
 function c3Watch(): View {
@@ -1140,10 +1159,10 @@ function c4Say(): View {
   return {
     chap: "謎3 膜の見落とし",
     goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの話を聞こう",
-    svg: `${nerveWhole(16, 16, false)}${memTestStrip(330, 240, 700, a, b)}${bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
+    svg: `${nerveWhole(16, 16, false)}${memTestStrip(330, 240, 700, a, b)}${quietNow() ? "" : bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
     who: "bot",
     text: state.line.text,
-    cmds: state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : [{ act: "to-watch4", label: "押して、離す", sub: "押している間だけ、入口から電流が入る", hot: true }],
   };
 }
 function c4Watch(): View {
@@ -2317,7 +2336,7 @@ app.addEventListener("click", async (e) => {
       state.moviePlaying = false;
       state.mood = "smug";
       // ロボはここで初めて出るので、まず自己紹介（2026-11-06、作者の指示）
-      say("bot", `私は検査ロボ TEJUN。このラボの試作品を、決まった手順で検査しています。\f${introLine}`);
+      robotTalk(SELF_INTRO, introLine);
       go("c1-say");
       sayLoop();
       break;
@@ -2604,7 +2623,7 @@ app.addEventListener("click", async (e) => {
       state.say = 0;
       state.mood = "smug";
       state.vPlaying = !reduceMotion();
-      say("bot", `今度は人工血管の検査です。心臓と血管のまねをした試験装置で、ポンプが脈ごとに液を送り、人工血管がふくらんで受け止めます。`);
+      robotTalk("今度は人工血管の検査です。心臓と血管のまねをした試験装置で、ポンプが脈ごとに液を送り、人工血管がふくらんで受け止めます。", `検査の結果です。1回の脈の平均の圧は　A：${VA.mean.toFixed(1)} [mmHg]　　B：${VB.mean.toFixed(1)} [mmHg]。`);
       go("c3-say");
       vLoop();
       break;
@@ -2667,7 +2686,7 @@ app.addEventListener("click", async (e) => {
       state.moviePlaying = false;
       state.say = 0;
       state.mood = "smug";
-      say("bot", `今度は神経の膜の検査です。見本の膜A（いままでの膜）と、神経のチームがつくった試作品の膜Bをくらべます。押している100ミリ秒（0.1秒）だけ、入口から電流が入ります。`);
+      robotTalk("今度は神経の膜の検査です。見本の膜A（いままでの膜）と、神経のチームがつくった試作品の膜Bをくらべます。押している100ミリ秒（0.1秒）だけ、入口から電流が入ります。", `検査の結果です。離す直前の膜の電圧は　A：${mvs(REST_MV + deltaMv(BASE_MEM, PULSE_MS))} [mV]　　B：${mvs(REST_MV + deltaMv(CASE3_B, PULSE_MS))} [mV]。`);
       go("c4-say");
       break;
     case "c4-next":
