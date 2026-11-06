@@ -270,10 +270,10 @@ function movieLoop(): void {
   tick();
 }
 const MOVIE_INFO: Record<MovieId, { chap: string; goal: string; go: string; label: string; sub: string }> = {
-  1: { chap: "謎1 軟骨：見破れ", goal: "はじまりの話：人工軟骨の試作品と検査ロボ", go: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く" },
+  1: { chap: "謎1 軟骨：見破れ", goal: "はじまりの話：人工軟骨の新しい試作品", go: "to-c1say", label: "検査室へ", sub: "ロボの話を聞く" },
   2: { chap: "謎1 軟骨：仕掛けろ", goal: "後半へ：見落としを見つけたら、次は検査の手順を見直す", go: "enter-c2", label: "設計台へ", sub: "ロボの検査の手順を見る" },
-  4: { chap: "謎2 脈の見落とし", goal: "はじまりの話：膝へ血液を運ぶ人工血管と検査ロボ", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
-  5: { chap: "謎3 膜の見落とし", goal: "はじまりの話：膝の感覚を伝える神経の膜と検査ロボ", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
+  4: { chap: "謎2 脈の見落とし", goal: "はじまりの話：膝へ血液を運ぶ人工血管", go: "enter-c3", label: "試験装置へ", sub: "ロボの話を聞く" },
+  5: { chap: "謎3 膜の見落とし", goal: "はじまりの話：膝の感覚を伝える神経の膜", go: "enter-c4", label: "膜の実験台へ", sub: "ロボの話を聞く" },
 };
 function movieView(): View {
   const m = MOVIE_INFO[state.movieId];
@@ -2102,7 +2102,7 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
     state.mood = "smug";
     const it = r.view.intro;
     introLine = `いつもの検査の結果です。押して20秒後の力は　A：${it.base.toFixed(3)} [N]　　B：${it.force.toFixed(3)} [N]。ちがいは、わずか ${Math.abs(it.force - it.base).toFixed(3)} [N]。`;
-    say("guide", "はじまりの話：新しい試作品Bができて、検査ロボが調べた。何が起きたのか、見てみよう。");
+    say("guide", "はじまりの話：膝の骨と骨のあいだでクッションになる軟骨を、人工でつくる試作が進んでいる。");
     state.scene = "movie";
     state.movieId = 1;
     state.movieT = reduceMotion() ? movieLength(1) : 0;
