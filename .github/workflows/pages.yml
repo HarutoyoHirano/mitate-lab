@@ -1,0 +1,38 @@
+# 試用版（サーバーなし）を GitHub Pages に出す。計算・判定・画面は本番と同じコード（CLAUDE.md 第8章）。
+# 試用版では隠れた試作品Bもブラウザの中にあり、Claude はページから呼ばない（つづきの謎は確かめに通った記録で動く）。
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:trial
+      - run: node scripts/pages-page.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

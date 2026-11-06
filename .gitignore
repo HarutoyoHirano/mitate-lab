@@ -21,3 +21,4 @@ spike/
 *.local.md
 dist-trial/
 dist-proto/
+_site/
