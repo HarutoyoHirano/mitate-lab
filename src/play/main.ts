@@ -1692,7 +1692,12 @@ function nxLoop(kind: "movie" | "watch"): void {
       state.nx.k = Math.floor(k0 + ((performance.now() - s0) / per) * (n - 1)) % n;
       if (svg) svg.innerHTML = nWatch().svg;
       const lab = app.querySelector<HTMLInputElement>('input[data-nt="k"]');
-      if (lab) lab.value = String(state.nx.k);
+      if (lab) {
+        lab.value = String(state.nx.k);
+        // 動かしているあいだも、時刻の数字をつまみと合わせる
+        const st = lab.closest("label")?.querySelector("strong");
+        if (st) st.textContent = `${fmtv(state.nx.made!.verdict.runA!.t[state.nx.k]!)} ${state.nx.made!.spec.clock.timeUnit}`;
+      }
     }
     nxTimer = requestAnimationFrame(tick);
   };
