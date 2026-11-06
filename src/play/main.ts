@@ -1693,11 +1693,8 @@ function panelHtml(): string {
       ? nxRefsHtml()
       : state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <table><tr><th>検査ロボ TEJUN</th><td>決まった一つの測り方で判定するプログラム（AIではない）。自信ゲージは、あなたが見落としを突くたびに減る（あなたの減点ではない）</td></tr>
-      <tr><th>相棒 Claude（AI）</th><td>謎1で参加（使えない場所では休み、上の段に表示しない）。隠れた答えを知らない。あなたと同じ記録だけで考える</td></tr>
-      <tr><th>計算プログラム</th><td>教材の計算プログラム（AIではない）が、同じ記録で確かめる</td></tr>
-      <tr><th>案内</th><td>あらかじめ書いた決まった文（AIではない）。手がかりも、Claude が休んでいるときは決まった文</td></tr>
-      <tr><th>Claude（AI）・謎を組み立てる</th><td>つづきの謎で、次の謎を組み立てる。式と判定は計算プログラムが確かめる</td></tr></table>
+      <p class="about-ai">AI（Claude）が動くのは、つづきの謎で、次の謎をつくるときだけです。そのときは上の段に「Claude（AI）」と出ます。${state.claude ? "謎1では、相棒の Claude（AI）も手伝います（隠れた答えは知りません）。" : ""}</p>
+      <p class="about-ai">検査ロボ TEJUN と、答えが合っているかの確かめは、AIではなく、決まった式で動くプログラムです。</p>
       <p>人工軟骨・人工血管・膜は、計算でつくった、本物ではない試作品・模型です。ラボも試作品も架空で、実在の人工関節・人工軟骨・人工血管・医療機器の性能や、体の値・病気の判定を表すものではありません。謎1の見破れの記録には測るたびのぶれがあり、それ以外はぶれのない計算です。試す回数で減点はしません。氏名などは集めていません。</p>
       <details><summary>先生用の設定</summary><p><label>合言葉 <input type="password" id="t-pass"></label>
         <label id="t-cause-wrap" hidden>隠れた原因 <select id="t-cause"><option value="">ランダム</option><option value="instantUp">押した直後だけ増えるかたさが大きい</option><option value="instantDown">押した直後だけ増えるかたさが小さい</option><option value="relaxSlow">増えたかたさが消えるのが遅い</option><option value="relaxFast">増えたかたさが消えるのが速い</option></select></label>

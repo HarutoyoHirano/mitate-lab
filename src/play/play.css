@@ -365,3 +365,5 @@ button { font: inherit; }
   .stage > .knobs, .stage > .meters { position: static; inset: auto !important; width: auto !important; flex: 1 1 40%; margin: 0 1.5cqw; }
   .stage > .knobs em { display: none; }
 }
+
+.about-ai { font-size: 16px; font-weight: 800; line-height: 1.7; margin: 0 0 10px; }
