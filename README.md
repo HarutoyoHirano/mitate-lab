@@ -53,7 +53,8 @@ AIが役に立つのは、用意した問いの**続き**を、物理・化学�
 - **計算で確かめてから画面に出す**：「どのテンポでも見落としは見つかるか」「数字を一つ足すだけでふさげるか」などは、言い切る前に格子で数え、テストにした（16ファイル・149件）
 
 ## 試す方法
-- 試用版（サーバーなし）：`npm run build:trial` で一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくり、ブラウザで開く。計算・判定・画面は本番と同じコード。試用版では隠れた試作品Bもブラウザの中にあるため、授業では本番のサーバー構成を使う
+- **ブラウザですぐ遊ぶ（ログイン不要）**：https://harutoyohirano.github.io/mitate-lab-play/ 。サーバーを使わない試用版で、謎1〜3・まとめ・つづきの謎まで遊べる。ページから Claude は呼ばないので、つづきの謎は Claude が組み立てて確かめに通った記録で動く（画面に「記録」と出る）。謎1の隠れた試作品Bの値もページの中にある。Claude がその場で組み立てる場面はデモ動画で見せている
+- 試用版を自分でつくる：`npm run build:trial` で一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくり、ブラウザで開く。計算・判定・画面は本番と同じコード。試用版では隠れた試作品Bもブラウザの中にあるため、授業では本番のサーバー構成を使う
 - 本番（Node.js 22 以上）：`npm install` → （任意）`cp .env.example .env` で `ANTHROPIC_API_KEY` と `CLAUDE_MODEL` を設定 → `npm run build` → `npm start`（http://localhost:8787）。鍵がなくても、つづきの謎は記録に切りかえて最後まで動く
 - 開発：`npm run dev`（http://localhost:5173）、テスト：`npm test`
 
