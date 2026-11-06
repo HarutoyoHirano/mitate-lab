@@ -1291,10 +1291,31 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
     const fill = c.slips ? "var(--stamp)" : c.first ? "color-mix(in srgb, var(--you) 75%, var(--panel))" : "color-mix(in srgb, var(--soft) 45%, var(--panel))";
     rects += `<rect x="${(col(c.x) * cw).toFixed(1)}" y="${(oy + H - (row(c.y) + 1) * ch).toFixed(1)}" width="${(cw + 0.4).toFixed(1)}" height="${(ch + 0.4).toFixed(1)}" fill="${fill}"/>`;
   }
-  const shown = zoom ? marks.filter((m) => ys.some((q) => Math.abs(q - m.y) < 1e-6)) : marks;
+  const shown0 = zoom ? marks.filter((m) => ys.some((q) => Math.abs(q - m.y) < 1e-6)) : marks;
+  // 近い印はまとめて一つの名前にし、名前は印のすぐ横に置く（名前が別の印の横に出て、どれがどれか分からなかった。2026-11-06）
+  const groups: { px: number; py: number; labels: string[] }[] = [];
+  for (const m of shown0) {
+    const px = (col(m.x) + 0.5) * cw, py = cy(row(m.y));
+    const g = groups.find((q) => Math.hypot(q.px - px, q.py - py) < 26);
+    if (g) g.labels.push(m.label);
+    else groups.push({ px, py, labels: [m.label] });
+  }
+  const joinLabels = (ls: string[]) => {
+    const pre = ls.map((l) => l.match(/^(.*)（(\d+)）$/));
+    if (ls.length > 1 && pre.every((q) => q && q[1] === pre[0]![1])) return `${pre[0]![1]}（${pre.map((q) => q![2]).join("・")}）`;
+    return ls.join("・");
+  };
+  const placed: { y: number; x: number }[] = [];
+  const shown = groups.map((g) => {
+    const right = g.px > w * 0.6;
+    let ly = g.py + 5;
+    while (placed.some((q) => Math.abs(q.y - ly) < 20 && Math.abs(q.x - g.px) < 260)) ly += 20;
+    placed.push({ y: ly, x: g.px });
+    return { ...g, label: joinLabels(g.labels), ly, right };
+  });
   return `<g transform="translate(${x},${y})">
     <rect y="${oy}" width="${w}" height="${H}" fill="var(--panel)" stroke="var(--line)"/>${rects}
-    ${shown.map((m, k) => `<circle cx="${(col(m.x) + 0.5) * cw}" cy="${cy(row(m.y))}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${Math.min(w - 4, (col(m.x) + 0.5) * cw + 12)}" y="${cy(row(m.y)) - 10 - k * 18}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="${(col(m.x) + 0.5) * cw > w * 0.6 ? "end" : "start"}" stroke="var(--panel)" stroke-width="4" paint-order="stroke">${m.label}</text>`).join("")}
+    ${shown.map((m) => `<circle cx="${m.px}" cy="${m.py}" r="8" fill="none" stroke="var(--ink)" stroke-width="3"/><text x="${m.right ? m.px - 14 : m.px + 14}" y="${m.ly}" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="${m.right ? "end" : "start"}" stroke="var(--panel)" stroke-width="4" paint-order="stroke">${m.label}</text>`).join("")}
     <text x="${w / 2}" y="${oy + H + 22}" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${axes.x} →</text>
     <text x="0" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900">${xs[0]!.toFixed(1)}</text><text x="${w}" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${xs[xs.length - 1]!.toFixed(1)}</text>
     ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="0" y="-10" fill="var(--ink)" font-size="17" font-weight="900">↑ ${axes.y}</text><text x="-6" y="${h - 2}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[0]!.toFixed(1)}</text><text x="-6" y="14" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[ys.length - 1]!.toFixed(1)}</text>`}

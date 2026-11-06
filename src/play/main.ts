@@ -14,7 +14,7 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
+import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -545,8 +545,8 @@ function c1Line(): View {
       return `<div class="ghost ${broken ? "broken" : ""} ${prevOut ? "prev" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" role="group" aria-label="説明：${CANDIDATES[id].label}">
         <span class="gname">${CANDIDATES[id].label}</span>
         <span class="glook">${LOOK[id]}</span>
-        <div class="gres">${broken ? ghostPuck(COLOR[id], true) : ""}${res}</div>
-        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 260, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
+        <div class="gres">${res}</div>
+        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 244, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
         ${awaiting && !prevOut ? tagButtons("tag", id, tag, false) : ""}
         ${checked && fit && !prevOut ? `<button class="zoom-btn" data-act="zoom" data-val="${id}">グラフを大きく見る</button>` : ""}
       </div>`;
@@ -1510,18 +1510,20 @@ function nPick(): View {
     chap: "つづきの謎",
     goal: `「${prev.title}」の続きを、AI（Claude）が組み立てる`,
     svg: `<text x="640" y="40" fill="var(--soft)" font-size="16" font-weight="800" text-anchor="middle">前の謎「${esc(prev.title)}」の結び：${esc(wrapLines(prev.endLine, 40, 1)[0] ?? "")}</text>
-      ${topics.map((t, i) => {
+      ${nxTopicCmds(prev).map((c, i) => {
+        // 題材のカードを押して選ぶ（下のボタンと同じ行動。ボタンは置かない。2026-11-06、画面の下が切れていた件）
         const x = 640 + (i - (topics.length - 1) / 2) * 340;
-        return `<g transform="translate(${x},215)"><rect x="-150" y="-140" width="300" height="270" rx="20" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
-          <g transform="translate(0,-20) scale(0.62)">${organ(guess(t), 0.5, 0)}</g>
-          <text x="0" y="104" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text></g>`;
+        const t = c.label;
+        return `<g ${c.disabled ? `opacity="0.45"` : `class="jump" data-act="n-topic" data-val="${esc(t)}" role="button" tabindex="0" aria-label="${esc(t)}の謎を組み立てる"`} transform="translate(${x},196)"><rect x="-150" y="-130" width="300" height="252" rx="20" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+          <g transform="translate(0,-28) scale(0.56)">${organ(guess(t), 0.5, 0)}</g>
+          <text x="0" y="72" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text>
+          <text x="0" y="100" fill="${c.disabled ? "var(--soft)" : "var(--you)"}" font-size="15" font-weight="900" text-anchor="middle">${esc(c.sub ?? "")}</text></g>`;
       }).join("")}
-      <text x="640" y="368" fill="var(--soft)" font-size="15" text-anchor="middle">候補は、前の謎でAIが出した題材。下の欄に、調べたい題材を自分で入れてもよい。</text>
-      <text x="640" y="390" fill="var(--soft)" font-size="13" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、本当に動き、本当に解けるかを確かめる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録がある題材だけつくれる（確かめは、いま計算する）。"}</text>`,
-    html: nxTopicBox("left:22%;top:83%;width:56%"),
+      <text x="640" y="350" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、本当に動き、本当に解けるかを確かめる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録がある題材だけつくれる（確かめは、いま計算する）。"}</text>`,
+    html: nxTopicBox("left:22%;top:74%;width:56%"),
     who: state.line.who,
     text: state.line.text,
-    cmds: [...nxTopicCmds(prev), { act: "to-end-back", label: "まとめに戻る", ghost: true }],
+    cmds: [{ act: "to-end-back", label: "まとめに戻る", ghost: true }],
   };
 }
 function nMake(): View {
@@ -1834,7 +1836,9 @@ function render(): void {
   const shown = peeking ? state.log[state.peek!]! : { who: v.who, text: v.text };
   const lastLog = state.log.length - 1;
   const canBack = peeking ? state.peek! > 0 : lastLog >= (state.log[lastLog]?.text === v.text ? 1 : 0) && lastLog >= 0;
-  const backRow = canBack || peeking ? `<p class="back-row">${canBack ? `<button class="mini-btn" data-act="back">◀ 前の文</button>` : ""}${peeking ? `<button class="mini-btn" data-act="fwd">次の文 ▶</button>` : ""}</p>` : "";
+  const hasMore = !peeking && state.line.rest.length > 0;
+  // 「◀ 前の文」と「▼ 続き」は一行に並べる（窓が縦に伸びて画面の下が切れないように。2026-11-06）
+  const backRow = canBack || peeking || hasMore ? `<p class="back-row">${canBack ? `<button class="mini-btn" data-act="back">◀ 前の文</button>` : ""}${peeking ? `<button class="mini-btn" data-act="fwd">次の文 ▶</button>` : ""}${hasMore ? `<span class="next-hint" data-act="more">▼ 続き（窓を押す）</span>` : ""}</p>` : "";
   curText = v.text;
   app.innerHTML = `<div class="game"><div class="screen">
     <header class="hud">
@@ -1846,7 +1850,7 @@ function render(): void {
     </header>
     <div class="stage ${v.svg ? "" : "flow"}"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
-      <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && state.line.rest.length ? "more" : ""}" aria-live="polite" ${!peeking && state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${!peeking && state.line.rest.length ? `<p class="next-hint" data-act="more">▼ 続き（窓を押す）</p>` : ""}${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
+      <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && state.line.rest.length ? "more" : ""}" aria-live="polite" ${!peeking && state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
       <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
@@ -3040,6 +3044,13 @@ app.addEventListener("click", async (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  // 絵の中の押せるもの（タイトルの一覧・つづきの謎の題材のカード）も、Enter と空白で押せるように
+  const t = e.target as Element | null;
+  if ((e.key === "Enter" || e.key === " ") && t && t.getAttribute("role") === "button" && t.tagName.toLowerCase() === "g") {
+    e.preventDefault();
+    t.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    return;
+  }
   if (e.key === "Escape" && state.panel) {
     state.panel = null;
     render();
