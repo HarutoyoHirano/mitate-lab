@@ -4,13 +4,37 @@ export const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: re
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let audio: AudioContext | null = null;
-export const sound = { on: false };
+const SOUND_KEY = "mitate-lab-sound";
+/** 音の ON/OFF（初期OFF）。この端末のブラウザに覚える（使えない場所では覚えない） */
+export const sound = {
+  on: (() => {
+    try {
+      return localStorage.getItem(SOUND_KEY) === "on";
+    } catch {
+      return false;
+    }
+  })(),
+};
+export function setSound(on: boolean): void {
+  sound.on = on;
+  try {
+    localStorage.setItem(SOUND_KEY, on ? "on" : "off");
+  } catch {
+    /* 覚えられない場所では、この窓のあいだだけ */
+  }
+  if (!on) toneStop();
+}
+function ctx(): AudioContext {
+  audio ??= new AudioContext();
+  if (audio.state === "suspended") void audio.resume();
+  return audio;
+}
 
 /** 効果音（初期OFF）。step は一歩ごとに音程が上がる */
 export function beep(kind: "tap" | "step" | "stamp" | "win" | "miss" | "shatter", step = 0): void {
   if (!sound.on) return;
   try {
-    audio ??= new AudioContext();
+    const audio = ctx();
     const seq: Record<typeof kind, [number, number, OscillatorType][]> = {
       tap: [[660, 0.05, "triangle"]],
       step: [[392 * Math.pow(2, step / 12), 0.07, "triangle"]],
@@ -37,6 +61,77 @@ export function beep(kind: "tap" | "step" | "stamp" | "win" | "miss" | "shatter"
   }
 }
 
+/** 鼓動（ドクン）。pan：−1＝左（見本A）、＋1＝右（試作品B）。strength 0〜1＝強さ、hz＝音の高さ。値は呼ぶ側が計算値から決める */
+export function heartbeat(pan: number, strength: number, hz: number): void {
+  if (!sound.on) return;
+  try {
+    const a = ctx();
+    const p = a.createStereoPanner();
+    p.pan.value = pan;
+    p.connect(a.destination);
+    const g0 = 0.02 + 0.28 * Math.max(0, Math.min(1, strength));
+    // ドク（強い）・ン（弱い）の二つ。低すぎるとノートPCのスピーカーで聞こえないので、三角波の倍音を足す
+    const parts: [number, number, number, number][] = [
+      [0, 0.11, hz, g0],
+      [0.16, 0.09, hz * 0.8, g0 * 0.55],
+    ];
+    for (const [dt, d, f, g] of parts) {
+      for (const [mul, type, k] of [[1, "triangle", 1], [2, "sine", 0.35]] as [number, OscillatorType, number][]) {
+        const o = a.createOscillator();
+        const gn = a.createGain();
+        o.type = type;
+        const t0 = a.currentTime + dt;
+        o.frequency.setValueAtTime(f * mul * 1.25, t0);
+        o.frequency.exponentialRampToValueAtTime(f * mul, t0 + d);
+        gn.gain.setValueAtTime(0.0001, t0);
+        gn.gain.exponentialRampToValueAtTime(g * k, t0 + 0.012);
+        gn.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+        o.connect(gn).connect(p);
+        o.start(t0);
+        o.stop(t0 + d + 0.02);
+      }
+    }
+  } catch {
+    /* 鳴らせない環境では鳴らさない */
+  }
+}
+
+/** 続けて鳴る二つの音（左＝見本A、右＝試作品B）。音の高さを値に合わせて動かす */
+let tones: { o: OscillatorNode; g: GainNode }[] | null = null;
+export function toneSet(hzA: number, hzB: number): void {
+  if (!sound.on) return;
+  try {
+    const a = ctx();
+    if (!tones) {
+      tones = [-0.8, 0.8].map((pan) => {
+        const o = a.createOscillator();
+        const g = a.createGain();
+        const p = a.createStereoPanner();
+        o.type = "triangle";
+        p.pan.value = pan;
+        g.gain.setValueAtTime(0.0001, a.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.06, a.currentTime + 0.05);
+        o.connect(g).connect(p).connect(a.destination);
+        o.start();
+        return { o, g };
+      });
+    }
+    tones[0]!.o.frequency.setTargetAtTime(hzA, a.currentTime, 0.01);
+    tones[1]!.o.frequency.setTargetAtTime(hzB, a.currentTime, 0.01);
+  } catch {
+    /* 鳴らせない環境では鳴らさない */
+  }
+}
+export function toneStop(): void {
+  if (!tones || !audio) return;
+  const t = audio.currentTime;
+  for (const { o, g } of tones) {
+    g.gain.setTargetAtTime(0.0001, t, 0.03);
+    o.stop(t + 0.2);
+  }
+  tones = null;
+}
+
 /** 舞台を揺らす。強さは 0〜1（差の大きさに合わせ、上限あり） */
 export function shake(strength: number): void {
   if (reduceMotion()) return;
@@ -58,7 +153,7 @@ export async function stamp(text: string, kind: "hit" | "win" | "miss" = "hit", 
   d.textContent = text;
   d.setAttribute("role", "status");
   host.appendChild(d);
-  beep(kind === "miss" ? "miss" : "stamp");
+  beep(kind === "miss" ? "miss" : kind === "win" ? "win" : "stamp");
   if (kind !== "miss") shake(strength);
   await sleep(reduceMotion() ? 700 : 1100);
   d.classList.add("out");

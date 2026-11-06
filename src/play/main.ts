@@ -14,8 +14,8 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SEE_DIFF, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, SEE_DIFF, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
-import { beep, floatDamage, reduceMotion, rollNumbers, shake, sleep, sound, stamp } from "./fx.js";
+import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, ghostPuck, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
+import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
 import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
 import { PREPARED_NETS } from "../../server/puzzle/netPrompt.js";
@@ -771,16 +771,29 @@ function duelCurve(e1: number, tau: number): { u: number; v: number }[] {
 }
 const PH_U = { land: 0, lift: 0.5 } as const;
 const PH_NAME = { land: "着地した直後", lift: "足を上げた直後" } as const;
-function duelGraph(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, cursor: number | null): string {
+function duelGraph(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, cursor: number | null, compact = false): string {
   const round = DUEL_ROUNDS[roundIdx]!;
   const r = judgeDuel(round, duelMaterial(e1, tau));
   const rp = round.robot.phase as "land" | "lift";
   const hp = round.hidden.phase as "land" | "lift";
   return duelStepGraph({
     x, y, w, h, period: DUEL_PERIOD, a: duelCurve(BASE.e1, BASE.tau), b: duelCurve(e1, tau), cursor, scan: cursor !== null,
-    robot: { u: PH_U[rp], before: false, label: PH_NAME[rp], diff: r.robot.diff, ok: r.robot.ok, goal: `${ROBOT_PASS} より小さく＝同じに` },
-    hidden: { u: PH_U[hp], before: false, label: PH_NAME[hp], diff: r.hidden.diff, ok: r.hidden.ok, goal: `${HIDDEN_NEED} より大きく＝違いを残す` },
+    robot: { u: PH_U[rp], before: false, label: PH_NAME[rp], diff: r.robot.diff, ok: r.robot.ok, goal: `目標：差を ${ROBOT_PASS} より小さく` },
+    hidden: { u: PH_U[hp], before: false, label: PH_NAME[hp], diff: r.hidden.diff, ok: r.hidden.ok, goal: `目標：差を ${HIDDEN_NEED} 以上に` },
+    compact,
   });
+}
+/** ロボが見る瞬間・見ない瞬間の膝の試験機（判定と同じ値） */
+function duelSnaps(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number): string {
+  const round = DUEL_ROUNDS[roundIdx]!;
+  const r = judgeDuel(round, duelMaterial(e1, tau));
+  const at = (ph: "land" | "lift", p: ReturnType<typeof duelMaterial>) => dentWithinStep(p, DUEL_PERIOD, duelSteps(p), DUEL_STEP, PH_U[ph] + 1e-6);
+  const one = (kind: "robot" | "hidden", xi: number) => {
+    const ph = (kind === "robot" ? round.robot.phase : round.hidden.phase) as "land" | "lift";
+    const m = kind === "robot" ? r.robot : r.hidden;
+    return kneeSnap({ x: xi, y, w: (w - 14) / 2, h, kind, label: PH_NAME[ph], load: ph === "land", dentA: at(ph, duelMaterial(BASE.e1, BASE.tau)), dentB: at(ph, duelMaterial(e1, tau)), diff: m.diff, ok: m.ok, goal: kind === "robot" ? `目標：差を ${ROBOT_PASS} より小さく` : `目標：差を ${HIDDEN_NEED} 以上に` });
+  };
+  return one("robot", x) + one("hidden", x + (w + 14) / 2);
 }
 const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る" } as const;
 const knobShown = (key: "e1" | "tau", v: number) => (v + DUEL_SLIDERS[key].offset).toFixed(2);
@@ -792,12 +805,13 @@ function c2(): View {
   const judging = state.duelPhase === "judge";
   return {
     chap: "謎1 軟骨：仕掛けろ",
-    goal: `ロボが測る点では見本と同じ、測らない点では違う試作品をつくれ（ラウンド${round.id}）`,
+    goal: `ロボが見る点だけ見本とそろえ、見ない点で違う試作品をつくって、ロボに「同じ」と言わせよう（ラウンド${round.id}）`,
     svg: `${ruleCard(24, 18, "ロボの検査の手順", ["① 押して20秒後の力", `② 走らせて、1歩目の${PH_NAME[rp]}`, `③ 差が ${ROBOT_PASS} より小さい → 同じ`], 1, round.id === 2)}
       <g transform="translate(24,172)"><rect width="310" height="62" rx="12" fill="var(--panel)" stroke="${r.final.ok ? "var(--you)" : "var(--stamp)"}" stroke-width="3"/>
         <text x="14" y="26" fill="var(--gold)" font-size="16" font-weight="900">🔍 ロボが測る：①20秒後の力</text>
-        <text x="14" y="50" fill="var(--ink)" font-size="17" font-weight="900" font-variant-numeric="tabular-nums">差 ${sgn(r.final.diff, 3)} ${r.final.ok ? "✓" : `（${ROBOT_PASS} より小さく）`}</text></g>
-      ${duelGraph(state.round, state.e1, state.tau, 356, 14, 906, 446, state.c2cursor)}`,
+        <text x="14" y="50" fill="var(--ink)" font-size="17" font-weight="900" font-variant-numeric="tabular-nums">差 ${sgn(r.final.diff, 3)} ${r.final.ok ? "✓" : `（目標：${ROBOT_PASS} より小さく）`}</text></g>
+      ${duelSnaps(state.round, state.e1, state.tau, 356, 14, 906, 236)}
+      ${duelGraph(state.round, state.e1, state.tau, 356, 262, 906, 198, state.c2cursor, true)}`,
     html: `<div class="knobs big" style="left:1.5%;bottom:3%;width:25.5%">
         ${(["e1", "tau"] as const)
           .map((key) => {
@@ -1211,8 +1225,8 @@ function c4Duel(): View {
       .join("")}</div>
       <div class="meters" style="left:68%;top:33%;width:30%">${
         show
-          ? meter(`ロボが測る：${round.robotLabel}（差を ${round.id === 1 ? `${ROBOT_STEADY_TOL} mV` : `${HALF_TIME_TOL} ms`} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
-            meter(`ロボが測らない：${round.hiddenLabel}（差を ${round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED} mV より大きく）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
+          ? meter(`ロボが測る：${round.robotLabel}（目標：差を ${round.id === 1 ? `${ROBOT_STEADY_TOL} mV` : `${HALF_TIME_TOL} ms`} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
+            meter(`ロボが測らない：${round.hiddenLabel}（目標：差を ${round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED} mV 以上に）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
           : ""
       }</div>`,
     who: state.line.who,
@@ -1749,6 +1763,7 @@ function panelHtml(): string {
       ? `<h2>このゲームについて</h2>
       <p class="about-ai">AI（Claude）が動くのは、つづきの謎で、次の謎をつくるときだけです。そのときは上の段に「Claude（AI）」と出ます。${state.claude ? "謎1では、相棒の Claude（AI）も手伝います（隠れた答えは知りません）。" : ""}</p>
       <p class="about-ai">検査ロボ TEJUN と、答えが合っているかの確かめは、AIではなく、決まった式で動くプログラムです。</p>
+      <p class="about-ai">音をONにすると、脈の謎では鼓動の強さで、膜の謎では音の高さで、見本A（左）と試作品B（右）の違いが聞こえます。どちらも画面と同じ計算の値から鳴らしています。</p>
       <p class="about-ai">ラボ・試作品・検査ロボは架空です。値は、一般的なヒトの値を目安に置いた模型の値で、実際の機器を測った値や、病気の判定ではありません。</p>
       <details><summary>先生用：謎1の試作品Bを決めて始める（授業で全員を同じBにする）</summary><p><label>合言葉 <input type="password" id="t-pass"></label>
         <label id="t-cause-wrap" hidden>隠れた原因 <select id="t-cause"><option value="">ランダム</option><option value="instantUp">押した直後だけ増えるかたさが大きい</option><option value="instantDown">押した直後だけ増えるかたさが小さい</option><option value="relaxSlow">増えたかたさが消えるのが遅い</option><option value="relaxFast">増えたかたさが消えるのが速い</option></select></label>
@@ -1970,11 +1985,19 @@ function mLoop(): void {
   tick();
 }
 let vTimer = 0;
+/** 鼓動の音（CLAUDE.md 1c-1）：強さ＝高い圧と平均の差（平均はロボの数字で、AとBで同じ）、高さ＝高い圧。左＝A、右＝B */
+const BEAT_RISE_MAX = Math.max(VA.max - VA.mean, VB.max - VB.mean);
+function beatSound(): void {
+  for (const [s, pan] of [[VA, -0.8], [VB, 0.8]] as const) heartbeat(pan, (s.max - s.mean) / BEAT_RISE_MAX, 1.1 * s.max);
+}
 function vLoop(): void {
   const s0 = performance.now() - (state.u / BEAT_S) * 2500;
+  let prevU = state.u;
   const tick = () => {
     if (!state.vPlaying || (state.scene !== "c3-watch" && state.scene !== "c3-say" && !(state.scene === "c3-sync" && state.vExplain > 0))) return;
     state.u = (((performance.now() - s0) / 2500) * BEAT_S) % BEAT_S; // 一拍（0.8秒）を2.5秒かけて見せる
+    if (state.u >= 0.02 && (prevU < 0.02 || prevU > state.u)) beatSound(); // ポンプが送り始めるところで鳴らす
+    prevU = state.u;
     const svg = app.querySelector("svg.st");
     if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
     const sl = app.querySelector<HTMLInputElement>("#u");
@@ -2202,7 +2225,6 @@ app.addEventListener("click", async (e) => {
   const act = el.dataset.act!;
   const val = el.dataset.val ?? "";
   const v = state.view;
-  beep("tap");
   if (act !== "back" && act !== "fwd") state.peek = null;
   switch (act) {
     case "more":
@@ -2227,7 +2249,8 @@ app.addEventListener("click", async (e) => {
       break;
     }
     case "sound":
-      sound.on = !sound.on;
+      setSound(!sound.on);
+      beep("tap");
       render();
       break;
     case "panel":
@@ -2658,6 +2681,8 @@ app.addEventListener("click", async (e) => {
       const reduce = reduceMotion();
       for (let t = 0; t <= RECORD_MS; t += reduce ? RECORD_MS : 2) {
         state.memT = t;
+        // 膜の電圧を音の高さで（−70 mV から上がった 0→10 mV を1オクターブ。左＝A、右＝B）
+        if (!reduce) toneSet(220 * Math.pow(2, deltaMv(BASE_MEM, t) / 10), 220 * Math.pow(2, deltaMv(CASE3_B, t) / 10));
         const svg = app.querySelector("svg.st");
         if (svg) svg.innerHTML = VIEWS["c4-watch"]().svg;
         const sl = app.querySelector<HTMLInputElement>("#mt");
@@ -2668,6 +2693,7 @@ app.addEventListener("click", async (e) => {
         }
         await sleep(20);
       }
+      toneStop();
       state.memRan = true;
       state.memT = 105;
       render();

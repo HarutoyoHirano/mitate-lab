@@ -35,8 +35,8 @@ export interface DuelRound {
 }
 
 export const DUEL_ROUNDS: readonly DuelRound[] = [
-  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: `いつもの検査（押して20秒後の力）に、走行検査を足しました。見破れと同じように走らせて、1歩目の「着地した直後」のへこみを見ます。あなたへの課題：その二つでは見本とのちがいを ${ROBOT_PASS} より小さくして、私に「区別できません」と言わせてください。そのうえで「足を上げた直後」には、${HIDDEN_NEED} より大きいちがいを残すこと。` },
-  { id: 2, robot: LIFT_CHECK, hidden: LAND_CHECK, robotLine: `見る場所を変えます。今度は1歩目の「足を上げた直後」を見ます（押して20秒後の力も見ます）。課題：そこでは見本とのちがいを ${ROBOT_PASS} より小さく。そのうえで「着地した直後」には、${HIDDEN_NEED} より大きいちがいを残すこと。前の試作品のままでは、この課題は満たせません。` },
+  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: `検査を一つ足しました。私が見るのは二つだけ。①押して20秒後の力。②走って1歩目の「着地した直後」のへこみ。どちらも見本とのちがいが ${ROBOT_PASS} より小さければ「同じ」と判定します。私に見落とさせてみてください。ただし、私が見ない「足を上げた直後」では、見本と ${HIDDEN_NEED} 以上ちがう試作品で。` },
+  { id: 2, robot: LIFT_CHECK, hidden: LAND_CHECK, robotLine: `見る場所を変えます。今度は①押して20秒後の力と、②1歩目の「足を上げた直後」のへこみ。どちらも ${ROBOT_PASS} より小さければ「同じ」です。今度は「着地した直後」で見本と ${HIDDEN_NEED} 以上ちがう試作品で、私に見落とさせてみてください。前の試作品では、私は見落としません。` },
 ];
 
 export const DUEL_SLIDERS = {

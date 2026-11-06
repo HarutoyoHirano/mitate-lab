@@ -611,6 +611,51 @@ export function runTimeline(o: {
   </g>`;
 }
 
+/** 小さな膝の試験機（太ももの骨・人工軟骨・すねの骨）と、へこみの目盛り。dent はへこみ（深さ1に対する割合）。値は呼ぶ側が計算した値 */
+function kneeMini(cx: number, plateau: number, dent: number, kind: "A" | "B", load: boolean): string {
+  const d = Math.max(-0.05, Math.min(1.3, dent));
+  const thick = 50 - 40 * d;
+  const top = plateau - thick;
+  const bulge = 6 + 18 * Math.max(0, d);
+  const col = kind === "A" ? "var(--pad-a)" : "var(--you)";
+  const edge = kind === "A" ? "var(--pad-a-edge)" : "var(--you)";
+  const fb = top - 1;
+  const hw = 44;
+  // へこみの目盛り（0〜1）。軟骨の厚みの差は小さくて見えにくいので、同じ値を棒の長さでも見せる
+  const gx = cx + 62, gh = 96, gy = plateau + 30 - gh;
+  return `<g>
+    <path d="M${cx - 13} ${fb - 58} V${fb - 28} C ${cx - 13} ${fb - 18}, ${cx - hw} ${fb - 20}, ${cx - hw} ${fb - 7} C ${cx - hw} ${fb + 1}, ${cx - 22} ${fb + 1}, ${cx} ${fb - 3} C ${cx + 22} ${fb + 1}, ${cx + hw} ${fb + 1}, ${cx + hw} ${fb - 7} C ${cx + hw} ${fb - 20}, ${cx + 13} ${fb - 18}, ${cx + 13} ${fb - 28} V${fb - 58} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
+    ${load ? `<path d="M${cx} ${fb - 92} v28 m-10 -10 l10 10 l10 -10" stroke="var(--bot)" stroke-width="5" fill="none" stroke-linecap="round"/>` : `<path d="M${cx} ${fb - 66} v-26 m-10 10 l10 -10 l10 10" stroke="var(--soft)" stroke-width="4" fill="none" stroke-linecap="round" opacity=".7"/>`}
+    <path d="M${cx - 40 - bulge / 2} ${top + 4} Q ${cx - 40 - bulge} ${(top + plateau) / 2} ${cx - 40 - bulge / 2} ${plateau - 3} L ${cx + 40 + bulge / 2} ${plateau - 3} Q ${cx + 40 + bulge} ${(top + plateau) / 2} ${cx + 40 + bulge / 2} ${top + 4} Z" fill="${col}" fill-opacity="${kind === "A" ? 1 : 0.55}" stroke="${edge}" stroke-width="3"/>
+    <path d="M${cx - 50} ${plateau} H${cx + 50} C ${cx + 50} ${plateau + 13}, ${cx + 15} ${plateau + 15}, ${cx + 14} ${plateau + 26} V${plateau + 38} H${cx - 14} V${plateau + 26} C ${cx - 15} ${plateau + 15}, ${cx - 50} ${plateau + 13}, ${cx - 50} ${plateau} Z" fill="var(--bone)" stroke="var(--bone-edge)" stroke-width="2.5"/>
+    <rect x="${gx}" y="${gy}" width="12" height="${gh}" rx="3" fill="var(--chip)"/>
+    <rect x="${gx}" y="${gy}" width="12" height="${(gh * Math.max(0, Math.min(1, d))).toFixed(1)}" rx="3" fill="${edge}"/>
+  </g>`;
+}
+
+/**
+ * 謎1 仕掛けろ：ロボが見る瞬間（または見ない瞬間）の膝の試験機。見本Aとあなたの試作品の、その瞬間のへこみを絵と数字で並べる。
+ * 値は judgeDuel と同じ（呼ぶ側が渡す）。絵は値から描くだけで、答えの設定は示さない。
+ */
+export function kneeSnap(o: { x: number; y: number; w: number; h: number; kind: "robot" | "hidden"; label: string; load: boolean; dentA: number; dentB: number; diff: number; ok: boolean; goal: string }): string {
+  const col = o.kind === "robot" ? "var(--gold)" : "var(--stamp)";
+  const plateau = o.h - 66;
+  const ca = 70, cb = 210, tx = o.w - 150;
+  const [g1, g2] = o.goal.split(/(?<=差を)\s*/);
+  return `<g transform="translate(${o.x},${o.y})">
+    <rect width="${o.w}" height="${o.h}" rx="14" fill="var(--panel)" stroke="${col}" stroke-width="3" ${o.kind === "hidden" ? `stroke-dasharray="9 6"` : ""}/>
+    <text x="14" y="27" fill="${col}" font-size="17" font-weight="900">${o.kind === "robot" ? "🔍 ロボが見る" : "ロボが見ない"}：${o.label}</text>
+    ${kneeMini(ca, plateau, o.dentA, "A", o.load)}${kneeMini(cb, plateau, o.dentB, "B", o.load)}
+    <text x="${ca + 10}" y="${plateau + 58}" fill="var(--ink)" font-size="16" font-weight="900" text-anchor="middle">見本A ${o.dentA.toFixed(2)}</text>
+    <text x="${cb + 10}" y="${plateau + 58}" fill="var(--you)" font-size="16" font-weight="900" text-anchor="middle">あなた ${o.dentB.toFixed(2)}</text>
+    <text x="${tx}" y="70" fill="var(--soft)" font-size="15" font-weight="900">へこみの差</text>
+    <text x="${tx}" y="100" fill="var(--ink)" font-size="24" font-weight="900" font-variant-numeric="tabular-nums">${o.diff >= 0 ? "+" : "−"}${Math.abs(o.diff).toFixed(3)}${o.ok ? " ✓" : ""}</text>
+    <text x="${tx}" y="130" fill="${o.ok ? "var(--you)" : "var(--soft)"}" font-size="15" font-weight="900">${g1 ?? ""}</text>
+    <text x="${tx}" y="150" fill="${o.ok ? "var(--you)" : "var(--soft)"}" font-size="15" font-weight="900">${g2 ?? ""}</text>
+    <text x="${tx}" y="${o.h - 18}" fill="var(--soft)" font-size="14" font-weight="900">${o.load ? "↓ 体重がかかった" : "↑ 足を上げた"}</text>
+  </g>`;
+}
+
 /**
  * 謎1 仕掛けろ：見破れと同じ「走る」の1歩目の中のへこみ（誤差なし・公開の式）。A＝点線、あなた＝実線。
  * ロボが測る点と、ロボが測らない点に、差と目標を大きく出す。判定は judgeDuel と同じ値を渡す。
@@ -620,7 +665,7 @@ export function duelStepGraph(o: {
   a: readonly { u: number; v: number }[]; b: readonly { u: number; v: number }[];
   robot: { u: number; before: boolean; label: string; diff: number; ok: boolean; goal: string };
   hidden: { u: number; before: boolean; label: string; diff: number; ok: boolean; goal: string };
-  cursor: number | null; scan: boolean;
+  cursor: number | null; scan: boolean; compact?: boolean;
 }): string {
   const L = 60, R = 24, T = 54, B = 46;
   const all = [...o.a, ...o.b].map((p) => p.v);
@@ -640,6 +685,10 @@ export function duelStepGraph(o: {
     const before = m.before; // 足を上げる直前は跳ぶ前、足を上げた直後は跳んだあとの値
     const ya = yAt(o.a, m.u, before), yb = yAt(o.b, m.u, before);
     const col = kind === "robot" ? "var(--gold)" : "var(--stamp)";
+    if (o.compact)
+      return `<g><line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${T}" y2="${o.h - B}" stroke="${col}" stroke-width="3" stroke-dasharray="${kind === "robot" ? "0" : "6 5"}"/>
+        <line x1="${xs(m.u)}" x2="${xs(m.u)}" y1="${ys(ya)}" y2="${ys(yb)}" stroke="${col}" stroke-width="9" stroke-linecap="round" opacity=".55"/><circle cx="${xs(m.u)}" cy="${ys(yb)}" r="7" fill="${col}"/>
+        <text x="${xs(m.u) + 10}" y="${kind === "robot" ? o.h - B - 8 : T + 20}" fill="${col}" font-size="15" font-weight="900">${kind === "robot" ? "🔍 ロボが見る" : "ロボが見ない"}</text></g>`;
     // 札は線の右側に出す。札の幅のあいだに線が上のほうを通るなら下へ、そうでなければ上へ置く（線と点を隠さない）
     const BW = 232, BH = 116;
     const bx = Math.min(o.w - R - BW, xs(m.u) + 10);
