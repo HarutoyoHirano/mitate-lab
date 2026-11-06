@@ -238,30 +238,6 @@ function sceneLeg(s: number): string {
   </g>`;
 }
 
-/** ③ 検査ロボが試作品Bを押し、20秒待って「区別できません」 */
-function sceneRobot(s: number): string {
-  const press = clamp01(s / 0.6);
-  const wait = clamp01((s - 0.6) / 2.6);
-  const done = s >= 3.3;
-  const sec = Math.round(wait * 20);
-  const plateY = 150 + 30 * press;
-  const ang = wait * 360;
-  return `<g>
-    <rect x="0" y="0" width="400" height="300" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
-    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
-    <rect x="196" y="60" width="12" height="${plateY - 60}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
-    <rect x="232" y="60" width="12" height="${plateY - 60}" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
-    <rect x="186" y="${plateY}" width="190" height="14" rx="4" fill="var(--metal)" stroke="var(--metal-edge)" stroke-width="2"/>
-    <rect x="232" y="${plateY + 14}" width="100" height="${238 - (plateY + 14)}" rx="10" fill="var(--pad-b)" stroke="var(--pad-b-edge)" stroke-width="3"/>
-    <rect x="186" y="238" width="190" height="12" rx="4" fill="var(--metal-edge)"/>
-    
-    <g transform="translate(330,46)"><circle r="26" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
-      <line x1="0" y1="0" x2="${(18 * Math.sin(ang * (Math.PI / 180))).toFixed(1)}" y2="${(-18 * Math.cos(ang * (Math.PI / 180))).toFixed(1)}" stroke="var(--paper-ink)" stroke-width="3" stroke-linecap="round"/>
-      <text x="0" y="46" fill="var(--ink)" font-size="15" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${sec} 秒</text></g>
-    <text x="281" y="284" fill="var(--gold)" font-size="16" font-weight="900" text-anchor="middle">${s < 0.6 ? "① 押しこむ" : !done ? "② 20秒待つ" : "③ 力を読む"}</text>
-    ${done ? `<g transform="translate(170,172) rotate(-8)"><rect width="200" height="48" rx="6" fill="var(--paper)" stroke="var(--stamp)" stroke-width="4"/><text x="100" y="32" fill="var(--stamp)" font-size="22" font-weight="900" text-anchor="middle">判定：同じ</text></g>` : ""}
-  </g>`;
-}
 
 // ---------- 謎1の仕掛けろ・謎2・謎3の導入ムービー（同じ形。見本の値だけで描く） ----------
 function frame(inner: string): string {
@@ -372,21 +348,6 @@ function sceneRig(s: number): string {
     <path d="M300 82 L270 120" stroke="var(--metal-edge)" stroke-width="3"/>
     `);
 }
-/** 謎2 ③ ロボは1回の脈の平均の圧を読む */
-function sceneRobotMean(s: number): string {
-  const u = (s / BEAT_SLOW) % BEAT_S;
-  const p = vaAt(u);
-  const done = s > 3.2;
-  const fill = clamp01(s / 3.2);
-  return frame(`
-    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
-    ${gaugeArt(250, 90, p, "圧力計")}
-    <rect x="190" y="180" width="160" height="22" rx="11" fill="var(--chip)"/>
-    <rect x="190" y="180" width="${(160 * fill).toFixed(1)}" height="22" rx="11" fill="var(--gold)"/>
-    
-    ${done ? stampMark(176, 200, "判定：同じ") : ""}
-    `);
-}
 
 /** 謎3 ① 膝が押されると、神経の端が脳に知らせる */
 function sceneNerve(s: number): string {
@@ -438,23 +399,6 @@ function sceneMembrane(s: number): string {
     <text x="${(xs(PULSE_MS) + gx1) / 2}" y="${gy1 + 20}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">離した</text>
     <polyline points="${pts.join(" ")}" fill="none" stroke="var(--you)" stroke-width="3"/>`);
 }
-/** 謎3 ③ ロボは試作品の膜Bを押し、離す直前の膜の電圧だけを読む */
-function sceneRobotMem(s: number): string {
-  // 押している間の途中の値は、AとBで違いうるので描かない。読むのは離す直前の一つだけ（AとBの差は 0.5 mV より小さく、整数にすると同じ）
-  const f = Math.min(1, s / 2.6);
-  const done = s > 3;
-  const mv = REST_MV + deltaMv(BASE_MEM, PULSE_MS);
-  return frame(`
-    ${robotArt(done ? "smug" : "scan", 52, 58, 0.48)}
-    <g transform="translate(200,40)"><rect width="170" height="84" rx="12" fill="var(--paper)" stroke="var(--metal-edge)" stroke-width="3"/>
-      <text x="85" y="26" fill="var(--paper-soft)" font-size="15" font-weight="900" text-anchor="middle">試作品の膜 B</text>
-      <text x="85" y="62" fill="var(--paper-ink)" font-size="26" font-weight="900" text-anchor="middle" font-variant-numeric="tabular-nums">${f >= 1 ? `${Math.round(mv).toString().replace("-", "−")} mV` : "押している"}</text></g>
-    <text x="200" y="152" fill="var(--ink)" font-size="16" font-weight="900">押している → 離す直前</text>
-    <rect x="200" y="162" width="170" height="16" rx="8" fill="var(--chip)"/>
-    <rect x="200" y="162" width="${(170 * f).toFixed(1)}" height="16" rx="8" fill="var(--gold)"/>
-    ${done ? stampMark(176, 210, "判定：同じ") : ""}
-    `);
-}
 
 interface MovieScene {
   dur: number;
@@ -464,6 +408,7 @@ interface MovieScene {
 }
 interface Movie {
   scenes: readonly MovieScene[];
+  /** 結び：[前提（小さい字）, 問い（大きい字）] */
   end: readonly [string, string];
 }
 /** 導入ムービーの番号（内部の番号。謎は三つ：1＝謎1 見破れ、2＝謎1 仕掛けろ、4＝謎2（血管）、5＝謎3（膜）） */
@@ -473,9 +418,8 @@ const MOVIES: Record<MovieId, Movie> = {
     scenes: [
       { dur: 5, tag: "① 新しい試作品", short: "再生医療のラボで人工軟骨の試作品Bができた", draw: scenePrinter },
       { dur: 7, tag: "② 膝の軟骨のしごと", short: "膝の軟骨は一歩ごとに押されてへこむ", draw: sceneLeg },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは押して20秒後の力だけ比べて「同じ」と判定", draw: sceneRobot },
     ],
-    end: ["でも、走るときの押され方まで、本当に見本と同じ？", "確かめるのは、あなた。測り方を自分で考えよう。"],
+    end: ["ロボは押して20秒後の力だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、走るときの押され方まで、本当に見本と同じ？"],
   },
   2: {
     scenes: [
@@ -483,23 +427,21 @@ const MOVIES: Record<MovieId, Movie> = {
       { dur: 6, tag: "② わざと見落とさせる", short: "見本と違うのにロボが見分けられない軟骨をつくる", draw: sceneDesign },
       { dur: 6, tag: "③ ロボも負けていない", short: "見落とすとロボは見る場所を変える", draw: sceneRuleChange },
     ],
-    end: ["ロボには「区別できません」と言わせて、ほかのところには違いを残せ。", "二回戦では、ロボの見る場所が変わる。"],
+    end: ["二回戦では、ロボの見る場所が変わる。", "ロボには「同じ」と言わせて、ほかのところには違いを残せ。"],
   },
   4: {
     scenes: [
       { dur: 6, tag: "① 膝のまわりの血管", short: "膝のまわりには心臓が送る血液を血管が運ぶ", draw: sceneHeart },
       { dur: 6, tag: "② 試験装置", short: "人工血管の試作品Bを心臓のまねをする装置につなぐ", draw: sceneRig },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは1回の脈の平均の圧だけ比べて「同じ」と判定", draw: sceneRobotMean },
     ],
-    end: ["でも、1回の脈の中で圧が上がり下がりする動きまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+    end: ["ロボは1回の脈の平均の圧だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、1回の脈の中で圧が上がり下がりする動きまで、本当に見本と同じ？"],
   },
   5: {
     scenes: [
       { dur: 6, tag: "① 膝から脳へ", short: "膝が押されると神経が脳に知らせる", draw: sceneNerve },
       { dur: 8, tag: "② 神経の端の膜", short: "押すと＋が入って膜の電圧が上がる", draw: sceneMembrane },
-      { dur: 5, tag: "③ 検査ロボの検査", short: "ロボは離す直前の電圧だけ比べて「同じ」と判定", draw: sceneRobotMem },
     ],
-    end: ["でも、押している途中や離したあとまで、本当に見本と同じ？", "確かめるのは、あなた。"],
+    end: ["ロボは離す直前の膜の電圧だけ比べて、試作品Bを見本と「同じ」と判定した。", "でも、押している途中や離したあとまで、本当に見本と同じ？"],
   },
 };
 /** 実時間（秒）。これ以後は結び（三つの場面を並べる） */
@@ -514,11 +456,11 @@ export function introMovie(id: MovieId, t: number): string {
   const mv = MOVIES[id];
   if (t >= movieLength(id)) {
     return `<g>
-      ${mv.scenes.map((sc, i) => `<g transform="translate(${30 + i * 416},24)">${sc.draw(sc.dur)}
+      ${mv.scenes.map((sc, i) => `<g transform="translate(${(1280 - mv.scenes.length * 416 + 16) / 2 + i * 416},24)">${sc.draw(sc.dur)}
         <text x="200" y="326" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">${sc.tag.slice(0, 2)}${sc.short}</text></g>`).join("")}
       <g transform="translate(190,370)"><rect width="900" height="96" rx="14" fill="var(--paper)"/>
-        <text x="450" y="40" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
-        <text x="450" y="76" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
+        <text x="450" y="34" fill="var(--paper-soft)" font-size="17" font-weight="900" text-anchor="middle">${mv.end[0]}</text>
+        <text x="450" y="72" fill="var(--paper-ink)" font-size="23" font-weight="900" text-anchor="middle">${mv.end[1]}</text></g>
     </g>`;
   }
   let from = 0;
