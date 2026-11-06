@@ -890,17 +890,19 @@ export function loopStage(o: { u: number; a: Vessel; b: Vessel; pa: number; pb: 
 }
 
 /** 一拍の圧の波形（A点線・B線）と、今の時刻 */
-export function beatChart(x: number, y: number, w: number, h: number, a: Vessel, b: Vessel, u: number, marks: number[]): string {
+export function beatChart(x: number, y: number, w: number, h: number, a: Vessel, b: Vessel, u: number, marks: number[], upTo = BEAT_S): string {
   const pa = steadyBeat(a, 200);
   const pb = steadyBeat(b, 200);
   const lo = 50;
   const hi = 130;
   const xs = (i: number) => (w * i) / (pa.length - 1);
   const ys = (p: number) => h * (1 - (p - lo) / (hi - lo));
-  const poly = (ps: number[]) => ps.map((p, i) => `${xs(i).toFixed(1)},${ys(p).toFixed(1)}`).join(" ");
+  // 測った（動かした）ところまでだけ線を描く（2026-11-07、外部の点検㉕）
+  const poly = (ps: number[]) => ps.filter((_, i) => (i / (ps.length - 1)) * BEAT_S <= upTo + 1e-9).map((p, i) => `${xs(i).toFixed(1)},${ys(p).toFixed(1)}`).join(" ");
   return `<g transform="translate(${x},${y})">
     <rect width="${w}" height="${h}" rx="8" fill="var(--panel)" stroke="var(--line)"/>
     ${[60, 80, 100, 120].map((p) => `<line x1="0" x2="${w}" y1="${ys(p)}" y2="${ys(p)}" stroke="var(--line)"/><text x="${w - 4}" y="${ys(p) - 3}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${p}</text>`).join("")}
+${upTo <= 0 ? `<text x="${w / 2}" y="${h / 2}" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">脈を動かすと、線が出る</text>` : ""}
     <polyline points="${poly(pa)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${poly(pb)}" fill="none" stroke="var(--vessel-edge)" stroke-width="3.5"/>
     ${marks.map((m) => `<path d="M${(w * m) / BEAT_S - 6} -2 h12 l-6 8z" fill="var(--gold)"/>`).join("")}
@@ -1044,7 +1046,7 @@ export function syncChart(x: number, y: number, w: number, h: number, target: Ve
 }
 
 // ---------- 謎3：膜の水槽 ----------
-export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: string; b: string }, top = 14, revealB = true): string {
+export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: string; b: string }, top = 14, revealB = true, upTo = RECORD_MS): string {
   const floorY = 420;
   const T = 120;
   const ys = (dv: number) => floorY - ((floorY - T) * Math.max(0, Math.min(top, dv))) / top;
@@ -1053,7 +1055,7 @@ export function tankStage(a: Membrane, b: Membrane, t: number, labels: { a: stri
   const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;
   const line = (m: Membrane) => {
     const pts: string[] = [];
-    for (let ms = 0; ms <= RECORD_MS; ms += 2) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
+    for (let ms = 0; ms <= upTo; ms += 2) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
     return pts.join(" ");
   };
   const flowing = t <= PULSE_MS;
@@ -1183,14 +1185,15 @@ function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal
 }
 
 /** 電位のグラフ（A＝点線、B＝実線、時刻の線）。notes で下の注を出す */
-export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: number }, a: Membrane, b: Membrane, t: number, o: { a: string; b: string; top?: number; notes?: boolean }): string {
+export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: number }, a: Membrane, b: Membrane, t: number, o: { a: string; b: string; top?: number; notes?: boolean; upTo?: number }): string {
+  const upTo = o.upTo ?? RECORD_MS; // 測った（流した）ところまでだけ線を描く（2026-11-07、外部の点検㉕）
   const { GL, GR, GT, GB } = box;
   const top = o.top ?? 14;
   const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;
   const ys = (d: number) => GB - ((GB - GT) * Math.max(0, Math.min(top, d))) / top;
   const line = (m: Membrane) => {
     const pts: string[] = [];
-    for (let ms = 0; ms <= RECORD_MS; ms += 2) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
+    for (let ms = 0; ms <= upTo; ms += 2) pts.push(`${xs(ms).toFixed(1)},${ys(deltaMv(m, ms)).toFixed(1)}`);
     return pts.join(" ");
   };
   return `<g>
@@ -1202,6 +1205,7 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
     
     
     ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)) > top ? `<text x="${xs(PULSE_MS / 2)}" y="${GT + 38}" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">↑ 線が枠の外へ出ている（上がった高さ ${Math.max(deltaMv(a, PULSE_MS), deltaMv(b, PULSE_MS)).toFixed(1)} mV）</text>` : ""}
+    ${upTo <= 0 ? `<text x="${(GL + GR) / 2}" y="${(GT + GB) / 2 + 30}" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="middle">押して離すと、線が出る</text>` : ""}
     <polyline points="${line(a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 4"/>
     <polyline points="${line(b)}" fill="none" stroke="var(--you)" stroke-width="3.5"/>
     <line x1="${xs(t)}" x2="${xs(t)}" y1="${GT}" y2="${GB}" stroke="var(--gold)" stroke-width="2.5"/>
@@ -1218,7 +1222,7 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
  * 電位のグラフを同じ時刻で動かす。reveal が false の膜は、容量と通りやすさを「？」にして、電荷・通り道を基準の数で描く。
  * この模型は、入口で電位が上がって戻る部分だけ（その先の信号のしくみは扱わない）。
  */
-export function nerveStage(a: Membrane, b: Membrane, t: number, o: { a: string; b: string; revealB: boolean; whole?: boolean; top?: number }): string {
+export function nerveStage(a: Membrane, b: Membrane, t: number, o: { a: string; b: string; revealB: boolean; whole?: boolean; top?: number; upTo?: number }): string {
   const flowing = t <= PULSE_MS;
   const dx = o.whole === false ? -290 : 0;
   return `<g transform="translate(${dx},0)">

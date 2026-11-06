@@ -105,6 +105,8 @@ const state = {
   // 謎1
   say: 0,
   bet: null as PredictionChoice | null,
+  /** 謎1〜3の最初の予想（ロボの言い分への返事）。正体で振り返る（外部の点検㉑） */
+  firstPred: {} as Partial<Record<1 | 3 | 4, "same" | "differ" | "unknown">>,
   cursor: 0,
   runId: "",
   shown: 0,
@@ -130,6 +132,9 @@ const state = {
   duelHint: 0,
   // 謎2
   u: 0,
+  /** 謎2・謎3で、測った（動かした）ところまでの時刻。線はここまでだけ描く（外部の点検㉕） */
+  vSeen: 0,
+  memSeen: 0,
   vPlaying: false,
   /** 謎2の正体の段（0＝やさしい説明、1＝試験装置の見立て、2＝電気の部品で書く） */
   vExplain: 0,
@@ -453,23 +458,30 @@ function c1Present(): View {
   const base: Evidence = { id: "c1-base", case: 1, title: "いつもの検査", line: "押して20秒後の力", big: `差 ${sgn(r.diff)}`, ok: false };
   if (state.c1Hit)
     return {
-      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "見落としを突いた"),
-      cmds: [{ act: "to-bench", label: "なぜ違う？ 試験台で調べる", sub: "押し返す力を記録して、4つの説明の予想の線と見比べる", hot: true, disabled: state.busy }],
+      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "なぜ違う？ 試験台でBを押して、押し返す力を記録しよう。押す速さはどれにする？"),
+      // 押す速さは自分で選ぶ（2026-11-07、外部の点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
+      cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: p === 0.2 ? "押し終わりと、そのあと20秒の力を記録" : "", hot: false, disabled: state.busy })),
     };
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
 
 /** 「合う／合わない／分からない」を三つのボタンで選ぶ（一つの札を押して切りかえる形は、選べることが分からないため） */
 function tagButtons(act: string, id: string, cur: string | undefined, disabled: boolean): string {
-  return `<span class="tags" role="group" aria-label="記録と合うか">${(
+  return `<span class="tags" role="radiogroup" aria-label="記録と合うか">${(
     [
       ["match", "合う"],
       ["out", "合わない"],
       ["unsure", "分からない"],
     ] as const
   )
-    .map(([t, l]) => `<button class="tagb ${t} ${cur === t ? "on" : ""}" data-act="${act}" data-val="${id}:${t}" aria-pressed="${cur === t}" ${disabled ? "disabled" : ""}>${l}</button>`)
+    .map(([t, l]) => `<button class="tagb ${t} ${cur === t ? "on" : ""}" data-act="${act}" data-val="${id}:${t}" role="radio" aria-checked="${cur === t}" ${disabled ? "disabled" : ""}>${l}</button>`)
     .join("")}</span>`;
+}
+
+/** 最初の予想の振り返り（外部の点検㉑）。B は見本と違うので、「同じじゃない」が当たり */
+function predRecap(c: 1 | 3 | 4): string {
+  const p = state.firstPred[c];
+  return p === "differ" ? "最初の予想は「同じじゃない」。当たり。" : p === "same" ? "最初の予想は「同じ」。ロボと同じ見方だった。測り方を変えたら違いが出た。" : p === "unknown" ? "最初は「分からない」だった。測って、違いが分かった。" : "";
 }
 
 // ---------- 謎1：4つの説明の見比べ ----------
@@ -606,6 +618,7 @@ function c1Solved(): View {
         <text x="30" y="44" fill="var(--paper-soft)" font-size="18" font-weight="900">Bの正体</text>
         <text x="30" y="84" fill="var(--paper-ink)" font-size="26" font-weight="900">${esc(d.explanation)}</text>
         ${lines.map((l, k) => `<text x="30" y="${150 + k * 44}" fill="var(--paper-ink)" font-size="21" font-weight="800">${esc(l)}</text>`).join("")}
+        ${predRecap(1) ? `<text x="30" y="396" fill="var(--paper-soft)" font-size="18" font-weight="900">${esc(predRecap(1))}</text>` : ""}
         ${c && fit && win ? `<text x="520" y="134" fill="var(--paper-soft)" font-size="17" font-weight="900">試験台の記録と、重なった説明の線</text><g transform="translate(520,146)"><rect width="460" height="230" rx="10" fill="var(--panel)"/>${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[win], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 460, h: 230, legend: true }).replace("<svg ", '<svg width="460" height="230" ')}</g>` : ""}
       </g>`,
     who: "bot",
@@ -795,27 +808,27 @@ function duelCurve(e1: number, tau: number): { u: number; v: number }[] {
 }
 const PH_U = { land: 0, lift: 0.5 } as const;
 const PH_NAME = { land: "着地した直後", lift: "足を上げた直後" } as const;
-function duelGraph(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, cursor: number | null, compact = false): string {
+function duelGraph(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, cursor: number | null, compact = false, reveal = true): string {
   const round = DUEL_ROUNDS[roundIdx]!;
   const r = judgeDuel(round, duelMaterial(e1, tau));
   const rp = round.robot.phase as "land" | "lift";
   const hp = round.hidden.phase as "land" | "lift";
   return duelStepGraph({
     x, y, w, h, period: DUEL_PERIOD, a: duelCurve(BASE.e1, BASE.tau), b: duelCurve(e1, tau), cursor, scan: cursor !== null,
-    robot: { u: PH_U[rp], before: false, label: PH_NAME[rp], diff: r.robot.diff, ok: r.robot.ok, goal: `目標：差を ${ROBOT_PASS} より小さく` },
-    hidden: { u: PH_U[hp], before: false, label: PH_NAME[hp], diff: r.hidden.diff, ok: r.hidden.ok, goal: `目標：差を ${HIDDEN_NEED} 以上に` },
+    robot: { u: PH_U[rp], before: false, label: PH_NAME[rp], diff: r.robot.diff, ok: reveal && r.robot.ok, goal: `目標：差を ${ROBOT_PASS} より小さく` },
+    hidden: { u: PH_U[hp], before: false, label: PH_NAME[hp], diff: r.hidden.diff, ok: reveal && r.hidden.ok, goal: `目標：差を ${HIDDEN_NEED} 以上に` },
     compact,
   });
 }
 /** ロボが見る瞬間・見ない瞬間の膝の試験機（判定と同じ値） */
-function duelSnaps(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number): string {
+function duelSnaps(roundIdx: number, e1: number, tau: number, x: number, y: number, w: number, h: number, reveal = true): string {
   const round = DUEL_ROUNDS[roundIdx]!;
   const r = judgeDuel(round, duelMaterial(e1, tau));
   const at = (ph: "land" | "lift", p: ReturnType<typeof duelMaterial>) => dentWithinStep(p, DUEL_PERIOD, duelSteps(p), DUEL_STEP, PH_U[ph] + 1e-6);
   const one = (kind: "robot" | "hidden", xi: number) => {
     const ph = (kind === "robot" ? round.robot.phase : round.hidden.phase) as "land" | "lift";
     const m = kind === "robot" ? r.robot : r.hidden;
-    return kneeSnap({ x: xi, y, w: (w - 14) / 2, h, kind, label: PH_NAME[ph], load: ph === "land", dentA: at(ph, duelMaterial(BASE.e1, BASE.tau)), dentB: at(ph, duelMaterial(e1, tau)), diff: m.diff, ok: m.ok, goal: kind === "robot" ? `目標：差を ${ROBOT_PASS} より小さく` : `目標：差を ${HIDDEN_NEED} 以上に` });
+    return kneeSnap({ x: xi, y, w: (w - 14) / 2, h, kind, label: PH_NAME[ph], load: ph === "land", dentA: at(ph, duelMaterial(BASE.e1, BASE.tau)), dentB: at(ph, duelMaterial(e1, tau)), diff: m.diff, ok: reveal && m.ok, goal: kind === "robot" ? `目標：差を ${ROBOT_PASS} より小さく` : `目標：差を ${HIDDEN_NEED} 以上に` });
   };
   return one("robot", x) + one("hidden", x + (w + 14) / 2);
 }
@@ -827,15 +840,17 @@ function c2(): View {
   const r = judgeDuel(round, duelMaterial(state.e1, state.tau));
   const rp = round.robot.phase as "land" | "lift";
   const judging = state.duelPhase === "judge";
+  // 合否（✓）は、ロボに挑んでから開く。つまみを動かすと線と差の数字はすぐ変わる（2026-11-07、外部の点検㉖）
+  const reveal = state.duelPhase === "result";
   return {
     chap: "謎1 軟骨：仕掛けろ",
     goal: `ロボが見る点だけ見本とそろえ、見ない点で違う試作品をつくって、ロボに「同じ」と言わせよう（ラウンド${round.id}）`,
     svg: `${ruleCard(24, 18, "ロボの検査の手順", ["① 押して20秒後の力", `② 走らせて、1歩目の${PH_NAME[rp]}`, `③ 差が ${ROBOT_PASS} より小さい → 同じ`], 1, round.id === 2)}
-      <g transform="translate(24,172)"><rect width="310" height="62" rx="12" fill="var(--panel)" stroke="${r.final.ok ? "var(--you)" : "var(--stamp)"}" stroke-width="3"/>
+      <g transform="translate(24,172)"><rect width="310" height="62" rx="12" fill="var(--panel)" stroke="${reveal ? (r.final.ok ? "var(--you)" : "var(--stamp)") : "var(--line)"}" stroke-width="3"/>
         <text x="14" y="26" fill="var(--gold)" font-size="16" font-weight="900">🔍 ロボが測る：①20秒後の力</text>
-        <text x="14" y="50" fill="var(--ink)" font-size="17" font-weight="900" font-variant-numeric="tabular-nums">差 ${sgn(r.final.diff, 3)} ${r.final.ok ? "✓" : `（目標：${ROBOT_PASS} より小さく）`}</text></g>
-      ${duelSnaps(state.round, state.e1, state.tau, 356, 14, 906, 236)}
-      ${duelGraph(state.round, state.e1, state.tau, 356, 262, 906, 198, state.c2cursor, true)}`,
+        <text x="14" y="50" fill="var(--ink)" font-size="17" font-weight="900" font-variant-numeric="tabular-nums">差 ${sgn(r.final.diff, 3)} ${reveal && r.final.ok ? "✓" : `（目標：${ROBOT_PASS} より小さく）`}</text></g>
+      ${duelSnaps(state.round, state.e1, state.tau, 356, 14, 906, 236, reveal)}
+      ${duelGraph(state.round, state.e1, state.tau, 356, 262, 906, 198, state.c2cursor, true, reveal)}`,
     html: `<div class="knobs big" style="left:1.5%;bottom:3%;width:25.5%">
         ${(["e1", "tau"] as const)
           .map((key) => {
@@ -853,7 +868,7 @@ function c2(): View {
       state.duelPhase === "result" && state.duelCleared
         ? [{ act: round.id === 1 ? "duel-next" : "to-map", label: round.id === 1 ? "ラウンド2へ" : "わかったことを見る", hot: true }]
         : [
-            { act: "duel-go", label: "この試作品でロボに挑む", sub: "ロボが手順どおりに測る", hot: r.final.ok && r.robot.ok && r.hidden.ok, disabled: judging },
+            { act: "duel-go", label: "この試作品でロボに挑む", sub: "ロボが手順どおりに測る", hot: true, disabled: judging },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
   };
@@ -905,13 +920,13 @@ function c3Watch(): View {
   return {
     chap: "謎2 脈の見落とし",
     goal: "1回の脈の途中で、AとBの圧に違いが見える瞬間を撮ろう",
-    svg: `<g transform="translate(0,-40) scale(0.8)">${c3Stage()}</g>${beatChart(860, 40, 390, 200, BASE_VESSEL, CASE_VESSEL_B, state.u, marks)}`,
+    svg: `<g transform="translate(0,-40) scale(0.8)">${c3Stage()}</g>${beatChart(860, 40, 390, 200, BASE_VESSEL, CASE_VESSEL_B, state.u, marks, state.vSeen)}`,
     html: `<div class="scrub" style="left:2%;top:90%"><button data-act="v-play">${state.vPlaying ? "一時停止" : "▶ 脈を動かす"}</button>
       <label>1回の脈の中の時刻 <input type="range" id="u" min="0" max="${BEAT_S}" step="0.01" value="${state.u}"></label><span>${state.u.toFixed(2)} 秒</span></div>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "v-shot", label: "この瞬間を証拠に保存", sub: "AとBの圧の差が大きい瞬間を選ぶ", hot: !have },
+      { act: "v-shot", label: "この瞬間を証拠に保存", sub: "AとBの圧の差が大きい瞬間を選ぶ", hot: !have && state.vSeen > 0, disabled: state.vSeen <= 0 },
       { act: "to-present3", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
@@ -1131,7 +1146,7 @@ function membraneWiringView(): View {
       <line x1="${gx(PULSE_MS)}" x2="${gx(PULSE_MS)}" y1="${GY}" y2="${GY + GH}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 4"/>
       <text x="${gx(PULSE_MS) + 6}" y="${GY + GH - 8}" fill="var(--ink)" font-size="15" font-weight="900">離す</text>
       ${tauDot(BASE_MEM, 1, "var(--soft)")}${wi ? tauDot(cur, k, "var(--gold)") : tauDot(CASE3_B, 1, "var(--membrane-edge)")}
-      ${row(200, "①", "gate", "押されると開く入口", "src", "電流源（電流を送りこむ）", wi === "p")}
+      ${row(200, "①", "gate", "押されると開く入口", "src", "電流源（一定の電流と見なす）", wi === "p")}
       ${row(234, "②", "lipid", "あぶらの膜", "cap", "コンデンサ", !wi)}
       ${row(268, "③", "pore", "いつも開いている通り道", "res", "抵抗", wi === "r")}
       ${row(302, "④", "rest", "何もしないときの電圧", "bat", "電池")}
@@ -1178,13 +1193,13 @@ function c4Watch(): View {
   return {
     chap: "謎3 膜の見落とし",
     goal: "見本の膜Aと試作品の膜B。電圧に違いが見える瞬間を撮ろう",
-    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B" }, 14, state.memChecked) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B", revealB: state.memChecked }),
+    svg: state.memTank ? tankStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B" }, 14, state.memChecked, state.memSeen) : nerveStage(BASE_MEM, CASE3_B, state.memT, { a: "見本の膜 A", b: "試作品の膜 B", revealB: state.memChecked, upTo: state.memSeen }),
     html: `<div class="scrub narrow" style="left:62.5%;top:0.5%"><button data-act="m-run">▶ 押して、離す</button><button data-act="m-tank">${state.memTank ? "膜の図" : "水槽のたとえ"}</button>
       <label><input type="range" id="mt" min="0" max="${RECORD_MS}" step="1" value="${state.memT}" aria-label="押し始めからの時間"></label><span>${state.memT} ms</span></div>`,
     who: state.line.who,
     text: state.line.text,
     cmds: [
-      { act: "m-shot", label: "この瞬間を証拠に保存", sub: "AとBの電圧の差が大きい瞬間を選ぶ", hot: !have, disabled: !state.memRan },
+      { act: "m-shot", label: "この瞬間を証拠に保存", sub: "AとBの電圧の差が大きい瞬間を選ぶ", hot: !have && state.memSeen > 0, disabled: state.memSeen <= 0 },
       { act: "to-present4", label: "ロボに証拠を見せる", disabled: !have, hot: have },
     ],
   };
@@ -1243,6 +1258,7 @@ function c4Duel(): View {
   const m = { g: state.g, c: state.c };
   const r = judgeMemDuel(round.id, m);
   const show = true; // 謎1の仕掛けろと同じく、つまみを動かすとすぐ目盛りが変わる（2026-11-06）
+  const reveal = state.duelPhase === "result"; // 合否（✓）は挑んでから開く（2026-11-07、外部の点検㉖）
   return {
     chap: "謎3 仕掛けろ",
     goal: `ロボが見る数字では見本と同じ、ほかの時刻では違う膜をつくれ（ラウンド${round.id}）`,
@@ -1257,8 +1273,8 @@ function c4Duel(): View {
       .join("")}</div>
       <div class="meters" style="left:68%;top:33%;width:30%">${
         show
-          ? meter(`ロボが測る：${round.robotLabel}（目標：差を ${round.id === 1 ? `${ROBOT_STEADY_TOL} mV` : `${HALF_TIME_TOL} ms`} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
-            meter(`ロボが測らない：${round.hiddenLabel}（目標：差を ${round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED} mV 以上に）`, r.hidden.a, r.hidden.b, r.hidden.diff, r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
+          ? meter(`ロボが測る：${round.robotLabel}（目標：差を ${round.id === 1 ? `${ROBOT_STEADY_TOL} mV` : `${HALF_TIME_TOL} ms`} より小さく）`, r.robot.a, r.robot.b, r.robot.diff, reveal && r.robot.ok, "pass", round.id === 1 ? ROBOT_STEADY_TOL : HALF_TIME_TOL, 8, round.id === 1 ? " mV" : " ms", 2) +
+            meter(`ロボが測らない：${round.hiddenLabel}（目標：差を ${round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED} mV 以上に）`, r.hidden.a, r.hidden.b, r.hidden.diff, reveal && r.hidden.ok, "hide", round.id === 1 ? HIDDEN1_NEED : HIDDEN2_NEED, 8, " mV", 2)
           : ""
       }</div>`,
     who: state.line.who,
@@ -1268,7 +1284,7 @@ function c4Duel(): View {
       state.duelPhase === "result" && state.duelCleared
         ? [round.id === 1 ? { act: "mduel-next", label: "ラウンド2へ", hot: true } : { act: "rt-enter", val: "membrane", label: "TEJUN を鍛えなおす", sub: "膜の検査で見る数字を、あなたが足す", hot: true }]
         : [
-            { act: "mduel-go", label: "この膜でロボに挑む", sub: "ロボが手順どおりに測る", hot: r.cleared, disabled: state.duelPhase === "judge" },
+            { act: "mduel-go", label: "この膜でロボに挑む", sub: "ロボが手順どおりに測る", hot: true, disabled: state.duelPhase === "judge" },
             { act: "duel-hint", label: "ヒント", ghost: true },
           ],
   };
@@ -1831,7 +1847,9 @@ let lastText = "";
 let curText = "";
 function render(): void {
   const v = VIEWS[state.scene]();
-  const focusId = (document.activeElement as HTMLElement | null)?.dataset?.act;
+  const focusEl = document.activeElement as HTMLElement | null;
+  const focusId = focusEl?.dataset?.act;
+  const focusVal = focusEl?.dataset?.val;
   const peeking = state.peek !== null && !!state.log[state.peek];
   const shown = peeking ? state.log[state.peek!]! : { who: v.who, text: v.text };
   const lastLog = state.log.length - 1;
@@ -1858,7 +1876,11 @@ function render(): void {
     ${panelHtml()}
   </div></div>`;
   rollNumbers(app);
-  if (focusId) app.querySelector<HTMLElement>(`[data-act="${focusId}"]`)?.focus({ preventScroll: true });
+  // 押したものに焦点を戻す（同じ行動のボタンが並ぶときは data-val でも見分ける。外部の点検57）
+  if (focusId) (app.querySelector<HTMLElement>(`[data-act="${CSS.escape(focusId)}"]${focusVal !== undefined ? `[data-val="${CSS.escape(focusVal)}"]` : ""}`) ?? app.querySelector<HTMLElement>(`[data-act="${CSS.escape(focusId)}"]`))?.focus({ preventScroll: true });
+  // 説明の欄（ダイアログ）を開いたら、焦点を欄の中へ（外部の点検58）
+  const dlg = app.querySelector<HTMLElement>('[role="dialog"]');
+  if (dlg && !dlg.contains(document.activeElement)) dlg.querySelector<HTMLElement>("button, input, select, [tabindex]")?.focus({ preventScroll: true });
   // メッセージは一文字ずつ（動きを減らす設定では一度に）
   const t = app.querySelector<HTMLElement>(".text");
   if (t && !peeking && v.text !== lastText && !reduceMotion()) {
@@ -1940,6 +1962,9 @@ function go(s: Scene): void {
   state.scene = s;
   state.error = "";
   state.sel = null;
+  // 証拠を見せる画面では、いちばん新しい「違いが見えた」証拠を選んだ状態で始める（保存した証拠を選び直す手間をなくす。2026-11-07、外部の点検㉒）
+  const pc = s === "c1-present" ? 1 : s === "c3-present" ? 3 : s === "c4-present" ? 4 : 0;
+  if (pc) state.sel = [...state.evidence].reverse().find((e) => e.case === pc && e.ok)?.id ?? null;
   render();
 }
 
@@ -2025,6 +2050,11 @@ function vLoop(): void {
     if (!state.vPlaying || (state.scene !== "c3-watch" && state.scene !== "c3-say" && !(state.scene === "c3-sync" && state.vExplain > 0))) return;
     state.u = (((performance.now() - s0) / 2500) * BEAT_S) % BEAT_S; // 一拍（0.8秒）を2.5秒かけて見せる
     if (state.u >= 0.02 && (prevU < 0.02 || prevU > state.u)) beatSound(); // ポンプが送り始めるところで鳴らす
+    if (state.scene === "c3-watch") {
+      const was = state.vSeen;
+      state.vSeen = prevU > state.u ? BEAT_S : Math.max(state.vSeen, state.u);
+      if (was <= 0 && state.vSeen > 0) render(); // 「証拠に保存」を押せるようにする
+    }
     prevU = state.u;
     const svg = app.querySelector("svg.st");
     if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
@@ -2083,11 +2113,13 @@ async function duelPlay(kind: "c2" | "c4", commit: boolean): Promise<void> {
     say("calc", `ロボの点は通過。ロボに見えない違い（${hiddenName}）には差 ${sgn(r.hidden.diff, kind === "c2" ? 3 : 2)}${kind === "c2" ? "" : " mV"} が残っている。`);
   } else {
     state.mood = "smug";
-    const reason = !r.robot.ok ? "見つけました。私が測った点に、差があります。" : "私の手順では、区別できません。";
+    // 謎1は「押して20秒後の力」もロボが測る
+    const seen = !r.robot.ok || (kind === "c2" && !(r as ReturnType<typeof judgeDuel>).final.ok);
+    const reason = seen ? (kind === "c2" && r.robot.ok ? "見つけました。押して20秒後の力に、差があります。" : "見つけました。私が測った点に、差があります。") : "私の手順では、区別できません。";
     say("bot", reason);
     render();
-    await stamp(!r.robot.ok ? "見つかった" : "違いが残っていない", "miss");
-    if (r.robot.ok) say("calc", `ロボは通過。でも、ロボに見えない違い（${hiddenName}）の差が目標に届いていない。${kind === "c2" ? "見本とほぼ同じ試作品" : "見本とほぼ同じ膜"}になっている。`);
+    await stamp(seen ? "見つかった" : "違いが残っていない", "miss");
+    if (!seen) say("calc", `ロボは通過。でも、ロボに見えない違い（${hiddenName}）の差が目標に届いていない。${kind === "c2" ? "見本とほぼ同じ試作品" : "見本とほぼ同じ膜"}になっている。`);
   }
   render();
 }
@@ -2208,7 +2240,7 @@ app.addEventListener("input", (e) => {
     if (j.both && !state.syncDone) {
       state.syncDone = true;
       state.mood = "shock";
-      say("calc", `重なった。血管Bは、ふくらみやすさが見本の半分（${state.syncC.toFixed(2)}）。だから圧が大きく上下するが、平均は同じで、ロボには同じに見えた。${state.vBet === "c" ? "予想どおり。" : state.vBet === "r" ? "予想は外れた。ここが発見。" : ""}`);
+      say("calc", `重なった。血管Bは、ふくらみやすさが見本の半分（${state.syncC.toFixed(2)}）。だから圧が大きく上下するが、平均は同じで、ロボには同じに見えた。${state.vBet === "c" ? "予想どおり。" : state.vBet === "r" ? "予想は外れた。ここが発見。" : ""}${predRecap(3) ? `\f${predRecap(3)}` : ""}`);
       state.record.push("謎2 ❤️ 見落とし ✔ 同じ脈 ✔");
       render();
       void stamp("重なった！", "win", 0.5).then(() => damage(12));
@@ -2226,12 +2258,24 @@ app.addEventListener("input", (e) => {
   } else if (t.id === "u") {
     state.vPlaying = false;
     state.u = Number(t.value);
+    const was = state.vSeen;
+    state.vSeen = Math.max(state.vSeen, state.u);
+    if (was <= 0 && state.vSeen > 0) {
+      render();
+      return;
+    }
     const svg = app.querySelector("svg.st");
     if (svg) svg.innerHTML = VIEWS["c3-watch"]().svg;
     const sp = t.parentElement?.nextElementSibling;
     if (sp) sp.textContent = `${state.u.toFixed(2)} 秒`;
   } else if (t.id === "mt") {
     state.memT = Number(t.value);
+    const was = state.memSeen;
+    state.memSeen = Math.max(state.memSeen, state.memT);
+    if (was <= 0 && state.memSeen > 0) {
+      render();
+      return;
+    }
     const svg = app.querySelector("svg.st");
     if (svg) svg.innerHTML = VIEWS["c4-watch"]().svg;
     const sp = t.parentElement?.nextElementSibling;
@@ -2364,6 +2408,7 @@ app.addEventListener("click", async (e) => {
       break;
     case "bet":
       state.bet = val as PredictionChoice;
+      state.firstPred[1] = val === "midSame" ? "same" : val === "midDiffer" ? "differ" : "unknown";
       say("you", val === "midSame" ? "予想：同じ。走らせて確かめよう。" : val === "midDiffer" ? "予想：同じじゃない。走らせて違いを見つけよう。" : "分からない。走らせてから考える。");
       go("c1-run");
       break;
@@ -2448,14 +2493,14 @@ app.addEventListener("click", async (e) => {
       if (!v) return;
       state.boardView = v;
       await guard(async () => {
-        const r = await api.observeCurve(v.sessionId, 1, crypto.randomUUID(), "unknown", "");
+        const r = await api.observeCurve(v.sessionId, (Number(val) || 1) as 0.2 | 1 | 5, crypto.randomUUID(), "unknown", "");
         state.view = r.view;
         state.curveId = r.curveId;
       });
       if (state.curveId) {
         state.tags = {};
         state.mood = "calm";
-        say("guide", "試験台でBを押して、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？");
+        say("guide", `試験台でBを${SPEED[Number(val) || 1]}押して、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？`);
         go("c1-line");
       }
       break;
@@ -2637,8 +2682,11 @@ app.addEventListener("click", async (e) => {
       render();
       break;
     case "v-pred":
+      state.firstPred[3] = val as "same" | "differ" | "unknown";
       state.vPlaying = false;
       cancelAnimationFrame(vTimer);
+      state.u = 0;
+      state.vSeen = 0;
       say("you", val === "same" ? "予想：同じ。脈の途中で止めて確かめよう。" : val === "differ" ? "予想：同じじゃない。脈の途中で止めて違いを見つけよう。" : "分からない。脈の途中で止めて、AとBの圧を比べよう。");
       go("c3-watch");
       break;
@@ -2699,6 +2747,9 @@ app.addEventListener("click", async (e) => {
       render();
       break;
     case "m-pred":
+      state.firstPred[4] = val as "same" | "differ" | "unknown";
+      state.memT = 0;
+      state.memSeen = 0;
       say("you", val === "same" ? "予想：同じ。押して離して確かめよう。" : val === "differ" ? "予想：同じじゃない。押して離して違いを見つけよう。" : "分からない。押して離してから考える。");
       say("guide", "膝が押されると、神経の端の入口が開いて、＋の電気をもつイオンが流れ込む。離すと入口が閉じる。膜のまわりの電気と、膜の電圧のグラフを見比べよう。");
       go("c4-watch");
@@ -2711,6 +2762,7 @@ app.addEventListener("click", async (e) => {
       const reduce = reduceMotion();
       for (let t = 0; t <= RECORD_MS; t += reduce ? RECORD_MS : 2) {
         state.memT = t;
+        state.memSeen = Math.max(state.memSeen, t);
         // 膜の電圧を音の高さで（−70 mV から上がった 0→10 mV を1オクターブ。左＝A、右＝B）
         if (!reduce) toneSet(220 * Math.pow(2, deltaMv(BASE_MEM, t) / 10), 220 * Math.pow(2, deltaMv(CASE3_B, t) / 10));
         const svg = app.querySelector("svg.st");
@@ -2725,7 +2777,7 @@ app.addEventListener("click", async (e) => {
       }
       toneStop();
       state.memRan = true;
-      state.memT = 105;
+      state.memT = RECORD_MS; // 流し終わりで止める（ロボが見る時刻に自動で止めない。外部の点検㉔）
       render();
       break;
     }
@@ -2760,7 +2812,7 @@ app.addEventListener("click", async (e) => {
     case "m-check": {
       state.memChecked = true;
       const right = state.memWhy.g === "out" && state.memWhy.c === "match";
-      say("calc", `通りやすさが違うなら、離す直前の高さが変わるはず。でも高さは同じで、上がり方と戻り方だけが遅い。だから正体は、電気のためやすさ（${CASE3_B.c} 倍）。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}`);
+      say("calc", `通りやすさが違うなら、離す直前の高さが変わるはず。でも高さは同じで、上がり方と戻り方だけが遅い。だから正体は、電気のためやすさ（${CASE3_B.c} 倍）。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}${predRecap(4) ? `\f${predRecap(4)}` : ""}`);
       state.record.push("謎3 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();
@@ -3046,6 +3098,17 @@ app.addEventListener("click", async (e) => {
 document.addEventListener("keydown", (e) => {
   // 絵の中の押せるもの（タイトルの一覧・つづきの謎の題材のカード）も、Enter と空白で押せるように
   const t = e.target as Element | null;
+  // 欄を開いているあいだは、Tab で欄の外へ出ない
+  const dlg = app.querySelector<HTMLElement>('[role="dialog"]');
+  if (e.key === "Tab" && dlg) {
+    const f = [...dlg.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select, [tabindex]:not([tabindex='-1'])")];
+    if (f.length) {
+      const i = f.indexOf(document.activeElement as HTMLElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1]!.focus(); }
+      else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0]!.focus(); }
+    }
+    return;
+  }
   if ((e.key === "Enter" || e.key === " ") && t && t.getAttribute("role") === "button" && t.tagName.toLowerCase() === "g") {
     e.preventDefault();
     t.dispatchEvent(new MouseEvent("click", { bubbles: true }));
