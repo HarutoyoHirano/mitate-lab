@@ -46,7 +46,7 @@ export const PREPARED_NETS: readonly NetPuzzleSpec[] = [
       { tag: "膜の電圧", caption: ["押されると入口が開いて電流が入り、膜の電圧が上がる。", "電流が止まると、もとへ戻る。"] },
       { tag: "ロボの検査", caption: ["ロボは電流を止める直前の膜の電圧だけを読む。", "答えは「区別できません」。"] },
     ],
-    endLine: "でも、電流を入れている途中や止めたあとまで、本当に見本と同じ？",
+    endLine: "でも、押している途中や離したあとまで、本当に見本と同じ？",
     analogy: "膜＝電気をためる部品、いつも開いている通り道＝抵抗、イオンの濃さの差がつくる −70 mV＝電池。",
     units: { level: { name: "膜の電圧", unit: "mV" }, amount: { name: "たまった電気", unit: "pC" }, flow: { name: "電流", unit: "nA" } },
     clock: { kind: "pulse", on: 100, record: 200, timeUnit: "ミリ秒" },

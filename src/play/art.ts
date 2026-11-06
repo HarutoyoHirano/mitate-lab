@@ -37,7 +37,7 @@ export function ruleCard(x: number, y: number, title: string, lines: string[], h
     <rect width="300" height="${h}" rx="10" fill="var(--paper)"/>
     <text x="16" y="30" fill="var(--paper-soft)" font-size="14" font-weight="900">${title}</text>
     ${lines.map((l, i) => `<text x="16" y="${62 + i * 30}" fill="${i === hot ? "var(--stamp)" : "var(--paper-ink)"}" font-size="16.5" font-weight="900">${l}</text>`).join("")}
-    ${revised ? `<g class="pop" transform="translate(150,${h - 46}) rotate(-8)"><rect width="140" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="70" y="24" fill="var(--stamp)" font-size="15" font-weight="900" text-anchor="middle">見る場所を変えた</text></g>` : ""}
+    ${revised ? `<g class="pop" transform="translate(152,4) rotate(-6)"><rect width="140" height="34" rx="5" fill="none" stroke="var(--stamp)" stroke-width="3"/><text x="70" y="24" fill="var(--stamp)" font-size="15" font-weight="900" text-anchor="middle">見る場所を変えた</text></g>` : ""}
   </g>`;
 }
 

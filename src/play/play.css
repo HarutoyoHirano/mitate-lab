@@ -132,6 +132,11 @@ button { font: inherit; }
 
 /* 上：章札・いまの目的・ロボの自信・AI表示 */
 .hud { display: flex; align-items: center; gap: 1.3cqw; padding: 1cqw 1.8cqw; font-size: max(12px, 1.15cqw); }
+.trail { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.trail i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--gold); opacity: .55; }
+.trail i.done { background: var(--gold); opacity: .8; }
+.trail i.now { background: var(--gold); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
+.trail b { font-size: 14px; font-weight: 900; color: var(--soft); margin-left: 2px; }
 .chap { font-weight: 900; color: var(--gold); border: 2px solid var(--gold); border-radius: 8px; padding: 2px 10px; white-space: nowrap; background: none; cursor: pointer; }
 .goal { font-weight: 700; flex: 1; font-size: max(13px, 1.3cqw); }
 .conf { position: relative; display: flex; align-items: center; gap: 8px; color: var(--soft); white-space: nowrap; }
@@ -317,9 +322,10 @@ button { font: inherit; }
 .ghost { cursor: default; }
 
 /* 絵のない場面（説明の見比べ）：カードの高さに合わせて舞台を伸ばす（狭い幅でメッセージ窓に重ならない） */
-.stage.flow { aspect-ratio: auto; min-height: 36cqw; }
+/* min-height を数で決めると、箱の中身より小さく縮んでメッセージ窓に重なる（2026-11-06、スマートフォンの幅で確かめた）。高さは中身に任せる */
+.stage.flow { aspect-ratio: auto; }
 .stage.flow > svg.st { display: none; }
-.stage.flow > .lineup { position: static; padding: 1cqw 0; }
+.stage.flow > .lineup { position: static; padding: 1cqw 0; min-height: 34cqw; }
 
 /* 鍛えなおし（軟骨）：見たことのある瞬間を、グループごとに並べる */
 .picker .row.col { display: grid; gap: 0.3cqw; }
@@ -343,3 +349,19 @@ button { font: inherit; }
 
 .choices .choices-lead { align-self: center; font-weight: 900; color: var(--soft); font-size: max(14px, 1.1cqw); }
 .choices .choice.on { border-color: var(--gold); color: var(--gold); }
+
+/* 謎3のなぜ？：狭い幅では、説明のカードを絵の下に並べる（絵の横だと文が折り返してメッセージ窓に重なる。2026-11-06） */
+@container (max-width: 1000px) {
+  .stage:has(> .lineup.side) { aspect-ratio: auto; }
+  .stage:has(> .lineup.side) > svg.st { position: static; display: block; height: auto; aspect-ratio: 1280 / 480; }
+  .stage > .lineup.side { position: static; inset: auto !important; grid-template-columns: 1fr 1fr !important; padding: 0.8cqw 2%; }
+}
+/* 狭い幅（スマートフォンの横向きなど）：つまみと目盛りを絵の下に並べ、目的の一行は上の段の下に回す（2026-11-06） */
+@container (max-width: 1000px) {
+  .hud { flex-wrap: wrap; }
+  .hud .goal { flex-basis: 100%; order: 5; }
+  .stage:has(> .knobs) { aspect-ratio: auto; display: flex; flex-wrap: wrap; gap: 1.2cqw; align-items: flex-start; padding-bottom: 1cqw; }
+  .stage:has(> .knobs) > svg.st { position: static; flex: 0 0 100%; height: auto; aspect-ratio: 1280 / 480; }
+  .stage > .knobs, .stage > .meters { position: static; inset: auto !important; width: auto !important; flex: 1 1 40%; margin: 0 1.5cqw; }
+  .stage > .knobs em { display: none; }
+}

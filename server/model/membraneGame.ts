@@ -78,8 +78,8 @@ export interface MemRound {
 }
 
 export const MEM_ROUNDS: readonly MemRound[] = [
-  { id: 1, robotLine: `私は、離す直前の膜の電圧を見ます。あなたへの課題：そこでは見本とのちがいを ${ROBOT_STEADY_TOL} mV より小さくして、私に「区別できません」と言わせてください。そのうえで、離して ${HIDDEN_AFTER_MS} ms 後には、${HIDDEN1_NEED} mV より大きいちがいを残すこと。`, robotLabel: "離す直前の膜の電圧", hiddenLabel: `止めて${HIDDEN_AFTER_MS}ミリ秒後の膜の電圧` },
-  { id: 2, robotLine: `測り方を変えます。今度は、離した時の −70 mV から上がった高さが、半分に戻るまでの時間を見ます。課題：その時間の見本とのちがいを ${HALF_TIME_TOL} ms より小さく。そのうえで、離す直前の膜の電圧には、${HIDDEN2_NEED} mV より大きいちがいを残すこと。`, robotLabel: "止めた時の上がった高さが半分に戻るまでの時間", hiddenLabel: "離す直前の膜の電圧" },
+  { id: 1, robotLine: `私は、離す直前の膜の電圧を見ます。あなたへの課題：そこでは見本とのちがいを ${ROBOT_STEADY_TOL} mV より小さくして、私に「区別できません」と言わせてください。そのうえで、離して ${HIDDEN_AFTER_MS} ms 後には、${HIDDEN1_NEED} mV より大きいちがいを残すこと。`, robotLabel: "離す直前の膜の電圧", hiddenLabel: `離して${HIDDEN_AFTER_MS} ms 後の膜の電圧` },
+  { id: 2, robotLine: `測り方を変えます。今度は、離した時の −70 mV から上がった高さが、半分に戻るまでの時間を見ます。課題：その時間の見本とのちがいを ${HALF_TIME_TOL} ms より小さく。そのうえで、離す直前の膜の電圧には、${HIDDEN2_NEED} mV より大きいちがいを残すこと。`, robotLabel: "離した時の上がった高さが半分に戻るまでの時間", hiddenLabel: "離す直前の膜の電圧" },
 ];
 
 export interface MemDuelResult {
