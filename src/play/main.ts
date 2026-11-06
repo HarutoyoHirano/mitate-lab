@@ -171,6 +171,8 @@ const state = {
   c2cursor: null as number | null,
   /** ロボの話の前置き（紹介）の文。この文のあいだは吹き出しを出さない（言っていない台詞を先に見せない） */
   quiet: [] as string[],
+  /** 窓の「▼ 続き」で次に出す、別の人の文（聞き返したあなたの問い → ロボの答え。2026-11-07） */
+  next: null as { who: Who; text: string } | null,
   solvedStep: 0,
   modelT: 1,
   sayT: USUAL_CYCLE - 0.5,
@@ -248,9 +250,16 @@ function paginate(text: string): string[] {
 function say(who: Who, text: string): void {
   // "\f" はそこで必ず次の文へ分ける（自己紹介と結果を同じ窓に混ぜないため）
   const pages = paginate(text);
+  state.next = null;
   state.line = { who, text: pages[0] ?? "", rest: pages.slice(1) };
   logLine(who, state.line.text);
 }
+/** あなたの問いを出し、「▼ 続き」でロボの答えを出す（答えが急に出てこないように） */
+function askThen(question: string, who: Who, answer: string): void {
+  say("you", question);
+  state.next = { who, text: answer };
+}
+const hasNext = () => state.line.rest.length > 0 || !!state.next;
 function logLine(who: Who, text: string): void {
   state.peek = null;
   const last = state.log[state.log.length - 1];
@@ -340,9 +349,9 @@ function c1Say(): View {
     svg: `${ruleCard(40, 40, "TEJUN の検査の手順", ["① 1秒かけて押しこみ、止める", "② 20秒待つ", "③ 押し返す力を読む", "④ ちがい 0.03 [N] 未満 → 同じ"], usualPhase(state.sayT).step, false)}
       ${selfIntro ? "" : bubble(360, 60, lab, l1, l2, 570, l3)}${robotArt(state.mood, 960, 40, 0.95)}
       ${usualTest({ t: state.sayT, valueA: r.base, valueB: r.force, diff: r.diff, tol: r.tolerance })}`,
-    who: "bot",
+    who: state.line.who,
     text: state.line.text,
-    cmds: selfIntro || (asked && state.line.who === "bot" && state.line.rest.length > 0)
+    cmds: selfIntro || (asked && hasNext())
       ? [quietCmd]
       : !asked
       ? [
@@ -905,9 +914,9 @@ function c3Say(): View {
     chap: "謎2 脈の見落とし",
     goal: "人工血管の試作品Bの検査。ロボの話を聞こう",
     svg: `<g transform="translate(-40,120) scale(0.72)">${c3Stage()}</g>${quietNow() ? "" : bubble(480, 20, lab, l1, l2, 540, l3)}${robotArt(state.mood, 1040, 120, 0.7)}`,
-    who: "bot",
+    who: state.line.who,
     text: state.line.text,
-    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : state.line.who === "bot" && state.line.rest.length > 0 ? [quietCmd] : [
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c3-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : hasNext() ? [quietCmd] : [
           { act: "v-pred", val: "same", label: "同じ", sub: "ロボの言うとおり" },
           { act: "v-pred", val: "differ", label: "同じじゃない", sub: "脈の途中で違いが出そう" },
           { act: "v-pred", val: "unknown", label: "分からない", sub: "脈を見てから考える" },
@@ -1179,9 +1188,9 @@ function c4Say(): View {
     chap: "謎3 膜の見落とし",
     goal: "膝の動きを脳へ伝える神経の膜の模型。ロボの話を聞こう",
     svg: `${nerveWhole(16, 16, false)}${memTestStrip(330, 240, 700, a, b)}${quietNow() ? "" : bubble(590, 30, lab, l1, l2, 480, l3)}${robotArt(state.mood, 1080, 160, 0.6)}`,
-    who: "bot",
+    who: state.line.who,
     text: state.line.text,
-    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : state.line.who === "bot" && state.line.rest.length > 0 ? [quietCmd] : [
+    cmds: quietNow() ? [quietCmd] : state.say < 2 ? [{ act: "c4-next", label: state.say === 0 ? "続きを聞く" : "聞き返す", sub: state.say === 0 ? "" : "何を測っていないか、聞き出す", hot: true }] : hasNext() ? [quietCmd] : [
           { act: "m-pred", val: "same", label: "同じ", sub: "ロボの言うとおり" },
           { act: "m-pred", val: "differ", label: "同じじゃない", sub: "押している途中で違いが出そう" },
           { act: "m-pred", val: "unknown", label: "分からない", sub: "押して離してから考える" },
@@ -1854,7 +1863,7 @@ function render(): void {
   const shown = peeking ? state.log[state.peek!]! : { who: v.who, text: v.text };
   const lastLog = state.log.length - 1;
   const canBack = peeking ? state.peek! > 0 : lastLog >= (state.log[lastLog]?.text === v.text ? 1 : 0) && lastLog >= 0;
-  const hasMore = !peeking && state.line.rest.length > 0;
+  const hasMore = !peeking && hasNext();
   // 「◀ 前の文」と「▼ 続き」は一行に並べる（窓が縦に伸びて画面の下が切れないように。2026-11-06）
   const backRow = canBack || peeking || hasMore ? `<p class="back-row">${canBack ? `<button class="mini-btn" data-act="back">◀ 前の文</button>` : ""}${peeking ? `<button class="mini-btn" data-act="fwd">次の文 ▶</button>` : ""}${hasMore ? `<span class="next-hint" data-act="more">▼ 続き（窓を押す）</span>` : ""}</p>` : "";
   curText = v.text;
@@ -1868,7 +1877,7 @@ function render(): void {
     </header>
     <div class="stage ${v.svg ? "" : "flow"}"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
-      <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && state.line.rest.length ? "more" : ""}" aria-live="polite" ${!peeking && state.line.rest.length ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
+      <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && hasNext() ? "more" : ""}" aria-live="polite" ${!peeking && hasNext() ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
       <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
@@ -2303,6 +2312,9 @@ app.addEventListener("click", async (e) => {
       if (state.line.rest.length) {
         state.line = { ...state.line, text: state.line.rest[0]!, rest: state.line.rest.slice(1) };
         logLine(state.line.who, state.line.text);
+      } else if (state.next) {
+        const n = state.next;
+        say(n.who, n.text);
       }
       render();
       break;
@@ -2402,7 +2414,7 @@ app.addEventListener("click", async (e) => {
       if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の検査の手順です。");
       else {
         state.mood = "calm";
-        say("bot", "……一回押して、20秒待っただけです。膝の軟骨には一歩ごとに体重がかかるそうですが、走らせても、AとBは同じはずです。");
+        askThen("その検査で、走っているときのことも分かるの？", "bot", "……一回押して、20秒待っただけです。膝の軟骨には一歩ごとに体重がかかるそうですが、走らせても、AとBは同じはずです。");
       }
       render();
       break;
@@ -2678,7 +2690,8 @@ app.addEventListener("click", async (e) => {
       break;
     case "c3-next":
       state.say++;
-      say("bot", state.say === 1 ? "人工血管の検査では、1回の脈の平均の圧を測ります。平均が同じなら、同じ人工血管とみなします。" : "……1回の脈の平均を測っただけです。平均が同じなら、1回の脈の中の圧の動きも、AとBは同じはずです。");
+      if (state.say === 1) say("bot", "人工血管の検査では、1回の脈の平均の圧を測ります。平均が同じなら、同じ人工血管とみなします。");
+      else askThen("平均だけで、1回の脈の中の圧の動きも分かるの？", "bot", "……1回の脈の平均を測っただけです。平均が同じなら、1回の脈の中の圧の動きも、AとBは同じはずです。");
       render();
       break;
     case "v-pred":
@@ -2743,7 +2756,8 @@ app.addEventListener("click", async (e) => {
       break;
     case "c4-next":
       state.say++;
-      say("bot", state.say === 1 ? "離す直前の膜の電圧が同じなら、同じ膜です。" : "……離す直前を測っただけです。離す直前が同じなら、押している途中も離したあとも、AとBは同じはずです。");
+      if (state.say === 1) say("bot", "離す直前の膜の電圧が同じなら、同じ膜です。");
+      else askThen("離す直前だけで、押している途中や離したあとも分かるの？", "bot", "……離す直前を測っただけです。離す直前が同じなら、押している途中も離したあとも、AとBは同じはずです。");
       render();
       break;
     case "m-pred":
