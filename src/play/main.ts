@@ -1423,13 +1423,6 @@ function endCard(x: number, title: string, sub: string, pic: string, rows: [stri
     ${rows.map(([a, b], k) => `<text x="16" y="${178 + k * 23}" fill="var(--ink)" font-size="14" font-weight="800">${a}</text><text x="388" y="${178 + k * 23}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="end">${b}</text>`).join("")}
     <text x="16" y="262" fill="${electric ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="900">${electric ? "本当に電気がたまり、イオンが流れる" : "式の形が同じだけ（電気は流れていない）"}</text></g>`;
 }
-/** まとめの一行：ロボが見る数字（1c-3）。足した数字の数は記録から */
-function endNotebook(): string {
-  const n = (c: RetrainCase) => state.rtLog[c]?.length;
-  const pages = (["cartilage", "vessel", "membrane"] as const).filter((c) => n(c));
-  if (!pages.length) return "ロボの見落とし：最後の値だけ（軟骨・膜）／平均だけ（血管）。見る数字が一つだと、ほかの違いを見落とす。";
-  return `TEJUN が見る数字：${pages.map((c) => `${RT_PAGE[c].page}の検査は ${1 + n(c)!} つ`).join("・")}。わからない部品の数だけ、効く数字がいる（いままでの数字が、どの部品をおさえていたかによる）。`;
-}
 function endView(): View {
   if (!endRuns) endRuns = { v: runNet(PREPARED_NETS[0]!, 120), m: runNet(PREPARED_NETS[1]!, 120) };
   const sv = machineScale(PREPARED_NETS[0]!, [endRuns.v]);
@@ -1444,9 +1437,8 @@ function endView(): View {
       <g transform="translate(26,326)"><rect width="1228" height="78" rx="14" fill="var(--paper)"/>
         <text x="614" y="32" fill="var(--paper-ink)" font-size="20" font-weight="900" text-anchor="middle">電気の部品で書くと：ためる＝コンデンサ　流れにくさ＝抵抗　送りこむ＝電流を送りこむもの（膜は＋電池 −70 mV）</text>
         <text x="614" y="62" fill="var(--paper-soft)" font-size="15" font-weight="800" text-anchor="middle">膜で本当に電気だった部品が、軟骨や血管の「見立て」にもなる。だから、見立てラボ。</text></g>
-      <text x="640" y="430" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">${esc(endNotebook())}</text>
-      <text x="640" y="452" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">まだ言えないこと：模型の式と値の範囲の中で分かったこと。実物の軟骨・血管・膜の性質を決めたわけではない</text>
-      <text x="640" y="474" fill="var(--gold)" font-size="15" font-weight="900" text-anchor="middle">同じ見立てで、ほかの臓器も書ける？ → つづきの謎</text>`,
+      <text x="640" y="440" fill="var(--ink)" font-size="17" font-weight="900" text-anchor="middle">まだ言えないこと：分かったのは模型の中のこと。実物の軟骨・血管・膜の性質を決めたわけではない。</text>
+      <text x="640" y="474" fill="var(--gold)" font-size="17" font-weight="900" text-anchor="middle">同じ見立てで、ほかの臓器も書ける？ → つづきの謎</text>`,
     who: "bot",
     text: state.line.text,
     cmds: [
@@ -1470,7 +1462,7 @@ function titleView(): View {
           .map(([c, n, , ch], i) => `<g class="jump" transform="translate(0,${20 + i * 76})" data-act="jump" data-val="${ch}" role="button" tabindex="0" aria-label="${c}から始める"><rect width="580" height="62" rx="12" fill="var(--paper)"/><text x="18" y="24" fill="var(--paper-soft)" font-size="15" font-weight="900">${c}</text><text x="18" y="50" fill="var(--paper-ink)" font-size="19" font-weight="900">${n}</text></g>`)
           .join("")}
       </g>${robotArt("smug", 900, 40, 1)}`,
-    who: "bot",
+    who: "guide",
     text: state.line.text,
     cmds: (() => {
       const sv = loadProgress();
@@ -3041,7 +3033,7 @@ app.addEventListener("click", async (e) => {
       state.scene = "title";
       state.view = null;
       state.conf = 100;
-      say("bot", "新しい試作品が届きました。私の検査で区別できなければ、同じとみなします。");
+      say("guide", "新しい試作品Bが届いた。上の一覧から、始める謎を選ぼう。");
       render();
       break;
   }
@@ -3054,7 +3046,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-say("bot", "私はTEJUN。試作品の検査ロボです。決まった手順で測り、見本と区別できなければ、同じとみなします。");
+say("guide", "上の一覧から、始める謎を選ぼう。");
 // 鍛えなおしの場面から始める（#rt-vessel・#rt-membrane。確認用。軟骨は謎1で開けたBが要るので、この入口はない）
 if (location.hash === "#rt-vessel" || location.hash === "#rt-membrane") {
   const c = location.hash.slice(4) as RetrainCase;
