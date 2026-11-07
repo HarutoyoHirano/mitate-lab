@@ -86,7 +86,7 @@ const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06f
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "Claude（AI）・謎を組み立てる", teach: "先生役 Claude（AI）・出典と照らして確かめる" };
+const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "問題づくりの Claude（AI）・謎を組み立てる", teach: "先生役の Claude（AI）・別の指示で、出典と照らして確かめる" };
 
 const state = {
   scene: "title" as Scene,
@@ -2037,7 +2037,7 @@ function render(): void {
     <header class="hud">
       <span class="chap">${esc(v.chap)}</span>${trailHtml()}<span class="goal">${phrase(v.goal)}</span>
       <span class="conf" role="img" aria-label="検査ロボの自信 ${state.conf}">TEJUN の自信<span class="bar"><i style="width:${state.conf}%"></i></span></span>
-      ${state.scene.startsWith("n-") ? `<span class="ai">Claude（AI）・謎を組み立てる${state.nx.live ? "" : "（11/5の記録）"}</span>` : state.claude && state.scene.startsWith("c1") ? `<span class="ai">相棒 Claude（AI）</span>` : ""}
+      ${state.scene.startsWith("n-") ? `<span class="ai">問題づくりの Claude（AI）${state.nx.live ? "" : "（11/5の記録）"}</span>` : state.claude && state.scene.startsWith("c1") ? `<span class="ai">相棒 Claude（AI）</span>` : ""}
       <button class="mini-btn" data-act="sound" aria-pressed="${sound.on}">音 ${sound.on ? "ON" : "OFF"}</button>
       <button class="mini-btn" data-act="panel" data-val="about" aria-label="このゲームについて・先生用" title="このゲームについて・先生用">？</button>
     </header>
