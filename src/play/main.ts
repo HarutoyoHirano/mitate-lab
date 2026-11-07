@@ -594,8 +594,8 @@ function pairHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, win: C
     m.where === "長く待ったあと"
       ? `「${CANDIDATES[rival].label}」の線は、右のほう（長く待ったあと）で、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`
       : `長く待ったあと（右のほう）は、どちらの線もBの点に近い。違うのは${m.where}：「${CANDIDATES[rival].label}」の線は、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`;
-  return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった説明を見比べる" style="--c:var(--you)">
-    <div class="zhead"><b>正体と、合わなかった説明を見比べる</b><button data-act="zoom" data-val="">カードに戻る</button></div>
+  return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった答えを見比べる" style="--c:var(--you)">
+    <div class="zhead"><b>正体と、合わなかった答えを見比べる</b><button data-act="zoom" data-val="">カードに戻る</button></div>
     <p class="zwhy">${sentence}</p>
     <div class="pair"><div><h4 style="color:${COLOR[win]}">正体：${CANDIDATES[win].label}</h4>${graph(win, false)}</div><div><h4 style="color:${COLOR[rival]}">計算：合わない：${CANDIDATES[rival].label}</h4>${graph(rival, true)}</div></div>
   </div>`;
@@ -645,7 +645,7 @@ function c1Line(): View {
     : narrowed
       ? [
           { act: "reveal", label: "正体を開ける", hot: true, disabled: state.busy },
-          { act: "zoom", val: state.zoom === "pair" ? "" : "pair", label: state.zoom === "pair" ? "カードに戻る" : "正体と、合わなかった説明を見比べる", ghost: true },
+          { act: "zoom", val: state.zoom === "pair" ? "" : "pair", label: state.zoom === "pair" ? "カードに戻る" : "正体と、合わなかった答えを見比べる", ghost: true },
         ]
       : [
           ...([0.2, 1, 5] as const).map((p) => ({ act: "push", val: String(p), label: `${SPEED[p]}押す`, sub: p === state.nextSpeed ? "押し終わった瞬間の高さを予想してから" : "", hot: state.nextSpeed === p })),
@@ -694,7 +694,7 @@ function c1Solved(): View {
         <text x="30" y="84" fill="var(--paper-ink)" font-size="26" font-weight="900">${esc(d.explanation)}</text>
         ${lines.map((l, k) => `<text x="30" y="${150 + k * 44}" fill="var(--paper-ink)" font-size="21" font-weight="800">${esc(l)}</text>`).join("")}
         ${predRecap(1) ? `<text x="30" y="396" fill="var(--paper-soft)" font-size="18" font-weight="900">${esc(predRecap(1))}</text>` : ""}
-        ${c && fit && win ? `<text x="520" y="134" fill="var(--paper-soft)" font-size="17" font-weight="900">試験台の記録と、重なった説明の線</text><g transform="translate(520,146)"><rect width="460" height="230" rx="10" fill="var(--panel)"/>${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[win], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 460, h: 230, legend: true }).replace("<svg ", '<svg width="460" height="230" ')}</g>` : ""}
+        ${c && fit && win ? `<text x="520" y="134" fill="var(--paper-soft)" font-size="17" font-weight="900">試験台の記録と、重なった答えの線</text><g transform="translate(520,146)"><rect width="460" height="230" rx="10" fill="var(--panel)"/>${miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[win], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 460, h: 230, legend: true }).replace("<svg ", '<svg width="460" height="230" ')}</g>` : ""}
       </g>`,
     who: "bot",
     text: state.line.text,
@@ -2590,7 +2590,7 @@ app.addEventListener("click", async (e) => {
       if (state.say === 1) say("bot", "見本と区別できないものは、同じとみなします。それが私の検査の手順です。");
       else {
         state.mood = "calm";
-        askThen("その検査で、走っているときのことも分かるの？", "bot", "……一回押して、20秒待っただけです。でも、走らせても、AとBは同じはずです。");
+        askThen("その検査で、走っているときの軟骨のへこみ方も分かるの？", "bot", "……一回押して、20秒待っただけです。でも、走らせても、AとBのへこみ方は同じはずです。");
       }
       render();
       break;
@@ -2788,7 +2788,7 @@ app.addEventListener("click", async (e) => {
         state.curveId = r.curveId;
         state.tags = {};
         state.nextSpeed = null;
-        say("guide", "新しい記録。説明の線も、この押し方に合わせ直した。残った説明が合うか選ぼう。");
+        say("guide", "新しい記録。答えの線も、この押し方に合わせ直した。残った答えが合うか選ぼう。");
       });
       break;
     case "reveal":

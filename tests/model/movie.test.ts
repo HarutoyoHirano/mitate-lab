@@ -38,7 +38,8 @@ describe("テスト39：イメージムービー", () => {
     }
   });
   it("血管のムービーと血管の謎の画面には、電気の言葉を出さない（回路は膜で初めて出す：1c-2）", () => {
-    const art = readFileSync(new URL("../../src/play/art.ts", import.meta.url), "utf-8");
+    // Windows で改行が CRLF になっても同じ結果になるよう、改行をそろえてから探す
+    const art = readFileSync(new URL("../../src/play/art.ts", import.meta.url), "utf-8").replace(/\r\n/g, "\n");
     const m4 = art.slice(art.indexOf("  4: {\n    scenes: ["), art.indexOf("  5: {\n    scenes: ["));
     expect(m4.length).toBeGreaterThan(100);
     expect(m4).not.toMatch(/回路|コンデンサ|電流|電気|抵抗/);

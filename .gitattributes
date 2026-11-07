@@ -1,0 +1,5 @@
+# 改行は LF にそろえる（Windows で取得してもテストの結果が変わらないように）
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.mp4 binary
