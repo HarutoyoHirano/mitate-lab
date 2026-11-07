@@ -106,7 +106,7 @@ const state = {
   // 謎1
   say: 0,
   bet: null as PredictionChoice | null,
-  /** 謎1〜3の最初の予想（ロボの言い分への返事）。正体で振り返る（外部の点検㉑） */
+  /** 謎1〜3の最初の予想（ロボの言い分への返事）。正体で振り返る（別のAIによる点検㉑） */
   firstPred: {} as Partial<Record<1 | 3 | 4, "same" | "differ" | "unknown">>,
   cursor: 0,
   runId: "",
@@ -117,6 +117,8 @@ const state = {
   tags: {} as Partial<Record<CandidateId, Tag>>,
   /** 確かめたあと、一枚のカードのグラフを大きく見る */
   zoom: null as CandidateId | "pair" | null,
+  /** 判断する前の拡大で、となりに並べる説明（2026-11-07、模擬評価「判断前の4枚が小さい。二つを選んで比較」） */
+  zoomWith: null as CandidateId | null,
   boardView: null as PublicSessionView | null,
   nextSpeed: null as number | null,
   translation: null as Translation | null,
@@ -133,7 +135,7 @@ const state = {
   duelHint: 0,
   // 謎2
   u: 0,
-  /** 謎2・謎3で、測った（動かした）ところまでの時刻。線はここまでだけ描く（外部の点検㉕） */
+  /** 謎2・謎3で、測った（動かした）ところまでの時刻。線はここまでだけ描く（別のAIによる点検㉕） */
   vSeen: 0,
   memSeen: 0,
   vPlaying: false,
@@ -469,7 +471,7 @@ function c1Present(): View {
   if (state.c1Hit)
     return {
       ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "なぜ違う？ 試験台でBを押して、押し返す力を記録しよう。押す速さはどれにする？"),
-      // 押す速さは自分で選ぶ（2026-11-07、外部の点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
+      // 押す速さは自分で選ぶ（2026-11-07、別のAIによる点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
       cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: p === 0.2 ? "押し終わりと、そのあと20秒の力を記録" : "", hot: false, disabled: state.busy })),
     };
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
@@ -488,7 +490,7 @@ function tagButtons(act: string, id: string, cur: string | undefined, disabled: 
     .join("")}</span>`;
 }
 
-/** 最初の予想の振り返り（外部の点検㉑）。B は見本と違うので、「同じじゃない」が当たり */
+/** 最初の予想の振り返り（別のAIによる点検㉑）。B は見本と違うので、「同じじゃない」が当たり */
 function predRecap(c: 1 | 3 | 4): string {
   const p = state.firstPred[c];
   return p === "differ" ? "最初の予想は「同じじゃない」。当たり。" : p === "same" ? "最初の予想は「同じ」。ロボと同じ見方だった。測り方を変えたら違いが出た。" : p === "unknown" ? "最初は「分からない」だった。測って、違いが分かった。" : "";
@@ -525,9 +527,10 @@ function mismatchOf(id: CandidateId): { t: number; force: number; diff: number; 
 }
 
 /** 一枚のカードのグラフを大きく見る（確かめたあと） */
-function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checked: boolean, win: CandidateId | null): string {
+function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checked: boolean, win: CandidateId | null, live: readonly CandidateId[] = []): string {
   const id = state.zoom;
-  if (!checked || !id) return "";
+  if (!id) return "";
+  if (!checked) return preZoomHtml(c, yMax, id === "pair" ? null : id, live);
   if (id === "pair") return pairHtml(c, yMax, win);
   const fit = fitFor(id);
   if (!fit) return "";
@@ -540,7 +543,31 @@ function zoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, checke
   </div>`;
 }
 /**
- * 正体と、合わなかった説明の一つを大きく見比べる（2026-11-07、外部の模擬評価26「4枚の細かな曲線を同時に読ませる。
+ * 判断する前に、説明のグラフを大きく見る（二つまで並べられる）。答えは漏らさない：ずれの印・計算の結果・正体は出さない。
+ * 合う／合わないは、ここでも選べる（カードと同じボタン）。2026-11-07、模擬評価「判断前の4枚の小さな曲線。
+ * 判定を漏らさない拡大を判断前から使えるようにし、二つを選んで比較できるようにする」による。
+ */
+function preZoomHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, id: CandidateId | null, live: readonly CandidateId[]): string {
+  if (!id || !fitFor(id)) return "";
+  const other = state.zoomWith && state.zoomWith !== id && fitFor(state.zoomWith) ? state.zoomWith : null;
+  const shown = other ? [id, other] : [id];
+  const w = other ? 560 : 1000;
+  const panel = (x: CandidateId) => `<div><h4 style="color:${COLOR[x]}">${CANDIDATES[x].label}</h4>
+      ${miniGraph({ b: c.b, line: predictedCurve(fitFor(x)!.params, c.pushSeconds), lineColor: COLOR[x], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w, h: 300, legend: true, mark: null, big: true })}
+      <div class="ztags">${tagButtons("tag", x, state.tags[x], false)}</div></div>`;
+  const pick = live
+    .filter((x) => x !== id && fitFor(x))
+    .map((x) => `<button data-act="zoom-with" data-val="${x === other ? "" : x}" aria-pressed="${x === other}" style="--c:${COLOR[x]}">${x === other ? "外す：" : "となりに："}${CANDIDATES[x].label}</button>`)
+    .join("");
+  return `<div class="zoom" role="dialog" aria-label="グラフを大きく見る：${shown.map((x) => CANDIDATES[x].label).join("と")}" style="--c:${COLOR[id]}">
+    <div class="zhead"><b>グラフを大きく見る</b><button data-act="zoom" data-val="">カードに戻る</button></div>
+    <p class="zwhy">点＝Bの記録、色の線＝その説明の予想。線から点が離れているところはある？</p>
+    <div class="${other ? "pair" : "single"}">${shown.map(panel).join("")}</div>
+    <div class="zwith">${pick}</div>
+  </div>`;
+}
+/**
+ * 正体と、合わなかった説明の一つを大きく見比べる（2026-11-07、別のAIによる模擬評価26「4枚の細かな曲線を同時に読ませる。
  * 代表の二つを大きく比較し、終点は合う／途中が外れるを一箇所だけ強調」による）。
  * 合わなかった説明は、長く待ったあと以外の場所でいちばんずれたものを選ぶ（終わりは合うのに途中が外れる例）。
  */
@@ -596,7 +623,7 @@ function c1Line(): View {
         <div class="gres">${res}</div>
         ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 240, h: 244, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
         ${awaiting && !prevOut ? tagButtons("tag", id, tag, false) : ""}
-        ${checked && fit && !prevOut ? `<button class="zoom-btn" data-act="zoom" data-val="${id}">グラフを大きく見る</button>` : ""}
+        ${fit && !prevOut && (checked || awaiting) ? `<button class="zoom-btn" data-act="zoom" data-val="${id}">グラフを大きく見る</button>` : ""}
       </div>`;
     })
     .join("");
@@ -618,7 +645,7 @@ function c1Line(): View {
     chap: "謎1 軟骨：なぜ？",
     goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "4つの説明の中では、正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
     svg: "",
-    html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null)}`,
+    html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null, live)}`,
     who: state.line.who,
     text: state.line.text,
     extra:
@@ -871,7 +898,7 @@ function duelSnaps(roundIdx: number, e1: number, tau: number, x: number, y: numb
   };
   return one("robot", x) + one("hidden", x + (w + 14) / 2);
 }
-const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る（増えた分が約4割に減るまでの目安）" } as const;
+const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る（約4割に減るまでの目安）" } as const;
 const knobShown = (key: "e1" | "tau", v: number) => (v + DUEL_SLIDERS[key].offset).toFixed(2);
 
 function c2(): View {
@@ -879,7 +906,7 @@ function c2(): View {
   const r = judgeDuel(round, duelMaterial(state.e1, state.tau));
   const rp = round.robot.phase as "land" | "lift";
   const judging = state.duelPhase === "judge";
-  // 合否（✓）は、ロボに挑んでから開く。つまみを動かすと線と差の数字はすぐ変わる（2026-11-07、外部の点検㉖）
+  // 合否（✓）は、ロボに挑んでから開く。つまみを動かすと線と差の数字はすぐ変わる（2026-11-07、別のAIによる点検㉖）
   const reveal = state.duelPhase === "result";
   return {
     chap: "謎1 軟骨：仕掛けろ",
@@ -894,14 +921,14 @@ function c2(): View {
         ${(["e1", "tau"] as const)
           .map((key) => {
             const s = DUEL_SLIDERS[key];
-            return `<label><span>${s.label}<strong id="v-${key}">${knobShown(key, state[key])}</strong></span><input type="range" data-knob="${key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[key]}" ${judging ? "disabled" : ""}><em>${KNOB_NOTE[key]}。見本は ${knobShown(key, BASE[key])}</em></label>`;
+            return `<label><span>${s.label}<strong id="v-${key}">${knobShown(key, state[key])}</strong></span><input type="range" data-knob="${key}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[key]}" aria-valuetext="${knobShown(key, state[key])}" ${judging ? "disabled" : ""}><em>${KNOB_NOTE[key]}。見本は ${knobShown(key, BASE[key])}</em></label>`;
           })
           .join("")}
       </div>`,
     who: state.line.who,
     text: state.line.text,
     extra: state.duelHint
-      ? `<p class="sub">${round.id === 1 ? "1歩目の着地した直後のへこみは、着地の瞬間のかたさだけで決まる。そこは見本のままにして、かたさが消えるまでの時間を大きく変えると？" : "着地の瞬間のかたさを変えると、着地した直後のへこみが変わる。そのうえで、足を上げた直後が見本と同じになるよう、かたさが消えるまでの時間で合わせよう。"}${state.duelHint > 1 ? " まず一つのつまみだけを動かして、ロボが測る点の差を見てから、もう一つを動かそう。" : ""}</p>`
+      ? `<p class="sub">${round.id === 1 ? "1歩目の着地した直後のへこみは、着地の瞬間のかたさだけで決まる。そこは見本のままにして、増えたかたさが減る時間を大きく変えると？" : "着地の瞬間のかたさを変えると、着地した直後のへこみが変わる。そのうえで、足を上げた直後が見本と同じになるよう、増えたかたさが減る時間で合わせよう。"}${state.duelHint > 1 ? " まず一つのつまみだけを動かして、ロボが測る点の差を見てから、もう一つを動かそう。" : ""}</p>`
       : "",
     cmds:
       state.duelPhase === "result" && state.duelCleared
@@ -1299,7 +1326,7 @@ function c4Duel(): View {
   const m = { g: state.g, c: state.c };
   const r = judgeMemDuel(round.id, m);
   const show = true; // 謎1の仕掛けろと同じく、つまみを動かすとすぐ目盛りが変わる（2026-11-06）
-  const reveal = state.duelPhase === "result"; // 合否（✓）は挑んでから開く（2026-11-07、外部の点検㉖）
+  const reveal = state.duelPhase === "result"; // 合否（✓）は挑んでから開く（2026-11-07、別のAIによる点検㉖）
   return {
     chap: "謎3 仕掛けろ",
     goal: `ロボが見る数字では見本と同じ、ほかの時刻では違う膜をつくれ（ラウンド${round.id}）`,
@@ -1309,7 +1336,7 @@ function c4Duel(): View {
     html: `<div class="knobs" style="left:1%;top:62%;width:27%">${(["g", "c"] as const)
       .map((k) => {
         const s = MEM_SLIDERS[k];
-        return `<label><span>${s.label}<strong id="v-${k}">見本の ${state[k].toFixed(2)} 倍</strong></span><input type="range" data-knob="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[k]}" ${state.duelPhase === "judge" ? "disabled" : ""}></label>`;
+        return `<label><span>${s.label}<strong id="v-${k}">見本の ${state[k].toFixed(2)} 倍</strong></span><input type="range" data-knob="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${state[k]}" aria-valuetext="見本の ${state[k].toFixed(2)} 倍" ${state.duelPhase === "judge" ? "disabled" : ""}></label>`;
       })
       .join("")}</div>
       <div class="meters" style="left:68%;top:33%;width:30%">${
@@ -1368,7 +1395,7 @@ function rtMarks(): { x: number; y: number; label: string }[] {
     { x: CASE3_B.c, y: CASE3_B.g, label: "膜B" },
   ];
 }
-/** 仕掛けろであなたがつくった試作品を、書きなおした規則で検査しなおす（2026-11-07、外部の模擬評価の提案による） */
+/** 仕掛けろであなたがつくった試作品を、書きなおした規則で検査しなおす（2026-11-07、別のAIによる模擬評価の提案による） */
 function rtRechecks() {
   const c = state.rt.c;
   if (c === "vessel") return [];
@@ -1583,7 +1610,7 @@ function nxTopicCmds(prev: NetPuzzleSpec): Cmd[] {
 }
 /**
  * 題材の入力欄（題材の名前だけ。20字まで）。AIを呼べない版（記録だけ）では出さず、記録の題材のカードを主にする
- * （2026-11-07、外部の模擬評価64「記録しかない公開版でも自由入力が主操作」による）
+ * （2026-11-07、別のAIによる模擬評価64「記録しかない公開版でも自由入力が主操作」による）
  */
 function nxTopicBox(style: string): string {
   if (!state.nx.live) return "";
@@ -1960,9 +1987,9 @@ function render(): void {
     ${panelHtml()}
   </div></div>`;
   rollNumbers(app);
-  // 押したものに焦点を戻す（同じ行動のボタンが並ぶときは data-val でも見分ける。外部の点検57）
+  // 押したものに焦点を戻す（同じ行動のボタンが並ぶときは data-val でも見分ける。別のAIによる点検57）
   if (focusId) (app.querySelector<HTMLElement>(`[data-act="${CSS.escape(focusId)}"]${focusVal !== undefined ? `[data-val="${CSS.escape(focusVal)}"]` : ""}`) ?? app.querySelector<HTMLElement>(`[data-act="${CSS.escape(focusId)}"]`))?.focus({ preventScroll: true });
-  // 説明の欄（ダイアログ）を開いたら、焦点を欄の中へ（外部の点検58）
+  // 説明の欄（ダイアログ）を開いたら、焦点を欄の中へ（別のAIによる点検58）
   const dlg = app.querySelector<HTMLElement>('[role="dialog"]');
   if (dlg && !dlg.contains(document.activeElement)) dlg.querySelector<HTMLElement>("button, input, select, [tabindex]")?.focus({ preventScroll: true });
   // メッセージは一文字ずつ（動きを減らす設定では一度に）
@@ -2046,7 +2073,7 @@ function go(s: Scene): void {
   state.scene = s;
   state.error = "";
   state.sel = null;
-  // 証拠を見せる画面では、いちばん新しい「違いが見えた」証拠を選んだ状態で始める（保存した証拠を選び直す手間をなくす。2026-11-07、外部の点検㉒）
+  // 証拠を見せる画面では、いちばん新しい「違いが見えた」証拠を選んだ状態で始める（保存した証拠を選び直す手間をなくす。2026-11-07、別のAIによる点検㉒）
   const pc = s === "c1-present" ? 1 : s === "c3-present" ? 3 : s === "c4-present" ? 4 : 0;
   if (pc) state.sel = [...state.evidence].reverse().find((e) => e.case === pc && e.ok)?.id ?? null;
   render();
@@ -2297,11 +2324,12 @@ app.addEventListener("input", (e) => {
     state.duelPhase = "design";
     const lab = app.querySelector(`#v-${k}`);
     if (lab) lab.textContent = k === "g" || k === "c" ? `見本の ${state[k].toFixed(2)} 倍` : knobShown(k, state[k]);
+    // 読み上げも画面の数字と同じ意味に（着地の瞬間のかたさは、待ったあとも残るかたさを足した値で見せている）
+    t.setAttribute("aria-valuetext", lab?.textContent ?? t.value);
     if (state.scene === "c4-duel" || state.scene === "c2") {
       const svg = app.querySelector("svg.st");
       if (svg) svg.innerHTML = VIEWS[state.scene]().svg;
-      if (state.scene === "c2") app.querySelector<HTMLButtonElement>('button[data-act="duel-go"]')?.classList.toggle("hot", judgeDuel(DUEL_ROUNDS[state.round]!, duelMaterial(state.e1, state.tau)).cleared);
-      else app.querySelector<HTMLButtonElement>('button[data-act="mduel-go"]')?.classList.toggle("hot", judgeMemDuel(MEM_ROUNDS[state.round]!.id, { g: state.g, c: state.c }).cleared);
+      // 挑むボタンは合否で光らせない（㉖。つまみを動かしても光り方は変えない）
     }
     // つまみを動かしたら、前のテストの目盛りは古い。テストし直すまで目盛りを隠す
     const meters = app.querySelector(".meters");
@@ -2429,7 +2457,7 @@ app.addEventListener("click", async (e) => {
       } else {
         await openChapter(sv.chapter);
       }
-      // その謎はもう一度はじめから遊ぶので、その謎でつくった試作品の記録は持ち越さない（古い記録と新しい遊びを混ぜない。2026-11-07、外部の模擬評価73）
+      // その謎はもう一度はじめから遊ぶので、その謎でつくった試作品の記録は持ち越さない（古い記録と新しい遊びを混ぜない。2026-11-07、別のAIによる模擬評価73）
       Object.assign(state, {
         record: sv.record ?? [],
         rtLog: sv.rtLog ?? {},
@@ -2600,8 +2628,13 @@ app.addEventListener("click", async (e) => {
         go("c1-line");
       }
       break;
+    case "zoom-with":
+      state.zoomWith = val ? (val as CandidateId) : null;
+      render();
+      break;
     case "zoom":
       state.zoom = val ? (val as CandidateId | "pair") : null;
+      if (!val) state.zoomWith = null;
       render();
       break;
     case "tag": {
@@ -2875,7 +2908,7 @@ app.addEventListener("click", async (e) => {
       }
       toneStop();
       state.memRan = true;
-      state.memT = RECORD_MS; // 流し終わりで止める（ロボが見る時刻に自動で止めない。外部の点検㉔）
+      state.memT = RECORD_MS; // 流し終わりで止める（ロボが見る時刻に自動で止めない。別のAIによる点検㉔）
       render();
       break;
     }

@@ -899,7 +899,7 @@ export function beatChart(x: number, y: number, w: number, h: number, a: Vessel,
   const hi = 130;
   const xs = (i: number) => (w * i) / (pa.length - 1);
   const ys = (p: number) => h * (1 - (p - lo) / (hi - lo));
-  // 測った（動かした）ところまでだけ線を描く（2026-11-07、外部の点検㉕）
+  // 測った（動かした）ところまでだけ線を描く（2026-11-07、別のAIによる点検㉕）
   const poly = (ps: number[]) => ps.filter((_, i) => (i / (ps.length - 1)) * BEAT_S <= upTo + 1e-9).map((p, i) => `${xs(i).toFixed(1)},${ys(p).toFixed(1)}`).join(" ");
   return `<g transform="translate(${x},${y})">
     <rect width="${w}" height="${h}" rx="8" fill="var(--panel)" stroke="var(--line)"/>
@@ -1188,7 +1188,7 @@ function patchAt(y0: number, m: Membrane, label: string, kind: "A" | "B", reveal
 
 /** 電位のグラフ（A＝点線、B＝実線、時刻の線）。notes で下の注を出す */
 export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: number }, a: Membrane, b: Membrane, t: number, o: { a: string; b: string; top?: number; notes?: boolean; upTo?: number }): string {
-  const upTo = o.upTo ?? RECORD_MS; // 測った（流した）ところまでだけ線を描く（2026-11-07、外部の点検㉕）
+  const upTo = o.upTo ?? RECORD_MS; // 測った（流した）ところまでだけ線を描く（2026-11-07、別のAIによる点検㉕）
   const { GL, GR, GT, GB } = box;
   const top = o.top ?? 14;
   const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;

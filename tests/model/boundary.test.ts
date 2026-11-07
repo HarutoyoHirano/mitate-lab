@@ -1,4 +1,4 @@
-// 判定の幅の境目（外部の模擬評価76：幅の直前・同値・直後を確かめる。表示上同じでも内部だけ不合格にしない）
+// 判定の幅の境目（別のAIによる模擬評価76：幅の直前・同値・直後を確かめる。表示上同じでも内部だけ不合格にしない）
 import { describe, expect, it } from "vitest";
 import { fmtVs } from "../../src/play/fmt.js";
 import { DUEL_ROUNDS, DUEL_SLIDERS, duelMaterial, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";

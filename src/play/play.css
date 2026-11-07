@@ -381,3 +381,12 @@ button { font: inherit; }
 .spin { transform-box: fill-box; transform-origin: center; animation: spin 2.4s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .dashmove, .spin { animation: none; } }
+/* 判断する前の拡大（2026-11-07）：グラフ・合う／合わないのボタン・となりに並べる説明 */
+.zoom:has(.zwith) { grid-template-rows: auto auto 1fr auto; }
+.zoom .single { display: grid; min-height: 0; }
+.zoom .single > div, .zoom .pair > div { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; gap: 0.4cqw; }
+.zoom .single h4 { margin: 0; font-size: max(16px, 1.5cqw); font-weight: 900; }
+.zoom .ztags { display: flex; gap: 0.6cqw; justify-content: center; }
+.zoom .zwith { display: flex; flex-wrap: wrap; gap: 0.6cqw; align-items: center; }
+.zoom .zwith button { font: inherit; font-size: max(14px, 1.1cqw); font-weight: 900; color: var(--c); background: var(--panel); border: 2px solid var(--c); border-radius: 999px; padding: 0.25cqw 0.9cqw; cursor: pointer; }
+.zoom .zwith button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 18%, var(--panel)); }
