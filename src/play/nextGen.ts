@@ -1,6 +1,6 @@
 // つづきの謎の生成（CLAUDE.md 1e-4）。①このページを開いた人の Claude（公開ページの sample）②（サーバーから API：キーが入りしだい）
 // ③どちらも使えなければ、AIが 11/5 に生成した記録（tests/fixtures/ai-nets の確かめに通ったもの）。どれも確かめは計算プログラムがその場で行う。
-import { verifyNetPuzzle, type Check, type NetPuzzleSpec, type NetVerdict } from "../../server/model/partsNet.js";
+import { cannotReason, verifyNetPuzzle, type Check, type NetPuzzleSpec, type NetVerdict } from "../../server/model/partsNet.js";
 import { netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
 import { reviewPrompt, reviewRetryPrompt } from "../../server/puzzle/reviewPrompt.js";
 import { checkReview, reviewFailures, type Review } from "../../server/model/review.js";
@@ -114,7 +114,7 @@ export interface MakeHooks {
 
 /** 題材と前の謎から、次の謎をつくる。組み立て役 → 計算プログラム → 先生役の Claude。
  *  どちらかに落ちたら理由を戻して一度だけ作り直す。live が使えなければ記録（先生役の出力も記録）。 */
-export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks): Promise<{ made: Made | null; attempts: Attempt[] }> {
+export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks): Promise<{ made: Made | null; attempts: Attempt[]; cannot?: string }> {
   const sample = await getSample();
   const attempts: Attempt[] = [];
   if (sample) {
@@ -124,6 +124,9 @@ export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks)
       h.onStatus(k === 0 ? "Claude が、部品箱から部品を選んで模型を組み立てています。" : "落ちた理由を伝えて、一度だけ組み立て直してもらっています。", "ai");
       const spec = k === 0 ? await sample.json(netPrompt(topic, prev), { signal: h.signal, cache: false }) : await sample.json(netRetryPrompt(topic, prev, last, failed), { signal: h.signal, cache: false });
       last = spec;
+      // 照らし合わせて支える文献がないと判断した返事は、正式な答え（作り直さない）
+      const no = cannotReason(spec);
+      if (no) return { made: null, attempts, cannot: no };
       h.onStatus("計算プログラムが、組み立てた模型を計算して確かめています。", "calc");
       const verdict = await verifyAsync(spec, prev);
       const at: Attempt = { spec, verdict };

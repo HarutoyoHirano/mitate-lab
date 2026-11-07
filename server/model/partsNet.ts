@@ -643,3 +643,13 @@ export function verifyNetPuzzle(raw: unknown, previous?: NetPuzzleSpec): NetVerd
   const ok = checks.every((c) => c.ok);
   return { ok, checks, runA, runB, specB: withB(s, g), compensateFactor: s.B.compensate ? g : undefined, robotA, robotB: b.v, best, energySources, diff };
 }
+
+/** 「この題材は、確かめた文献で支えられないので作らない」という返事（CLAUDE.md 1e-3）なら、その理由を返す。そうでなければ null。
+ *  理由は画面に出すので、長さを切り、病気や治療につながる言葉を含むときは文を出さない。 */
+export function cannotReason(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || (raw as { cannot?: unknown }).cannot !== true) return null;
+  const r = (raw as { reason?: unknown }).reason;
+  const text = typeof r === "string" ? r.trim().slice(0, 120) : "";
+  if (!text) return "理由は書かれていない";
+  return /病|症|患者|診断|治療|薬|投与|処方|服用|手術|がん|癌|死|異常|発火|活動電位|臨床/.test(text) ? "（画面に出さない言葉を含むため、理由の文は省略）" : text;
+}

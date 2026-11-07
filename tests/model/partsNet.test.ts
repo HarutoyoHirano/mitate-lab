@@ -253,4 +253,20 @@ describe("41 部品箱", () => {
     expect(topicProblem("心臓の病気")).not.toBeNull();
     expect(topicProblem("薬の効き方")).not.toBeNull();
   });
+  it("文献で支えられない題材は「作れない」と返してよく、プログラムはそれを正式な返事として受け取る（1e-3）", async () => {
+    const { cannotReason } = await import("../../server/model/partsNet.js");
+    expect(cannotReason({ cannot: true, reason: "胃が自分で縮むはたらきを支える文献がカタログにない" })).toBe("胃が自分で縮むはたらきを支える文献がカタログにない");
+    expect(cannotReason({ cannot: true })).toBe("理由は書かれていない");
+    expect(cannotReason({ cannot: true, reason: "治療の文献がない" })).toMatch(/省略/);
+    expect(cannotReason({ cannot: "true" })).toBeNull();
+    expect(cannotReason(PREPARED_NETS[0])).toBeNull();
+    expect(cannotReason(null)).toBeNull();
+  });
+  it("指示文は、部品ごとに文献と照らし、異なる・分からない部品は外し、残らなければ作らない、と書いている（1e-3）", () => {
+    const p = netPrompt("胃", PREPARED_NETS[1]);
+    expect(p).toMatch(/照らし合わせる/);
+    expect(p).toMatch(/異なる、または分からない部品は使わない/);
+    expect(p).toMatch(/"cannot": true/);
+    expect(p).not.toMatch(/支えられないときは、支えられる部分を選んで謎にする/);
+  });
 });

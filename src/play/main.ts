@@ -1838,7 +1838,7 @@ async function nxMake(topic: string): Promise<void> {
   };
   const reviewRows = (a: Attempt): number => (a.review ? (a.review.readable ? a.review.items.length + (a.review.text ? 1 : 0) : 1) : 0);
   try {
-    const { made, attempts } = await makeNext(topic, state.nx.prev, {
+    const { made, attempts, cannot } = await makeNext(topic, state.nx.prev, {
       onStatus: (text, who) => {
         if (state.nx.phase === "fail1" || state.nx.phase === "rfail1") return; // 落ちた理由を読んでいるあいだは、窓の文を替えない
         say(who, text);
@@ -1888,6 +1888,12 @@ async function nxMake(topic: string): Promise<void> {
       },
     });
     state.nx.attempts = attempts;
+    if (!made && cannot) {
+      state.busy = false;
+      say("ai", `この題材は作りませんでした。確かめた文献の一覧に、支える文献がないためです（問題づくりの Claude の返事：${cannot}）。ほかの題材を選ぼう。`);
+      render();
+      return;
+    }
     if (!made) {
       state.busy = false;
       const last = attempts[attempts.length - 1];
