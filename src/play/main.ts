@@ -594,8 +594,8 @@ function pairHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, win: C
     miniGraph({ b: c.b, line: predictedCurve(fitFor(x)!.params, c.pushSeconds), lineColor: COLOR[x], a: trueCurve(BASE, c.pushSeconds), push: c.pushSeconds, yMax, w: 560, h: 300, legend: true, mark: mark ? m : null, big: true });
   const sentence =
     m.where === "長く待ったあと"
-      ? `「${CANDIDATES[rival].label}」の線は、右のほう（長く待ったあと）で、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`
-      : `長く待ったあと（右のほう）は、どちらの線もBの点に近い。違うのは${m.where}：「${CANDIDATES[rival].label}」の線は、Bの点より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にずれる。`;
+      ? `右のほう（長く待ったあと）で、Bの点が「${CANDIDATES[rival].label}」の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある。`
+      : `長く待ったあと（右のほう）は、どちらの線もBの点に近い。違うのは${m.where}：Bの点が「${CANDIDATES[rival].label}」の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある。`;
   return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった答えを見比べる" style="--c:var(--you)">
     <div class="zhead"><b>正体と、合わなかった答えを見比べる</b><button data-act="zoom" data-val="">カードに戻る</button></div>
     <p class="zwhy">${sentence}</p>
