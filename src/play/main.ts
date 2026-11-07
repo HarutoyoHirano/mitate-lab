@@ -136,7 +136,7 @@ const state = {
   note: null as number | null,
   curveId: "",
   tags: {} as Partial<Record<CandidateId, Tag>>,
-  /** 原因当てクイズで選んだ答え（一つ。1c-4） */
+  /** 原因の推理で選んだ答え（一つ。1c-4） */
   answer: null as CandidateId | "unsure" | null,
   /** 確かめたあと、一枚のカードのグラフを大きく見る */
   zoom: null as CandidateId | "pair" | null,
@@ -626,7 +626,7 @@ function mismatchText(x: CandidateId): string {
   const m = mismatchOf(x);
   return m ? `グラフの${m.where === "長く待ったあと" ? "右のほう（長く待ったあと）" : m.where === "押している途中" ? "左のほう（押している途中）" : `山のすぐ右（${m.where}）`}で、Bの点が予想の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある（赤い丸と赤い縦線）` : "記録と合わない";
 }
-/** 原因当てクイズ：このカードを答えにする（一つだけ選ぶ。1c-4） */
+/** 原因の推理：このカードを答えにする（一つだけ選ぶ。1c-4） */
 function answerButton(id: CandidateId): string {
   const on = state.answer === id;
   return `<button class="pickb ${on ? "on" : ""}" data-act="answer" data-val="${id}" aria-pressed="${on}">${on ? "✓ あなたの答え" : "これが答え"}</button>`;
@@ -683,7 +683,7 @@ function c1Line(): View {
         ];
   return {
     chap: "謎1 軟骨：なぜ？",
-    goal: awaiting ? "原因当てクイズ：Bの記録（点）に重なる予想の線はどれ？ 一つ選ぼう" : narrowed ? `答え合わせ：正解は「${CANDIDATES[v.narrowedTo!].label}」` : "まだ答えが二つ以上残る。別の速さで押して実験しよう",
+    goal: awaiting ? "原因を推理しよう：Bの記録（点）に重なる予想の線はどれ？ 一つ選ぼう" : narrowed ? `答え合わせ：正解は「${CANDIDATES[v.narrowedTo!].label}」` : "まだ答えが二つ以上残る。別の速さで押して実験しよう",
     svg: "",
     html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null, live)}`,
     who: state.line.who,

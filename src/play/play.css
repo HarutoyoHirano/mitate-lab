@@ -395,7 +395,7 @@ button { font: inherit; }
 .zoom .zwith button { font: inherit; font-size: max(14px, 1.1cqw); font-weight: 900; color: var(--c); background: var(--panel); border: 2px solid var(--c); border-radius: 999px; padding: 0.25cqw 0.9cqw; cursor: pointer; }
 .zoom .zwith button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 18%, var(--panel)); }
 
-/* 原因当てクイズ：答えを一つ選ぶ（1c-4） */
+/* 原因の推理：答えを一つ選ぶ（1c-4） */
 .pickb { justify-self: center; border: 2px solid var(--c, var(--you)); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 0.3cqw 1cqw; font-weight: 900; font-size: max(15px, 1.2cqw); cursor: pointer; }
 .pickb.on { background: var(--c, var(--you)); color: #0a0e1c; }
 .ztags { display: flex; justify-content: center; margin-top: 0.4cqw; }
