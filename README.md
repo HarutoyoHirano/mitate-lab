@@ -86,7 +86,7 @@ AIが役に立つのは、用意した問いの**続き**を、物理・化学�
 - **ブラウザですぐ遊ぶ（ログイン不要）**：https://harutoyohirano.github.io/mitate-lab-play/ 。サーバーを使わない試用版で、謎1〜3・まとめ・つづきの謎まで遊べる。ページから Claude は呼ばないので、つづきの謎は Claude が組み立てて確かめに通った記録で動く（画面に「記録」と出る）。謎1の隠れた試作品Bの値もページの中にある。デモ動画のつづきの謎も、この記録をいまの計算で確かめ直す画面を撮ったもの（その場で組み立てる版は下の公開ページ）
 - 試用版を自分でつくる：`npm run build:trial` で一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくり、ブラウザで開く。計算・判定・画面は本番と同じコード。試用版では隠れた試作品Bもブラウザの中にあるため、授業では本番のサーバー構成を使う
 - 本番（Node.js 22 以上）：`npm install` → （任意）`cp .env.example .env` で `ANTHROPIC_API_KEY` と `CLAUDE_MODEL` を設定 → `npm run build` → `npm start`（http://localhost:8787）。鍵がなくても、つづきの謎は記録に切りかえて最後まで動く
-- 開発：`npm run dev`（http://localhost:5173）、テスト：`npm test`（`npx vitest run`。動画に映したのはコミット `a61b277` での結果。その後も同じコマンドで 152 件すべて通ることを確かめている）
+- 開発：`npm run dev`（http://localhost:5173）、テスト：`npm test`（`npx vitest run`。動画に映したのはコミット `4036140` での結果で、152 件すべて通る）
 
 ## 対象と前提・検証範囲
 - 主な対象は医療系の大学生。ハッカソン期間中の公開デモは大学生以上
