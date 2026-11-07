@@ -1884,6 +1884,7 @@ function nxLoop(kind: "movie" | "watch"): void {
 }
 async function nxMake(topic: string): Promise<void> {
   state.nx.topic = topic;
+  state.nx.input = ""; // 選びなおしで戻ったとき、前の題材の文字が残って次の入力につながらないように
   state.nx.made = null;
   state.nx.attempts = [];
   state.nx.shown = 0;

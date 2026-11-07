@@ -261,6 +261,9 @@ describe("41 部品箱", () => {
     expect(cannotReason({ cannot: "true" })).toBeNull();
     expect(cannotReason(PREPARED_NETS[0])).toBeNull();
     expect(cannotReason(null)).toBeNull();
+    // 部品の型の名前は画面の言葉に置きかえる
+    expect(cannotReason({ cannot: true, reason: "目の中の水をためるふくらみやすさ（store）を支える文献がない" })).toBe("目の中の水をためるふくらみやすさを支える文献がない");
+    expect(cannotReason({ cannot: true, reason: "resist の文献しかない" })).toBe("流れにくさ の文献しかない");
   });
   it("指示文は、部品ごとに文献と照らし、異なる・分からない部品は外し、残らなければ作らない、と書いている（1e-3）", () => {
     const p = netPrompt("胃", PREPARED_NETS[1]);
