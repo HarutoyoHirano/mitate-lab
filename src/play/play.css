@@ -402,7 +402,7 @@ button { font: inherit; }
 /* 話す人の顔（1c-4） */
 .speaker { display: flex; gap: 1cqw; align-items: flex-start; min-width: 0; }
 .speaker > div { min-width: 0; flex: 1; }
-.face { flex: none; width: max(44px, 4.4cqw); height: max(44px, 4.4cqw); border-radius: 12px; background: var(--stage-2, var(--panel)); border: 2px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+.face { flex: none; width: max(38px, 3.4cqw); height: max(38px, 3.4cqw); border-radius: 12px; background: var(--stage-2, var(--panel)); border: 2px solid var(--line); display: grid; place-items: center; overflow: hidden; }
 .face svg { width: 92%; height: 92%; }
 .face.bot { border-color: var(--bot); }
 .face.you { border-color: var(--you); }
