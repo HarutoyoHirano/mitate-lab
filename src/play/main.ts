@@ -14,7 +14,7 @@ import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRA
 import { fmtVs } from "./fmt.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SLIDERS } from "../../server/model/vessel.js";
-import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
+import { BASE_MEM, CASE3_B, deltaMv, memFit, MEM_FIT_TOL, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
 import { fitGraph, balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
@@ -188,6 +188,9 @@ const state = {
   memTank: false,
   memWhy: {} as Partial<Record<"g" | "c", "match" | "out" | "unsure">>,
   memChecked: false,
+  /** 謎3「なぜ？」：違うと思った性質（両方も）と、試す膜のつまみ（1c-4、2026-11-07 深夜） */
+  memHyp: null as "g" | "c" | "both" | null,
+  memTry: { g: 1, c: 1 } as Membrane,
   /** 謎3の正体：0＝膜の拡大図、1＝電気回路で見る（CR回路の過渡現象） */
   mExplain: 0,
   /** 謎3の電気回路：もし①入口の電流（p）や③抵抗（r）が違ったら */
@@ -1408,16 +1411,47 @@ function memWhyFigure(): string {
       <circle cx="${X + 10}" cy="${Y + 222}" r="8" fill="none" stroke="#4fe0d0" stroke-width="3.5"/><text x="${X + 26}" y="${Y + 228}" fill="#4fe0d0" font-size="17">あぶらの膜（＋と−をためる）</text><text x="${X + 262}" y="${Y + 228}" fill="var(--ink)" font-size="16">→ 電気のためやすさ</text>
     </g>`;
 }
+/** 謎3「なぜ？」：試す膜の線と帯（membraneGraph と同じ目盛り） */
+const MEM_WHY_BOX = { GL: 90, GR: 770, GT: 56, GB: 410 };
+function memTryOverlay(): string {
+  const { GL, GR, GT, GB } = MEM_WHY_BOX;
+  const top = 14;
+  const xs = (ms: number) => GL + ((GR - GL) * ms) / RECORD_MS;
+  const ys = (d: number) => GB - ((GB - GT) * Math.max(0, Math.min(top, d))) / top;
+  const m = state.memTry;
+  const ms: number[] = [];
+  for (let t = 0; t <= RECORD_MS; t += 2) ms.push(t);
+  const up = ms.map((t) => `${xs(t).toFixed(1)},${ys(deltaMv(m, t) + MEM_FIT_TOL).toFixed(1)}`);
+  const dn = ms.slice().reverse().map((t) => `${xs(t).toFixed(1)},${ys(deltaMv(m, t) - MEM_FIT_TOL).toFixed(1)}`);
+  const f = memFit(m);
+  return `<polygon points="${up.join(" ")} ${dn.join(" ")}" fill="var(--gold)" opacity=".22"/>
+    <polyline points="${ms.map((t) => `${xs(t).toFixed(1)},${ys(deltaMv(m, t)).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--gold)" stroke-width="4"/>
+    ${f.fits ? "" : `<line x1="${xs(f.atMs)}" x2="${xs(f.atMs)}" y1="${ys(deltaMv(m, f.atMs))}" y2="${ys(deltaMv(CASE3_B, f.atMs))}" stroke="var(--stamp)" stroke-width="5"/><circle cx="${xs(f.atMs)}" cy="${ys(deltaMv(CASE3_B, f.atMs))}" r="11" fill="none" stroke="var(--stamp)" stroke-width="4"/>`}
+    <g font-size="16" font-weight="900"><rect x="${GL + 330}" y="${GB + 26}" width="30" height="14" fill="var(--gold)" opacity=".3"/><line x1="${GL + 330}" x2="${GL + 360}" y1="${GB + 33}" y2="${GB + 33}" stroke="var(--gold)" stroke-width="4"/><text x="${GL + 368}" y="${GB + 39}" fill="var(--gold)">試す膜（つまみ）と帯（上下 ${MEM_FIT_TOL} mV）</text></g>`;
+}
+function memMeterHtml(): string {
+  if (!state.memHyp) return "";
+  const f = memFit(state.memTry);
+  return f.fits ? `<b class="fitok">重なった！ どの時刻も、ずれは ${MEM_FIT_TOL} mV 以内</b>` : `<b>いちばん大きいずれ ${f.maxDiff.toFixed(1)} mV（${f.atMs} ms）</b>`;
+}
+const MEM_HYP: { id: "g" | "c"; name: string; sub: string; color: string }[] = [
+  { id: "g", name: "イオンの通りやすさが違う", sub: "いつも開いている通り道の数", color: "#7bd88f" },
+  { id: "c", name: "電気のためやすさが違う", sub: "あぶらの膜が電気をためる量", color: "#4fe0d0" },
+];
+function memKnobOn(k: "g" | "c"): boolean {
+  return state.memHyp === "both" || state.memHyp === k;
+}
 function c4Why(): View {
   if (state.memChecked && state.mExplain > 0) return membraneWiringView();
   const cards: { id: "g" | "c"; name: string; look: string }[] = [
     { id: "g", name: "イオンの通りやすさが違う", look: "いつも開いている通り道の数が違う。そうなら、離す直前の電圧が変わるはず" },
     { id: "c", name: "電気のためやすさが違う", look: "同じ電圧にするのに要る電気の量が違う。そうなら、上がり方と戻り方が変わるはず" },
   ];
-  const all = cards.every((c) => state.memWhy[c.id]);
+  void cards;
+  const mine = state.memHyp;
   return {
     chap: state.memChecked ? "謎3 正体" : "謎3 なぜ？",
-    goal: state.memChecked ? "膜Bは、電気をためやすい膜" : "二つの説明が、記録と合うか選ぼう",
+    goal: state.memChecked ? "膜Bは、電気をためやすい膜" : mine ? "つまみを動かして、試す膜の線（金）をBの線に重ねよう" : "原因を推理しよう：膜Bは見本と、どちらが違う？",
     // 確かめる前は、グラフだけを大きく（記録の形から推理する）。確かめたあとは、膜の拡大図で「なぜ」を見せる
     svg: state.memChecked
       ? `<g transform="translate(-290,0)">${membranePatch(300, 18, 1, BASE_MEM, "見本の膜 A", "A", true, 60)}${membranePatch(300, 248, 1, CASE3_B, "試作品の膜 B", "B", true, 60)}</g>
@@ -1433,21 +1467,28 @@ function c4Why(): View {
           <text x="520" y="392" fill="var(--soft)">いつも開いている通り道の数は</text>
           <text x="520" y="418" fill="var(--soft)">AとBで同じ</text>
         </g>`
-      : `${membraneGraph({ GL: 90, GR: 770, GT: 56, GB: 410 }, BASE_MEM, CASE3_B, 100, { a: "見本の膜 A", b: "試作品の膜 B", top: 14, notes: false })}
-        ${memWhyFigure()}`,
-    html: `<div class="lineup side ${state.memChecked ? "" : "under-fig"}" style="grid-template-columns:1fr;left:63%;right:2%;top:${state.memChecked ? 3 : 53}%;bottom:2%">${cards
-      .map((c) => {
-        const tag = state.memWhy[c.id];
-        const truthOut = c.id === "g";
-        return `<div class="ghost ${state.memChecked && truthOut ? "broken" : ""}" style="--c:${c.id === "g" ? "#7bd88f" : "#4fe0d0"}" role="group">
-          <span class="gname">${c.name}</span><span class="glook">${c.look}</span>
-          ${state.memChecked ? "" : tagButtons("mtag", c.id, tag, false)}
-          ${state.memChecked ? (truthOut ? `<span class="res">計算：合わない</span>` : `<span class="res win">正体</span>`) : ""}</div>`;
-      })
-      .join("")}</div>`,
+      : `${membraneGraph(MEM_WHY_BOX, BASE_MEM, CASE3_B, 100, { a: "見本の膜 A", b: "試作品の膜 B", top: 14, notes: false })}
+        ${mine ? memTryOverlay() : ""}${memWhyFigure()}`,
+    html: state.memChecked
+      ? `<div class="lineup side" style="grid-template-columns:1fr;left:63%;right:2%;top:3%;bottom:2%">${MEM_HYP.map((c) => {
+          const out = c.id === "g";
+          const me = mine === c.id;
+          return `<div class="ghost ${out ? "broken" : ""}" style="--c:${c.color}" role="group"><span class="gname">${c.name}</span><span class="glook">${c.sub}</span>
+            <div class="gres">${out ? `<span class="res">計算：どの値でも重ならない</span>${me ? `<span class="res back">あなたの考え：外れ</span>` : ""}` : `<span class="res win">正体</span>${me ? `<span class="res win">あなたの考え：当たり！</span>` : ""}`}</div></div>`;
+        }).join("")}</div>`
+      : `<div class="hyps memhyps"><div class="hyph">膜Bは見本と、どちらが違う？</div>${MEM_HYP.map((c) => {
+          const on = memKnobOn(c.id);
+          const v = state.memTry[c.id];
+          return `<div class="hyprow ${on ? "on" : ""}" style="--c:${c.color}">
+            <button class="hypb" data-act="m-hyp" data-val="${c.id}" aria-pressed="${mine === c.id}"><b>${c.name}</b><small>${c.sub}</small></button>
+            ${on ? `<label class="fitknob"><span>${MEM_SLIDERS[c.id].label}<strong id="mfit-${c.id}">見本の ${v.toFixed(2)} 倍</strong></span><input type="range" data-mfit="${c.id}" min="${MEM_SLIDERS[c.id].min}" max="${MEM_SLIDERS[c.id].max}" step="${MEM_SLIDERS[c.id].step}" value="${v}" aria-valuetext="見本の ${v.toFixed(2)} 倍"></label>` : ""}</div>`;
+        }).join("")}<div class="fitmeter" id="mfit-meter">${memMeterHtml()}</div></div>`,
     who: state.line.who,
     text: state.line.text,
-    cmds: state.memChecked ? [{ act: "to-duel4", label: "膜に、仕掛けろ", hot: true }, { act: "m-more", label: "電気回路で見る", sub: "寄り道：膜は、本当に電気をためる" }] : [{ act: "m-check", label: "選んだ答えを計算で確かめる", sub: all ? "計算プログラムが確かめる" : `あと ${cards.filter((c) => !state.memWhy[c.id]).length} 枚`, hot: all, disabled: !all }],
+    cmds: state.memChecked ? [{ act: "to-duel4", label: "膜に、仕掛けろ", hot: true }, { act: "m-more", label: "電気回路で見る", sub: "寄り道：膜は、本当に電気をためる" }] : [
+          { act: "m-check", label: "計算で確かめる", sub: !mine ? "性質を一つ選んでから" : memFit(state.memTry).fits ? "重なった。答え合わせ" : "重ならなくても、確かめられる", hot: !!mine && memFit(state.memTry).fits, disabled: !mine },
+          { act: "m-hyp", val: "both", label: "両方のつまみで試す", sub: "まだ分からないとき", ghost: state.memHyp !== "both" },
+        ],
   };
 }
 function c4Duel(): View {
@@ -2468,6 +2509,8 @@ async function startSession(body: Record<string, unknown>): Promise<void> {
       brHint: 0,
       vBet: null,
       memChecked: false,
+      memHyp: null,
+      memTry: { g: 1, c: 1 },
       mExplain: 0,
       mWhatIf: null,
       memWhy: {},
@@ -2519,6 +2562,25 @@ app.addEventListener("input", (e) => {
     if (add) add.disabled = state.rt.slots.includes(rtPicked()) || state.rt.slots.length >= RETRAIN_SLOTS;
     const svg = app.querySelector("svg.st"); // 波のグラフの時刻の線を動かす
     if (svg) svg.innerHTML = VIEWS.rt().svg;
+    return;
+  }
+  if (t.dataset.mfit) {
+    const k = t.dataset.mfit as "g" | "c";
+    state.memTry = { ...state.memTry, [k]: Number(t.value) };
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = VIEWS["c4-why"]().svg;
+    const lab = app.querySelector(`#mfit-${k}`);
+    if (lab) lab.textContent = `見本の ${Number(t.value).toFixed(2)} 倍`;
+    t.setAttribute("aria-valuetext", `見本の ${Number(t.value).toFixed(2)} 倍`);
+    const m = app.querySelector("#mfit-meter");
+    if (m) m.innerHTML = memMeterHtml();
+    const chk = app.querySelector<HTMLButtonElement>('button[data-act="m-check"]');
+    if (chk) {
+      const fits = memFit(state.memTry).fits;
+      chk.classList.toggle("hot", fits);
+      const sub = chk.querySelector("small, .sub");
+      if (sub) sub.textContent = fits ? "重なった。答え合わせ" : "重ならなくても、確かめられる";
+    }
     return;
   }
   if (t.dataset.fit) {
@@ -2915,6 +2977,8 @@ app.addEventListener("click", async (e) => {
         state.boardView = null;
       });
       const win = state.view!.overall === "narrowed" ? state.view!.narrowedTo : null;
+      // 自分で重ねたか（つまみを置きかえる前に記録する）。自分で重ねた結果と、計算が示した例を言い分ける（2026-11-07 深夜）
+      const selfFit = ans !== "unsure" && ans === win && fitState().fits;
       // 答え合わせのあとは、正体のつまみを、重なる目盛りのまんなかに置いて見せる
       if (win) {
         state.hyp = win;
@@ -2930,7 +2994,8 @@ app.addEventListener("click", async (e) => {
           : ans === win
             ? `あなたの考え「${CANDIDATES[win].label}」は当たり。そのつまみで、線が点に重なる。ほかの性質は、どの値にしても重ならない。`
             : `正体は「${CANDIDATES[win].label}」。あなたが選んだ「${CANDIDATES[ans].label}」は、つまみをどの値にしても、線が点に重ならない。`;
-      say("calc", `${verdict}帯の幅は、測るたびのぶれ（0.02 [N]）の2倍。`);
+      const how = !win ? "" : selfFit ? "あなたのつまみで、大きな点がすべて帯に入った。" : win === "same" ? "" : "正体のつまみに、記録を説明できる値の例を置いた。";
+      say("calc", `${verdict}${how}帯の幅は、測るたびのぶれ（0.02 [N]）の2倍。`);
       if (win) {
         state.mood = "shock";
         render();
@@ -3218,7 +3283,9 @@ app.addEventListener("click", async (e) => {
       break;
     case "to-why4":
       state.mood = "calm";
-      say("you", "離す直前は同じ。違うのは、イオンの通りやすさ？ 電気のためやすさ？ 合うか選ぼう。");
+      state.memHyp = null;
+      state.memTry = { g: 1, c: 1 };
+      say("you", "離す直前は同じ。違うのは、イオンの通りやすさ？ 電気のためやすさ？ 一つ選んで、つまみで試す膜の線をBに重ねよう。");
       go("c4-why");
       break;
     case "mtag": {
@@ -3227,14 +3294,28 @@ app.addEventListener("click", async (e) => {
       render();
       break;
     }
+    case "m-hyp": {
+      const h = val as "g" | "c" | "both";
+      state.memHyp = h;
+      // 選んだ性質のつまみだけを動かす。もう一方は見本の値に戻す（謎2の血管と同じ）
+      state.memTry = h === "g" ? { g: state.memTry.g, c: 1 } : h === "c" ? { g: 1, c: state.memTry.c } : { ...state.memTry };
+      say("you", h === "both" ? "両方のつまみで、試す膜の線をBの線に重ねてみる。" : `「${h === "g" ? "イオンの通りやすさ" : "電気のためやすさ"}」のつまみで、線をBに重ねてみる。どうしても重ならなければ、もう一方を選ぼう。`);
+      render();
+      break;
+    }
     case "m-check": {
+      if (!state.memHyp) return;
+      const selfFit = memFit(state.memTry).fits;
+      const hyp = state.memHyp;
       state.memChecked = true;
-      const right = state.memWhy.g === "out" && state.memWhy.c === "match";
-      say("calc", `通りやすさが違うなら、離す直前の高さが変わるはず。でも高さは同じで、上がり方と戻り方だけが遅い。だから正体は、電気のためやすさ（${CASE3_B.c} 倍）。${right ? "あなたの答えと一致。" : "あなたの答えと違うところがある。"}${predRecap(4) ? `\f${predRecap(4)}` : ""}`);
+      state.memTry = { ...CASE3_B };
+      const how = selfFit ? "あなたのつまみで、すべての時刻が帯に入った。" : `重ねる前に確かめたので、記録を説明できる値の例（ためやすさ ${CASE3_B.c} 倍）を示した。`;
+      const verdict = hyp === "both" ? "" : hyp === "c" ? "あなたの考えは当たり。" : "あなたの考え（通りやすさ）は、つまみをどの値にしても重ならない。";
+      say("calc", `通りやすさが違うなら、離す直前の高さが変わるはず。でも高さは同じで、上がり方と戻り方だけが遅い。だから正体は、電気のためやすさ（${CASE3_B.c} 倍）。${verdict}${how}`);
       state.record.push("謎3 ⚡ 見落とし ✔ 正体 ✔");
       beep("shatter");
       render();
-      await stamp("決着", "win", 0.5);
+      await stamp(hyp === "c" ? "当たり！" : "決着", "win", 0.5);
       await damage(10);
       break;
     }

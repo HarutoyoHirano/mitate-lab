@@ -439,3 +439,5 @@ button { font: inherit; }
 .lineup.side.under-fig { gap: 0.6cqw; }
 .lineup.side.under-fig .ghost { padding: 0.3cqw 0.7cqw; gap: 0.15cqw; grid-template-rows: auto auto auto; align-content: center; }
 .lineup.side.under-fig .glook { font-size: max(13px, 1.02cqw); }
+/* 謎3「なぜ？」のつまみ（膜の拡大図の下に置く。2026-11-07 深夜） */
+.hyps.memhyps { top: 53%; left: 63%; right: 2%; bottom: 1.5%; gap: 0.4cqw; }

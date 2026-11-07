@@ -107,3 +107,18 @@ export function judgeMemDuel(round: 1 | 2, m: Membrane): MemDuelResult {
   const hidden = { a: REST_MV + stopA, b: REST_MV + stopB, diff: stopB - stopA, ok: Math.abs(stopB - stopA) >= HIDDEN2_NEED - 1e-12, unit: "mV" as const };
   return { robot, hidden, cleared: robot.ok && hidden.ok };
 }
+
+/**
+ * 謎3「なぜ？」：試す膜の線が、膜Bの記録に重なるか（2026-11-07 深夜）。0〜200 ms を 1 ms ごとに比べ、
+ * 差の最大がロボの手順の幅（ROBOT_STEADY_TOL）以内なら重なった。膜Bは固定例で、測るたびのぶれはない。
+ */
+export const MEM_FIT_TOL = ROBOT_STEADY_TOL;
+export function memFit(tryM: Membrane, target: Membrane = CASE3_B): { maxDiff: number; atMs: number; fits: boolean } {
+  let maxDiff = 0;
+  let atMs = 0;
+  for (let ms = 0; ms <= RECORD_MS; ms++) {
+    const d = Math.abs(deltaMv(tryM, ms) - deltaMv(target, ms));
+    if (d > maxDiff) { maxDiff = d; atMs = ms; }
+  }
+  return { maxDiff, atMs, fits: maxDiff <= MEM_FIT_TOL + 1e-9 };
+}
