@@ -409,3 +409,29 @@ button { font: inherit; }
 .face.calc { border-color: var(--gold); }
 .face.cl, .face.ai { border-color: #b9a6ff; }
 .face.teach { border-color: #9fe3b8; }
+
+/* 謎1「なぜ？」：性質を一つ選び、そのつまみで予想の線を点に重ねる（1c-4、2026-11-07 深夜） */
+.hyps { position: absolute; left: 64%; right: 1.2%; top: 1.5%; bottom: 1.5%; display: flex; flex-direction: column; gap: 0.5cqw; overflow: hidden; }
+.hyps .hyph { font-weight: 900; font-size: max(15px, 1.35cqw); color: var(--ink); }
+.hyprow { border: 3px solid color-mix(in srgb, var(--c) 45%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--panel) 92%, transparent); padding: 0.35cqw 0.6cqw; display: grid; gap: 0.3cqw; }
+.hyprow.on { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); }
+.hyprow.out { opacity: 0.7; }
+.hypb { all: unset; cursor: pointer; display: grid; gap: 0.1cqw; }
+.hypb:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
+.hypb b { color: var(--c); font-size: max(14px, 1.25cqw); font-weight: 900; }
+.hypb small { color: var(--soft); font-size: max(13px, 1.02cqw); font-weight: 900; }
+.hyprow .gres { display: flex; flex-wrap: wrap; gap: 0.4cqw; }
+.hyprow .res { font-weight: 900; font-size: max(13px, 1.05cqw); padding: 0.05cqw 0.6cqw; border-radius: 8px; border: 3px solid var(--stamp); color: var(--stamp); background: var(--panel); }
+.hyprow .res.back { border-color: var(--gold); color: var(--gold); }
+.hyprow .res.win { border-color: var(--you); color: var(--you); }
+.fitknob { display: grid; gap: 0.15cqw; font-weight: 900; font-size: max(13px, 1.05cqw); }
+.fitknob span { display: flex; justify-content: space-between; gap: 0.6cqw; flex-wrap: wrap; }
+.fitknob strong { color: var(--gold); font-variant-numeric: tabular-nums; }
+.fitknob input[type="range"] { width: 100%; accent-color: var(--c); }
+.fitmeter { min-height: 1.6cqw; font-size: max(14px, 1.2cqw); color: var(--soft); }
+.fitmeter .fitok { color: var(--you); }
+@container (max-width: 1000px) {
+  .stage:has(> .hyps) { aspect-ratio: auto; }
+  .stage:has(> .hyps) > svg.st { position: static; display: block; height: auto; aspect-ratio: 1280 / 480; }
+  .stage > .hyps { position: static; padding: 0.8cqw 2%; }
+}

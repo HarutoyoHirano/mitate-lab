@@ -707,6 +707,46 @@ export function miniGraph(o: { b: readonly { t: number; force: number }[]; line?
   </svg>`;
 }
 
+/**
+ * 謎1「なぜ？」のつまみのグラフ（1c-4、2026-11-07 深夜）。予想の線と、その上下の帯（測るたびのぶれの2倍）、
+ * Bの記録（小さな点＝画面用、大きな点＝計算で使う記録）。大きな点は帯の内側なら塗り、外なら赤い輪。
+ */
+export function fitGraph(o: {
+  x: number; y: number; w: number; h: number; push: number; yMax: number; band: number;
+  b: readonly { t: number; force: number }[];
+  rec: readonly { t: number; force: number; ok: boolean }[];
+  line: readonly { t: number; force: number }[] | null; lineColor: string;
+  a: readonly { t: number; force: number }[];
+}): string {
+  const L = 54, R = 16, T = 54, B = 40;
+  const W = o.w, H = o.h;
+  const tMax = o.push + 20;
+  const xPush = L + (W - L - R) * 0.14;
+  const x5 = xPush + (W - R - xPush) * 0.6;
+  const xs = (t: number) => (t <= o.push ? L + ((xPush - L) * t) / o.push : t - o.push <= 5 ? xPush + ((x5 - xPush) * (t - o.push)) / 5 : x5 + ((W - R - x5) * (t - o.push - 5)) / 15);
+  const ys = (v: number) => T + (H - T - B) * (1 - v / o.yMax);
+  const pts = (ps: readonly { t: number; force: number }[], dy = 0) => [{ t: 0, force: 0 }, ...ps].map((p) => `${xs(p.t).toFixed(1)},${ys(p.force + dy).toFixed(1)}`).join(" ");
+  const band = o.line ? `<polygon points="${pts(o.line, o.band)} ${[{ t: 0, force: 0 }, ...o.line].reverse().map((p) => `${xs(p.t).toFixed(1)},${ys(p.force - o.band).toFixed(1)}`).join(" ")}" fill="${o.lineColor}" opacity=".2"/>` : "";
+  return `<g transform="translate(${o.x},${o.y})">
+    <rect width="${W}" height="${H}" rx="14" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+    <rect x="${L}" y="${T}" width="${xPush - L}" height="${H - T - B}" fill="var(--band)"/>
+    <text x="${(L + xPush) / 2}" y="${T + 20}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="middle">押す</text>
+    ${[0.5, 1, 1.5, 2].filter((v) => v < o.yMax).map((v) => `<line x1="${L}" x2="${W - R}" y1="${ys(v).toFixed(1)}" y2="${ys(v).toFixed(1)}" stroke="var(--line)"/><text x="${L - 8}" y="${(ys(v) + 5).toFixed(1)}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">${v}</text>`).join("")}
+    <text x="${L - 8}" y="${T - 12}" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="end">力 [N]</text>
+    ${[[o.push, "押し終わり"], [o.push + 5, "5秒後"], [tMax, "20秒後"]].map(([t, l], k) => `<line x1="${xs(t as number).toFixed(1)}" x2="${xs(t as number).toFixed(1)}" y1="${H - B}" y2="${H - B + 6}" stroke="var(--soft)" stroke-width="2"/><text x="${xs(t as number).toFixed(1)}" y="${H - 12}" fill="var(--soft)" font-size="16" font-weight="900" text-anchor="${k === 0 ? "start" : k === 2 ? "end" : "middle"}">${l}</text>`).join("")}
+    <polyline points="${pts(o.a)}" fill="none" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 5"/>
+    ${band}
+    ${o.line ? `<polyline points="${pts(o.line)}" fill="none" stroke="${o.lineColor}" stroke-width="4"/>` : ""}
+    ${o.b.map((p) => `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="3.6" fill="var(--you)" opacity=".55"/>`).join("")}
+    ${o.rec.map((p) => (p.ok ? `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="9" fill="var(--you)" stroke="var(--panel)" stroke-width="2.5"/>` : `<circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="11" fill="none" stroke="var(--stamp)" stroke-width="4.5"/><circle cx="${xs(p.t).toFixed(1)}" cy="${ys(p.force).toFixed(1)}" r="5" fill="var(--you)"/>`)).join("")}
+    <g font-size="16" font-weight="900" fill="var(--ink)">
+      <circle cx="${L + 8}" cy="24" r="8" fill="var(--you)"/><text x="${L + 22}" y="30">Bの記録（大きな点で確かめる）</text>
+      <rect x="${L + 300}" y="14" width="34" height="20" fill="${o.lineColor}" opacity=".25"/><line x1="${L + 300}" x2="${L + 334}" y1="24" y2="24" stroke="${o.lineColor}" stroke-width="4"/><text x="${L + 342}" y="30">予想の線と帯</text>
+      <line x1="${L + 476}" x2="${L + 506}" y1="24" y2="24" stroke="var(--soft)" stroke-width="2.5" stroke-dasharray="6 5"/><text x="${L + 512}" y="30" fill="var(--soft)">見本 A</text>
+    </g>
+  </g>`;
+}
+
 /** 影武者の姿（点線の輪郭のクッション） */
 export function ghostPuck(color: string, broken: boolean): string {
   if (broken)

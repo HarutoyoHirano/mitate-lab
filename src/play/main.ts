@@ -6,6 +6,7 @@ import { api, status, type Debrief, type Hint, type PredictionChoice, type Publi
 import { CANDIDATES, type CandidateId } from "../../server/model/public.js";
 import { compare } from "../../server/model/comparator.js";
 import { fitCandidate, predictedCurve } from "../../server/model/fit.js";
+import { basePos, FIT_BAND, knobFits, knobInBand, knobValue, KNOBS, type KnobId } from "../../server/model/knob.js";
 import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
@@ -15,7 +16,7 @@ import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSt
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
-import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
+import { fitGraph, balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
 import { checkBoard, reviewBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
 import { attemptOk, getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
@@ -138,6 +139,9 @@ const state = {
   tags: {} as Partial<Record<CandidateId, Tag>>,
   /** 原因の推理で選んだ答え（一つ。1c-4） */
   answer: null as CandidateId | "unsure" | null,
+  /** 謎1「なぜ？」で、違うと思って選んだ性質と、つまみの位置（1c-4、2026-11-07 深夜） */
+  hyp: null as CandidateId | null,
+  kpos: { overall: basePos("overall"), instant: basePos("instant"), relax: basePos("relax") } as Record<KnobId, number>,
   /** 確かめたあと、一枚のカードのグラフを大きく見る */
   zoom: null as CandidateId | "pair" | null,
   /** 判断する前の拡大で、となりに並べる説明（2026-11-07、模擬評価「判断前の4枚が小さい。二つを選んで比較」） */
@@ -615,8 +619,8 @@ function pairHtml(c: NonNullable<ReturnType<typeof curve>>, yMax: number, win: C
     m.where === "長く待ったあと"
       ? `右のほう（長く待ったあと）で、Bの点が「${CANDIDATES[rival].label}」の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある。`
       : `長く待ったあと（右のほう）は、どちらの線もBの点に近い。違うのは${m.where}：Bの点が「${CANDIDATES[rival].label}」の線より ${Math.abs(m.diff).toFixed(2)} [N] ${m.diff > 0 ? "上" : "下"}にある。`;
-  return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった答えを見比べる" style="--c:var(--you)">
-    <div class="zhead"><b>正体と、合わなかった答えを見比べる</b><button data-act="zoom" data-val="">カードに戻る</button></div>
+  return `<div class="zoom" role="dialog" aria-label="正体と、合わなかった考えを見比べる" style="--c:var(--you)">
+    <div class="zhead"><b>正体と、合わなかった考えを見比べる</b><button data-act="zoom" data-val="">つまみに戻る</button></div>
     <p class="zwhy">${sentence}</p>
     <div class="pair"><div><h4 style="color:${COLOR[win]}">正体：${CANDIDATES[win].label}</h4>${graph(win, false)}</div><div><h4 style="color:${COLOR[rival]}">計算：合わない：${CANDIDATES[rival].label}</h4>${graph(rival, true)}</div></div>
   </div>`;
@@ -631,66 +635,126 @@ function answerButton(id: CandidateId): string {
   const on = state.answer === id;
   return `<button class="pickb ${on ? "on" : ""}" data-act="answer" data-val="${id}" aria-pressed="${on}">${on ? "✓ あなたの答え" : "これが答え"}</button>`;
 }
+/** つまみの値でつくる素材（選んだ性質だけを変え、ほかは見本のまま） */
+function hypParams(id: CandidateId | null): typeof BASE {
+  if (!id || id === "same") return BASE;
+  const v = knobValue(id, state.kpos[id]);
+  return id === "overall" ? { ...BASE, eInf: v } : id === "instant" ? { ...BASE, e1: v } : { ...BASE, tau: v };
+}
+function hypValue(id: CandidateId | null): number | null {
+  return !id || id === "same" ? null : knobValue(id, state.kpos[id]);
+}
+/** つまみの数字（見本と同じ書き方） */
+function knobText(id: KnobId): string {
+  const v = knobValue(id, state.kpos[id]);
+  return `${v < 1 ? v.toFixed(2) : v.toFixed(2)}${KNOBS[id].unit ? ` ${KNOBS[id].unit}` : ""}（見本は 1.00${KNOBS[id].unit ? ` ${KNOBS[id].unit}` : ""}）`;
+}
+/** 帯の中に入っている記録の点の数（計算で使う記録すべて） */
+function fitState(): { n: number; ok: number; fits: boolean } {
+  const rs = state.view!.records;
+  const id = state.hyp;
+  if (!id) return { n: rs.length, ok: 0, fits: false };
+  const v = hypValue(id);
+  // 同じ押し方・同じ時刻の記録（いつもの検査の20秒後と、曲線の20秒後）は、グラフでは一つの点に重なるので、一つと数える
+  const groups = new Map<string, boolean>();
+  for (const r of rs) {
+    const k = `${r.pushSeconds}@${r.recordAt}`;
+    groups.set(k, (groups.get(k) ?? true) && knobInBand(id, v, r));
+  }
+  const ok = [...groups.values()].filter(Boolean).length;
+  return { n: groups.size, ok, fits: knobFits(id, v, rs) };
+}
+/** その性質のつまみで重なる目盛りの、まんなか（答え合わせのあと、正体の線を点に重ねて見せる） */
+function centerFitPos(id: KnobId): number | null {
+  const rs = state.view!.records;
+  const hits: number[] = [];
+  for (let p = 0; p <= KNOBS[id].n; p++) if (knobFits(id, knobValue(id, p), rs)) hits.push(p);
+  return hits.length ? hits[Math.floor(hits.length / 2)]! : null;
+}
+function fitMeterHtml(): string {
+  const f = fitState();
+  if (!state.hyp) return "";
+  return f.fits ? `<b class="fitok">重なった！ 大きな点 ${f.ok} / ${f.n} が帯の中</b>` : `<b>大きな点 ${f.ok} / ${f.n} が帯の中</b>`;
+}
+function c1FitSvg(): string {
+  const v = state.view!;
+  const c = curve()!;
+  const yMax = Math.max(2.2, ...c.b.map((p) => p.force + 0.2));
+  const recIds = new Set(c.evidenceIds);
+  const id = state.hyp;
+  const val = hypValue(id);
+  const rec = v.records
+    .filter((r) => recIds.has(r.id) || (r.pushSeconds === c.pushSeconds && !v.curves.some((k) => k.evidenceIds.includes(r.id))))
+    .map((r) => ({ t: r.pushSeconds + r.recordAt, force: r.force, ok: id ? knobInBand(id, val, r) : true }));
+  return fitGraph({
+    x: 14, y: 8, w: 790, h: 464, push: c.pushSeconds, yMax, band: FIT_BAND,
+    b: c.b, rec,
+    line: id ? predictedCurve(hypParams(id), c.pushSeconds) : null,
+    lineColor: id ? COLOR[id] : "var(--gold)",
+    a: predictedCurve(BASE, c.pushSeconds),
+  });
+}
+const HYP_SUB: Record<CandidateId, string> = {
+  overall: "長く待ったあとの高さが変わる",
+  instant: "押し終わった瞬間の山の高さが変わる",
+  relax: "山から下がる速さが変わる",
+  same: "線は見本 A と同じ",
+};
 function c1Line(): View {
   const v = state.view!;
   const c = curve()!;
   const awaiting = v.awaitingPick && c.studentPick === null;
-  const bv = awaiting && state.boardView ? state.boardView : v;
   const checked = !awaiting && c.studentPick !== null;
   const narrowed = checked && v.overall === "narrowed";
-  const yMax = Math.max(2.2, ...c.b.map((p) => p.force + 0.2));
-  const ids = (["instant", "overall", "relax", "same"] as CandidateId[]).sort((a, b) => (a === state.summoned ? -1 : b === state.summoned ? 1 : 0));
-  const live = ids.filter((id) => !(bv.candidates.find((x) => x.id === id)!.status === "inconsistent" && !c.excluded.includes(id)));
-  const chosen = state.answer !== null;
-  const ghosts = ids
+  const ids: CandidateId[] = ["instant", "overall", "relax", "same"];
+  const f = fitState();
+  const hypRows = ids
     .map((id) => {
-      const prevOut = bv.candidates.find((x) => x.id === id)!.status === "inconsistent" && !c.excluded.includes(id);
-      const fit = fitFor(id);
-      const outNow = checked && c.excluded.includes(id);
-      const broken = prevOut || outNow;
-      const mine = state.answer === id;
-      // 答え合わせ：計算プログラムの結果（合わない／正解）と、あなたの答えが当たりか外れか（点数にはしない）
-      const res = prevOut
-        ? `<span class="res">前の記録で合わない</span>`
-        : outNow
-          ? `<span class="res">計算：合わない</span>${mine ? `<span class="res back">あなたの答え：外れ</span>` : ""}`
-          : narrowed && v.narrowedTo === id
-            ? `<span class="res win">正解</span>${mine ? `<span class="res win">あなたの答え：当たり！</span>` : ""}`
-            : checked && mine ? `<span class="res back">あなたの答え</span>` : "";
-      return `<div class="ghost ${broken ? "broken" : ""} ${prevOut ? "prev" : ""} ${state.summoned === id ? "summoned" : ""}" style="--c:${COLOR[id]}" role="group" aria-label="説明：${CANDIDATES[id].label}">
-        <span class="gname">${CANDIDATES[id].label}</span>
-        <span class="glook">${LOOK[id]}</span>
-        <div class="gres">${res}</div>
-        ${fit ? miniGraph({ b: c.b, line: predictedCurve(fit.params, c.pushSeconds), lineColor: COLOR[id], push: c.pushSeconds, yMax, w: 240, h: 244, legend: true, mark: outNow ? mismatchOf(id) : null }) : ""}
-        ${awaiting && !prevOut ? answerButton(id) : ""}
-        ${fit && !prevOut && (checked || awaiting) ? `<button class="zoom-btn" data-act="zoom" data-val="${id}">グラフを大きく見る</button>` : ""}
-      </div>`;
+      const on = state.hyp === id;
+      const out = checked && c.excluded.includes(id);
+      const win = narrowed && v.narrowedTo === id;
+      const mine = checked && state.answer === id;
+      const res = out
+        ? `<span class="res">${id === "same" ? "計算：重ならない" : "計算：どの値でも重ならない"}</span>${mine ? `<span class="res back">あなたの考え：外れ</span>` : ""}`
+        : win
+          ? `<span class="res win">正体</span>${mine ? `<span class="res win">あなたの考え：当たり！</span>` : ""}`
+          : "";
+      const knob =
+        on && id !== "same"
+          ? `<label class="fitknob"><span>${KNOBS[id as KnobId].label}<strong id="fit-val">${knobText(id as KnobId)}</strong></span><input type="range" data-fit="${id}" min="0" max="${KNOBS[id as KnobId].n}" step="1" value="${state.kpos[id as KnobId]}" aria-valuetext="${knobText(id as KnobId)}"></label>`
+          : "";
+      return `<div class="hyprow ${on ? "on" : ""} ${out ? "out" : ""}" style="--c:${COLOR[id]}">
+        <button class="hypb" data-act="hyp" data-val="${id}" aria-pressed="${on}"><b>${CANDIDATES[id].label}</b><small>${HYP_SUB[id]}</small></button>
+        ${res ? `<div class="gres">${res}</div>` : ""}${knob}</div>`;
     })
     .join("");
   const cmds: Cmd[] = awaiting
     ? [
-        { act: "check", label: "計算で答え合わせ", sub: !chosen ? "カードを一つ選ぶ" : state.answer === "unsure" ? "あなたの答え：分からない" : `あなたの答え：${CANDIDATES[state.answer as CandidateId].label}`, hot: chosen, disabled: !chosen || state.busy },
-        { act: "answer", val: "unsure", label: "分からない", sub: "計算に答えを見せてもらう", ghost: state.answer !== "unsure" },
+        { act: "check", label: "計算で確かめる", sub: !state.hyp ? "性質を一つ選んでから" : f.fits ? `あなたの考え：${CANDIDATES[state.hyp].label}` : "重ならなくても、確かめられる", hot: !!state.hyp && f.fits, disabled: !state.hyp || state.busy },
+        { act: "check", val: "unsure", label: "分からない", sub: "計算に正体を見せてもらう", ghost: true, disabled: state.busy },
         { act: "hint", label: state.claude ? "相棒に、見どころを聞く" : "手がかりを見る", ghost: true, disabled: v.hintsLeft <= 0 || state.busy },
       ]
     : narrowed
       ? [
           { act: "reveal", label: "正体を開ける", hot: true, disabled: state.busy },
-          { act: "zoom", val: state.zoom === "pair" ? "" : "pair", label: state.zoom === "pair" ? "カードに戻る" : "正体と、合わなかった答えを見比べる", ghost: true },
+          { act: "zoom", val: state.zoom === "pair" ? "" : "pair", label: state.zoom === "pair" ? "つまみに戻る" : "正体と、合わなかった考えを見比べる", ghost: true },
         ]
-      : [
-          ...([0.2, 1, 5] as const).map((p) => ({ act: "push", val: String(p), label: `${SPEED[p]}押す`, sub: p === state.nextSpeed ? "押し終わった瞬間の高さを予想してから" : "", hot: state.nextSpeed === p })),
-        ];
+      : [...([0.2, 1, 5] as const).map((p) => ({ act: "push", val: String(p), label: `${SPEED[p]}押す`, sub: p === state.nextSpeed ? "押し終わった瞬間の高さを予想してから" : "", hot: state.nextSpeed === p }))];
+  const yMax = Math.max(2.2, ...c.b.map((p) => p.force + 0.2));
   return {
     chap: "謎1 軟骨：なぜ？",
-    goal: awaiting ? "原因を推理しよう：Bの記録（点）に重なる予想の線はどれ？ 一つ選ぼう" : narrowed ? `答え合わせ：正解は「${CANDIDATES[v.narrowedTo!].label}」` : "まだ答えが二つ以上残る。別の速さで押して実験しよう",
-    svg: "",
-    html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null, live)}`,
+    goal: awaiting
+      ? state.hyp
+        ? state.hyp === "same" ? "「違いはない」なら、線は見本 A と同じ。大きな点は帯に入る？" : "つまみを動かして、予想の線をBの記録（点）に重ねよう"
+        : "原因を推理しよう：Bは見本と、どの性質が違う？"
+      : narrowed ? `答え合わせ：正体は「${CANDIDATES[v.narrowedTo!].label}」` : "まだ考えが二つ以上残る。別の速さで押して実験しよう",
+    svg: c1FitSvg(),
+    html: `<div class="hyps"><div class="hyph">Bは見本と、どの性質が違う？</div>${hypRows}<div class="fitmeter" id="fit-meter">${fitMeterHtml()}</div></div>${state.zoom === "pair" ? pairHtml(c, yMax, narrowed ? v.narrowedTo : null) : ""}`,
     who: state.line.who,
     text: state.line.text,
     extra:
       state.translation && awaiting
-        ? `<div class="choices">${(state.translation.candidateIds.length ? state.translation.candidateIds : ids).map((id) => `<button class="choice" data-act="summon" data-val="${id}">「${CANDIDATES[id].label}」を前に呼ぶ</button>`).join("")}</div>`
+        ? `<div class="choices">${(state.translation.candidateIds.length ? state.translation.candidateIds : ids).map((id) => `<button class="choice" data-act="summon" data-val="${id}">「${CANDIDATES[id].label}」で試す</button>`).join("")}</div>`
         : !awaiting && !narrowed && state.nextSpeed !== null
           ? `<div class="choices">${(
               [
@@ -2456,6 +2520,25 @@ app.addEventListener("input", (e) => {
     if (svg) svg.innerHTML = VIEWS.rt().svg;
     return;
   }
+  if (t.dataset.fit) {
+    const id = t.dataset.fit as KnobId;
+    state.kpos = { ...state.kpos, [id]: Number(t.value) };
+    const svg = app.querySelector("svg.st");
+    if (svg) svg.innerHTML = c1FitSvg();
+    const lab = app.querySelector("#fit-val");
+    if (lab) lab.textContent = knobText(id);
+    t.setAttribute("aria-valuetext", knobText(id));
+    const m = app.querySelector("#fit-meter");
+    if (m) m.innerHTML = fitMeterHtml();
+    const chk = app.querySelector<HTMLButtonElement>('button[data-act="check"]:not([data-val])');
+    if (chk) {
+      const fits = fitState().fits;
+      chk.classList.toggle("hot", fits);
+      const sub = chk.querySelector("small, .sub");
+      if (sub) sub.textContent = fits ? `あなたの考え：${CANDIDATES[id].label}` : "重ならなくても、確かめられる";
+    }
+    return;
+  }
   if (t.dataset.knob) {
     const k = t.dataset.knob as "e1" | "tau" | "g" | "c";
     state[k] = Number(t.value);
@@ -2782,8 +2865,10 @@ app.addEventListener("click", async (e) => {
       if (state.curveId) {
         state.tags = {};
         state.answer = null;
+        state.hyp = null;
+        state.kpos = { overall: basePos("overall"), instant: basePos("instant"), relax: basePos("relax") };
         state.mood = "calm";
-        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。カードの色の線は、「その原因なら、Bの記録はこうなるはず」と計算した線（予想の線）。\fどの線も、山（押し終わった瞬間）はBの点に合わせてある。見るのは、山から下がっていくところ。点に重なるカードを一つ選んで、「計算で答え合わせ」を押そう。`);
+        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。\f軟骨のかたさを決める性質は三つ。Bは、どれが見本と違う？ 右で一つ選ぶと、その性質のつまみが動かせる。\fつまみを動かすと、「その性質がこの値なら」と計算した線（予想の線）が動く。大きな点がぜんぶ線の帯に入れば、重なった。`);
         go("c1-line");
       }
       break;
@@ -2806,29 +2891,45 @@ app.addEventListener("click", async (e) => {
       state.answer = val as CandidateId | "unsure";
       render();
       break;
+    case "hyp": {
+      const id = val as CandidateId;
+      state.hyp = id;
+      state.zoom = null;
+      say("you", id === "same" ? "「違いはない」なら、線は見本 A と同じ。大きな点は帯に入っている？" : `「${CANDIDATES[id].label}」のつまみを動かして、線をBの点に重ねてみる。どうしても重ならなければ、別の性質を選ぼう。`);
+      render();
+      break;
+    }
     case "check": {
       state.zoom = null;
-      if (!v || state.answer === null) return;
+      if (!v) return;
+      const ans: CandidateId | "unsure" | null = val === "unsure" ? "unsure" : state.hyp;
+      if (ans === null) return;
+      state.answer = ans;
       const c = curve()!;
-      const ans = state.answer;
-      // 選ばなかった残りの答えを「合わない」として渡す（比較器と判定は変えない。1c-4）
+      // 選ばなかった残りの考えを「合わない」として渡す（比較器と判定は変えない。1c-4）
       const liveIds = (["instant", "overall", "relax", "same"] as CandidateId[]).filter((id) => !(v.candidates.find((x) => x.id === id)!.status === "inconsistent" && !c.excluded.includes(id)));
       const outs = ans === "unsure" ? [] : liveIds.filter((id) => id !== ans);
       await guard(async () => {
         state.view = (await api.pick(v.sessionId, c.id, ans === "unsure" ? "unsure" : outs)).view;
         state.boardView = null;
       });
-      const after = curve()!;
       const win = state.view!.overall === "narrowed" ? state.view!.narrowedTo : null;
+      // 答え合わせのあとは、正体のつまみを、重なる目盛りのまんなかに置いて見せる
+      if (win) {
+        state.hyp = win;
+        if (win !== "same") {
+          const p = centerFitPos(win);
+          if (p !== null) state.kpos = { ...state.kpos, [win]: p };
+        }
+      }
       const verdict = !win
-        ? `記録と合わなくなった答えは${after.excluded.length ? after.excluded.map((x) => `「${CANDIDATES[x].label}」`).join("") : "ない"}。まだ二つ以上が残る。`
+        ? "まだ二つ以上の考えが残る。"
         : ans === "unsure"
-          ? `正解は「${CANDIDATES[win].label}」。点と線が重なるのは、このカードだけ。`
+          ? `正体は「${CANDIDATES[win].label}」。そのつまみでだけ、線が点に重なる。ほかの性質は、どの値にしても重ならない。`
           : ans === win
-            ? `あなたの答え「${CANDIDATES[win].label}」は当たり。点と線が重なるのは、このカードだけ。`
-            : `正解は「${CANDIDATES[win].label}」。あなたが選んだ「${CANDIDATES[ans].label}」は、${mismatchText(ans)}。`;
-      say("calc", `${verdict}点は測るたびに 0.02 [N] までぶれるが、それより大きくずれる線は、記録と合わない。`);
-      if (after.excluded.length) beep("shatter");
+            ? `あなたの考え「${CANDIDATES[win].label}」は当たり。そのつまみで、線が点に重なる。ほかの性質は、どの値にしても重ならない。`
+            : `正体は「${CANDIDATES[win].label}」。あなたが選んだ「${CANDIDATES[ans].label}」は、つまみをどの値にしても、線が点に重ならない。`;
+      say("calc", `${verdict}帯の幅は、測るたびのぶれ（0.02 [N]）の2倍。`);
       if (win) {
         state.mood = "shock";
         render();
@@ -2863,7 +2964,8 @@ app.addEventListener("click", async (e) => {
         state.view = (await api.confirm(v.sessionId, id)).view;
         state.translation = null;
         state.summoned = id;
-        say("you", `「${CANDIDATES[id].label}」の説明を前に出した。記録と合っている？`);
+        state.hyp = id;
+        say("you", `「${CANDIDATES[id].label}」で試す。つまみを動かして、線をBの点に重ねてみよう。`);
       });
       break;
     }
@@ -2890,8 +2992,9 @@ app.addEventListener("click", async (e) => {
         state.curveId = r.curveId;
         state.tags = {};
         state.answer = null;
+        state.hyp = null;
         state.nextSpeed = null;
-        say("guide", "新しい記録。予想の線も、この押し方に合わせ直した。点に重なる線のカードを一つ選ぼう。");
+        say("guide", "新しい記録。予想の線も、この押し方で計算し直した。性質を一つ選んで、つまみで線を点に重ねよう。");
       });
       break;
     case "reveal":
