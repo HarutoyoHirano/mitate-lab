@@ -435,3 +435,7 @@ button { font: inherit; }
   .stage:has(> .hyps) > svg.st { position: static; display: block; height: auto; aspect-ratio: 1280 / 480; }
   .stage > .hyps { position: static; padding: 0.8cqw 2%; }
 }
+/* 謎3「なぜ？」：膜の拡大図をグラフの横（右の列の上）に置き、説明のカードはその下に詰める（2026-11-07 深夜） */
+.lineup.side.under-fig { gap: 0.6cqw; }
+.lineup.side.under-fig .ghost { padding: 0.3cqw 0.7cqw; gap: 0.15cqw; grid-template-rows: auto auto auto; align-content: center; }
+.lineup.side.under-fig .glook { font-size: max(13px, 1.02cqw); }

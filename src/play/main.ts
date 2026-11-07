@@ -1395,16 +1395,17 @@ function c4Present(): View {
 }
 /** 謎3 なぜ？：二つの説明が膜のどこの話かを示す図（見本の膜A。答えの強調はしない。2026-11-07 夜、作者の指摘「文字だけだと分からん」。1c-4） */
 function memWhyFigure(): string {
-  const X = 60, Y = 262, S = 0.8;
+  // グラフの横（右の列の上）に置く。カードの枠と同じ色の輪で、膜のどこが説明の部品かを示す（答えは強調しない。2026-11-07 深夜、作者の指摘「横に図を置くほうが配置として良い」）
+  const X = 818, Y = 10, S = 0.85;
   const at = (px: number, py: number) => [X + S * (px - 300), Y + S * (py - 18)] as const;
-  const [lx, ly] = at(640, 121);
+  const [lx, ly] = at(622, 121);
   const [mx, my] = at(520, 121);
   return `${membranePatch(X, Y, S, BASE_MEM, "見本の膜 A（拡大）", "A", true, 60)}
     <g font-weight="900">
-      <path d="M470 312 L${lx + 8} ${ly - 6}" stroke="#7bd88f" stroke-width="3" fill="none"/><circle cx="${lx}" cy="${ly}" r="9" fill="none" stroke="#7bd88f" stroke-width="3"/>
-      <text x="476" y="306" fill="#7bd88f" font-size="17">いつも開いている通り道</text><text x="476" y="328" fill="var(--ink)" font-size="15">→ イオンの通りやすさ</text>
-      <path d="M470 392 L${mx + 6} ${my + 6}" stroke="#4fe0d0" stroke-width="3" fill="none"/><circle cx="${mx}" cy="${my}" r="9" fill="none" stroke="#4fe0d0" stroke-width="3"/>
-      <text x="476" y="388" fill="#4fe0d0" font-size="17">あぶらの膜（＋と−をためる）</text><text x="476" y="410" fill="var(--ink)" font-size="15">→ 電気のためやすさ</text>
+      <ellipse cx="${lx}" cy="${ly}" rx="30" ry="40" fill="none" stroke="#7bd88f" stroke-width="3.5" stroke-dasharray="7 4"/>
+      <circle cx="${mx}" cy="${my}" r="11" fill="none" stroke="#4fe0d0" stroke-width="3.5"/>
+      <circle cx="${X + 10}" cy="${Y + 194}" r="8" fill="none" stroke="#7bd88f" stroke-width="3.5"/><text x="${X + 26}" y="${Y + 200}" fill="#7bd88f" font-size="17">いつも開いている通り道</text><text x="${X + 222}" y="${Y + 200}" fill="var(--ink)" font-size="16">→ イオンの通りやすさ</text>
+      <circle cx="${X + 10}" cy="${Y + 222}" r="8" fill="none" stroke="#4fe0d0" stroke-width="3.5"/><text x="${X + 26}" y="${Y + 228}" fill="#4fe0d0" font-size="17">あぶらの膜（＋と−をためる）</text><text x="${X + 262}" y="${Y + 228}" fill="var(--ink)" font-size="16">→ 電気のためやすさ</text>
     </g>`;
 }
 function c4Why(): View {
@@ -1432,9 +1433,9 @@ function c4Why(): View {
           <text x="520" y="392" fill="var(--soft)">いつも開いている通り道の数は</text>
           <text x="520" y="418" fill="var(--soft)">AとBで同じ</text>
         </g>`
-      : `${membraneGraph({ GL: 90, GR: 760, GT: 56, GB: 236 }, BASE_MEM, CASE3_B, 100, { a: "見本の膜 A", b: "試作品の膜 B", top: 14, notes: false })}
+      : `${membraneGraph({ GL: 90, GR: 770, GT: 56, GB: 410 }, BASE_MEM, CASE3_B, 100, { a: "見本の膜 A", b: "試作品の膜 B", top: 14, notes: false })}
         ${memWhyFigure()}`,
-    html: `<div class="lineup side" style="grid-template-columns:1fr;left:63%;right:2%;top:3%;bottom:3%">${cards
+    html: `<div class="lineup side ${state.memChecked ? "" : "under-fig"}" style="grid-template-columns:1fr;left:63%;right:2%;top:${state.memChecked ? 3 : 53}%;bottom:2%">${cards
       .map((c) => {
         const tag = state.memWhy[c.id];
         const truthOut = c.id === "g";
