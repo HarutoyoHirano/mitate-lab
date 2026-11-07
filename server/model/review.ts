@@ -4,6 +4,8 @@ import type { NetPuzzleSpec } from "./partsNet.js";
 
 const BANNED = /病|症|患者|診断|治療|薬|投与|処方|服用|手術|がん|癌|死|異常|発火|活動電位|臨床/;
 const MAX_REASON = 80;
+/** 画面に出さない言葉を含む理由のかわりに出す文 */
+export const HIDDEN = "（画面に出さない言葉を含むため、理由の文は省略）";
 const MAX_SUMMARY = 120;
 
 export interface ReviewItem {
@@ -61,13 +63,15 @@ export function checkReview(raw: unknown, spec: NetPuzzleSpec): Review {
   if (!summary) problems.push("まとめ（summary）がない");
   if (summary.length > MAX_SUMMARY) problems.push(`まとめが長すぎる（${summary.length}字）`);
   if (typeof r.ok !== "boolean") problems.push("全体の判定（ok）が true/false でない");
-  const words = [summary, text?.reason ?? "", ...items.map((i) => i.reason)].join(" ").match(BANNED);
-  if (words) problems.push(`使わない言葉「${words[0]}」がある`);
+  // 画面に出さない言葉を含む理由は、判定（✓／✗）を残したまま、理由の文だけを出さない（先生役が「病気につながる言葉はない」と書く場合など）
+  const mask = (s: string) => (BANNED.test(s) ? HIDDEN : s);
+  items.forEach((it, k) => (items[k] = { ...it, reason: mask(it.reason) }));
   const readable = problems.length === 0;
+  const textOut = text ? { ok: text.ok, reason: mask(text.reason) } : null;
   const allOk = items.every((i) => i.ok) && !!text?.ok;
   // ok の宣言が中身と食い違うときは通さない（「全部 ok」と言いながら ✗ がある、など）
   const pass = readable && allOk && r.ok === true;
-  return { readable, pass, items, text, summary, problems };
+  return { readable, pass, items, text: textOut, summary: mask(summary), problems };
 }
 
 /** 先生役が通さなかった理由を、組み立て役へ戻す形（計算プログラムの不合格と同じ形）にする */

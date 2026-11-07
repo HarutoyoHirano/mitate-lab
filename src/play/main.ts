@@ -190,7 +190,7 @@ const state = {
     sc: null as MachineScale | null,
     shown: 0,
     /** 作り直しの見せ方（2026-11-06）："" ＝ふつう、fail1＝1回目が確かめに落ちて作り直し中、check2＝2回目を確かめ中 */
-    phase: "" as "" | "fail1" | "check2" | "rfail1" | "review",
+    phase: "" as "" | "fail1" | "check2" | "rfail1" | "review" | "rwait",
     failShown: 0,
     /** 先生役の Claude の確かめを、いくつ点けたか（CLAUDE.md 1e-5） */
     rShown: 0,
@@ -1675,7 +1675,7 @@ function nMake(): View {
       : m && state.nx.phase === "review"
         ? reviewBoard(850, 20, m.review, state.nx.rShown, { calcCount: m.verdict.checks.length, stamp: done ? "pass" : null, record, title: at.length > 1 ? "先生役の Claude の確かめ（2回目）" : undefined })
         : v
-          ? checkBoard(850, 20, v.checks, state.nx.shown, { history: at.length > 1 ? history : [], stamp: m && state.nx.shown >= v.checks.length ? "pass" : null, title: at.length > 1 ? "計算プログラムの確かめ（2回目）" : "計算プログラムの確かめ" })
+          ? checkBoard(850, 20, v.checks, state.nx.phase === "rwait" ? v.checks.length : state.nx.shown, { history: at.length > 1 ? history : [], stamp: (m && state.nx.shown >= v.checks.length) || state.nx.phase === "rwait" ? "pass" : null, title: at.length > 1 ? "計算プログラムの確かめ（2回目）" : "計算プログラムの確かめ" })
           : "";
   const backLabel = failAll ? "落ちた理由を Claude へ戻す" : rfAll && state.nx.live && state.busy ? "先生役の理由を Claude へ戻す" : "";
   const back = backLabel
@@ -1687,7 +1687,7 @@ function nMake(): View {
     goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
     svg: `${partsBox(20, 40, used)}
       <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : /記録/.test(state.line.text) ? "記録の部品を読み込んでいる…" : "Claude（AI）が部品を選んでいる…"}</text>
-      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="${rf && !state.busy ? "" : "spin"}" r="60" fill="none" stroke="${fail1 || rf ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 || rf ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 || (rf && state.busy) ? "組み立て直し中" : rf ? "使えない" : "組み立て中"}</text></g>`}
+      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="${rf && !state.busy ? "" : "spin"}" r="60" fill="none" stroke="${fail1 || rf ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 || rf ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 || (rf && state.busy) ? "組み立て直し中" : rf ? "使えない" : state.nx.phase === "rwait" ? "先生役が確かめ中" : "組み立て中"}</text></g>`}
       ${back}${board}
       ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
     who: state.line.who,
@@ -1844,6 +1844,12 @@ async function nxMake(topic: string): Promise<void> {
         say(who, text);
         render();
       },
+      onVerified: (a, i) => {
+        // 計算プログラムに通った：先生役の確かめを待つあいだ、計算の結果（合格）を見せておく
+        state.nx.attempts = [...state.nx.attempts.slice(0, i), a];
+        state.nx.phase = "rwait";
+        render();
+      },
       onAttempt: (a, i) => {
         if (attemptOk(a)) return;
         const retry = state.nx.live && i === 0;
@@ -1893,6 +1899,7 @@ async function nxMake(topic: string): Promise<void> {
       render();
       return;
     }
+    const seen = (state.nx.phase as string) === "rwait"; // 計算の合格は、先生役を待つあいだにもう見せた
     state.nx.made = made;
     state.nx.sc = machineScale(made.spec, [made.verdict.runA!, made.verdict.runB!]);
     const redo = attempts.length > 1;
@@ -1901,7 +1908,7 @@ async function nxMake(topic: string): Promise<void> {
     say("calc", redo ? "組み立て直した装置を、もう一度、そのまま計算して確かめる。" : "計算プログラムが、組み立てた装置をそのまま計算して確かめる。");
     render();
     const n = made.verdict.checks.length;
-    for (let i = 1; i <= n; i++) {
+    for (let i = seen ? n : 1; i <= n; i++) {
       state.nx.shown = i;
       redraw();
       await sleep(reduceMotion() ? 0 : 160);

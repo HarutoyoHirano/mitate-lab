@@ -4,7 +4,7 @@
 import type { NetPuzzleSpec } from "../model/partsNet.js";
 import { refById } from "../model/refs.js";
 
-export const REVIEW_PROMPT_VERSION = "r1";
+export const REVIEW_PROMPT_VERSION = "r2";
 
 export function reviewPrompt(spec: NetPuzzleSpec): string {
   const parts = (spec.parts ?? []).map((p) => {
@@ -18,7 +18,9 @@ export function reviewPrompt(spec: NetPuzzleSpec): string {
 確かめること：
 1. 部品ごとに、その「役」（体の何にあたるか）が、選ばれた出典の内容で説明できるか。出典が「扱っていないこと」に入っていないか。教科書で知られていることか（研究として確立していない話や、まちがった体の説明はだめ）。
 2. はじまりの話・見立ての説明・結びの文に、体についてのまちがい、模型の外の話を模型で示したかのような言い方、確立していない話がないか。
-3. 病気・診断・治療・薬につながる言葉はだめ。
+3. 病気・診断・治療・薬につながる話になっていないか。
+
+書き方：理由とまとめは、学生が読む画面に出ます。理由とまとめの中に、病気・診断・治療・薬などの言葉は書かないでください（問題がなければ、その点にはふれなくてよい）。
 
 謎の題名：${spec.title}
 題材：${spec.topic}
@@ -34,4 +36,11 @@ ${parts.join("\n")}
  "items": [{"partId": "部品の id", "ok": true か false, "reason": "40字以内。合っている理由か、合わない理由"}],（部品ごとに一つずつ、すべての部品）
  "text": {"ok": true か false, "reason": "40字以内"},
  "summary": "60字以内のまとめ"}`;
+}
+
+/** 形が読めなかったときに、先生役へ一度だけ書き直しを頼む */
+export function reviewRetryPrompt(spec: NetPuzzleSpec, problems: readonly string[]): string {
+  return `${reviewPrompt(spec)}
+
+さきほどの出力は、形の確かめに通りませんでした：${problems.join("。")}。指定の JSON だけを、部品ごとに一つずつ出力してください。`;
 }

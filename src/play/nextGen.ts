@@ -2,7 +2,7 @@
 // ③どちらも使えなければ、AIが 11/5 に生成した記録（tests/fixtures/ai-nets の確かめに通ったもの）。どれも確かめは計算プログラムがその場で行う。
 import { verifyNetPuzzle, type Check, type NetPuzzleSpec, type NetVerdict } from "../../server/model/partsNet.js";
 import { netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
-import { reviewPrompt } from "../../server/puzzle/reviewPrompt.js";
+import { reviewPrompt, reviewRetryPrompt } from "../../server/puzzle/reviewPrompt.js";
 import { checkReview, reviewFailures, type Review } from "../../server/model/review.js";
 import VerifyWorker from "./verifyWorker.ts?worker&inline";
 import heart from "../../tests/fixtures/ai-nets/heart.v4.json";
@@ -107,6 +107,8 @@ export interface MakeHooks {
   onStatus: (s: string, who: "cl" | "calc" | "ai" | "teach") => void;
   /** 確かめが一回終わるたびに呼ぶ（画面が、落ちた理由と作り直しを見せるため） */
   onAttempt?: (a: Attempt, index: number) => void;
+  /** 計算プログラムに通ったところ（先生役の確かめを待つあいだ、計算の結果を見せるため） */
+  onVerified?: (a: Attempt, index: number) => void;
   signal?: AbortSignal;
 }
 
@@ -126,9 +128,15 @@ export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks)
       const verdict = await verifyAsync(spec, prev);
       const at: Attempt = { spec, verdict };
       if (verdict.ok) {
-        h.onStatus("先生役の Claude が、体の見立てと出典が合っているかを確かめています。", "teach");
+        h.onVerified?.(at, k);
+        h.onStatus("計算には通った。次に、先生役の Claude が、体の見立てと出典が合っているかを確かめています。", "teach");
         const raw = await sample.json(reviewPrompt(spec as NetPuzzleSpec), { signal: h.signal, cache: false }).catch(() => null);
         at.review = checkReview(raw, spec as NetPuzzleSpec);
+        // 形が読めなかったのは先生役の書き方の問題なので、組み立て直しではなく、先生役に一度だけ書き直してもらう
+        if (!at.review.readable) {
+          const raw2 = await sample.json(reviewRetryPrompt(spec as NetPuzzleSpec, at.review.problems), { signal: h.signal, cache: false }).catch(() => null);
+          at.review = checkReview(raw2, spec as NetPuzzleSpec);
+        }
       }
       attempts.push(at);
       h.onAttempt?.(at, k);
