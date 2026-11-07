@@ -493,6 +493,8 @@ export function beatLane(x: number, y: number, notes: { shown: boolean; hot: boo
  * 謎1 走行テストの時間のバー（CLAUDE.md 1c・第3章）：最初の数歩のへこみ。
  * A＝計算の線（点線）、B＝測った点とそれを結んだ線（誤差のない B の線は描かない）。差が幅を超えた点は赤。
  */
+/** 一歩の中の四つの時点（読み上げ用。走行テストの記録の順） */
+const STEP_PHASE = ["着地した直後", "足を上げる直前", "足を上げた直後", "次の着地の直前"] as const;
 export function runTimeline(o: {
   x: number; y: number; w: number; h: number; period: number; steps: number;
   aLine: readonly { t: number; v: number }[];
@@ -520,7 +522,7 @@ export function runTimeline(o: {
     .map((p, i) =>
       !p.shown
         ? ""
-        : `<g class="note hit" data-act="note" data-val="${i}" role="button" aria-label="${Math.floor(i / 4) + 1}歩目の点">
+        : `<g class="note hit" data-act="note" data-val="${i}" role="button" aria-pressed="${p.sel ? "true" : "false"}" aria-label="${Math.floor(i / 4) + 1}歩目・${STEP_PHASE[i % 4]}。試作品Bのへこみ ${p.v.toFixed(2)}${p.shot ? "。証拠に保存済み" : ""}">
         <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="16" fill="transparent"/>
         ${p.sel ? `<circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="15" fill="none" stroke="var(--gold)" stroke-width="4"/>` : ""}
         <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="${p.hot ? 9 : 6}" fill="${p.hot ? "var(--stamp)" : "var(--pad-b-edge)"}" stroke="var(--panel)" stroke-width="2"/>
@@ -1213,7 +1215,7 @@ export function membraneGraph(box: { GL: number; GR: number; GT: number; GB: num
     <circle cx="${xs(t)}" cy="${ys(deltaMv(b, t))}" r="7" fill="var(--you)"/>
     ${o.notes === false ? `<text x="${GL - 30}" y="${GB + 44}" fill="var(--soft)" font-size="15" font-weight="900">点線＝${o.a}　実線＝${o.b}</text>` : `<text x="${GL - 30}" y="${GB + 44}" fill="var(--soft)" font-size="15" font-weight="900">点線＝${o.a}　実線＝${o.b}　ms＝1000分の1秒</text>
     <text x="${GL - 30}" y="${GB + 68}" fill="var(--soft)" font-size="15" font-weight="900">この模型は、電圧が上がって戻るところだけ</text>
-    <text x="${GL - 30}" y="${GB + 88}" fill="var(--soft)" font-size="15" font-weight="900">（脳へ知らせるしくみは扱わない）</text>`}
+    <text x="${GL - 30}" y="${GB + 88}" fill="var(--soft)" font-size="15" font-weight="900">（脳へ知らせるしくみは扱わない。入口の流れは一定の電流と見なす）</text>`}
   </g>`;
 }
 

@@ -10,6 +10,7 @@ import { trueCurve } from "../curve.js";
 import { BASE } from "../../server/model/public.js";
 import { dentWithinStep, PHASE_LABEL, PLAY_RUN_PERIOD, PLAY_RUN_STEPS, STEP_PHASES, STEP_TOLERANCE, TEMPOS, type StepPhase, type TempoId } from "../../server/model/steps.js";
 import { CARTILAGE_POINTS, CARTILAGE_SHOWN, judgeRetrain, MEMBRANE_POINTS, RETRAIN_SLOTS, recheckDesign, retrainSpec, VESSEL_POINTS, type RetrainCase, type RetrainResult } from "../../server/model/retrain.js";
+import { fmtVs } from "./fmt.js";
 import { DUEL_PERIOD, DUEL_ROUNDS, DUEL_SLIDERS, DUEL_STEP, duelMaterial, duelSteps, HIDDEN_NEED, judgeDuel, ROBOT_PASS } from "../../server/model/duel.js";
 import { BASE_VESSEL, BEAT_S, CASE_VESSEL_B, judgeSync, pressureAt, pumpFlow, summarize, VESSEL_ROBOT_TOL, VESSEL_SLIDERS } from "../../server/model/vessel.js";
 import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, judgeMemDuel, MEM_ROUNDS, MEM_SLIDERS, PULSE_MS, RECORD_MS, REST_MV, ROBOT_STEADY_TOL, tauMs, type Membrane } from "../../server/model/membraneGame.js";
@@ -870,7 +871,7 @@ function duelSnaps(roundIdx: number, e1: number, tau: number, x: number, y: numb
   };
   return one("robot", x) + one("hidden", x + (w + 14) / 2);
 }
-const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る" } as const;
+const KNOB_NOTE = { e1: "大きいほど着地でへこみにくい", tau: "長いほどゆっくり沈んで戻る（増えた分が約4割に減るまでの目安）" } as const;
 const knobShown = (key: "e1" | "tau", v: number) => (v + DUEL_SLIDERS[key].offset).toFixed(2);
 
 function c2(): View {
@@ -958,7 +959,9 @@ function c3Watch(): View {
   return {
     chap: "謎2 脈の見落とし",
     goal: "1回の脈の途中で、AとBの圧に違いが見える瞬間を撮ろう",
-    svg: `<g transform="translate(0,-40) scale(0.8)">${c3Stage()}</g>${beatChart(860, 40, 390, 200, BASE_VESSEL, CASE_VESSEL_B, state.u, marks, state.vSeen)}`,
+    svg: `<g transform="translate(0,-40) scale(0.8)">${c3Stage()}</g>${beatChart(860, 40, 390, 200, BASE_VESSEL, CASE_VESSEL_B, state.u, marks, state.vSeen)}
+      <text x="40" y="392" fill="var(--soft)" font-size="15" font-weight="900">AとBには、それぞれ同じ流れを送る（二つの試験を並べた図）</text>
+      <text x="40" y="416" fill="var(--soft)" font-size="15" font-weight="900">模型：血管と出口を、ふくらむ袋一つと細い管一つにまとめた。脈の波が伝わる・はね返るところは扱わない</text>`,
     html: `<div class="scrub" style="left:2%;top:90%"><button data-act="v-play">${state.vPlaying ? "一時停止" : "▶ 脈を動かす"}</button>
       <label>1回の脈の中の時刻 <input type="range" id="u" min="0" max="${BEAT_S}" step="0.01" value="${state.u}"></label><span>${state.u.toFixed(2)} 秒</span></div>`,
     who: state.line.who,
@@ -1578,8 +1581,12 @@ function nxTopicCmds(prev: NetPuzzleSpec): Cmd[] {
     return { act: "n-topic", val: t, label: t, sub: state.nx.live ? "AIがいま組み立てる" : rec ? "AIが11/5に組み立てた記録" : "この場ではつくれない（AIを使える場所で）", hot: can, disabled: !can };
   });
 }
-/** 題材の入力欄（題材の名前だけ。20字まで） */
+/**
+ * 題材の入力欄（題材の名前だけ。20字まで）。AIを呼べない版（記録だけ）では出さず、記録の題材のカードを主にする
+ * （2026-11-07、外部の模擬評価64「記録しかない公開版でも自由入力が主操作」による）
+ */
 function nxTopicBox(style: string): string {
+  if (!state.nx.live) return "";
   return `<form class="topicbox" style="${style}" data-form="nx"><label for="nx-topic">題材を入れる（20字まで）</label>
     <div><input id="nx-topic" type="text" maxlength="20" autocomplete="off" placeholder="例：胃、目の中の水、筋肉" value="${esc(state.nx.input)}" ${state.busy ? "disabled" : ""}>
     <button type="submit" class="cmd" data-act="n-free" ${state.busy ? "disabled" : ""}>この題材で組み立てる</button></div></form>`;
@@ -1601,7 +1608,7 @@ function nPick(): View {
           <text x="0" y="72" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text>
           <text x="0" y="100" fill="${c.disabled ? "var(--soft)" : "var(--you)"}" font-size="15" font-weight="900" text-anchor="middle">${esc(c.sub ?? "")}</text></g>`;
       }).join("")}
-      <text x="640" y="350" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、本当に動き、本当に解けるかを確かめる。" : "この場ではAIを呼べない。AIが11/5に組み立てた記録がある題材だけつくれる（確かめは、いま計算する）。"}</text>`,
+      <text x="640" y="350" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、つなぎ方・数値・ロボの数字で区別できないこと・出典を確かめる。" : "この版ではAIを呼べないので、AIが11/5に組み立てた記録の題材から選ぶ（確かめは、いま計算する）。"}</text>`,
     html: nxTopicBox("left:22%;top:74%;width:56%"),
     who: state.line.who,
     text: state.line.text,
@@ -2534,7 +2541,7 @@ app.addEventListener("click", async (e) => {
         const where = `${k + 1}歩目の「${PHASE_LABEL[phase]}」`;
         if (p.distinguishable && !state.evidence.some((x) => x.id === id))
           state.evidence.push({ id, case: 1, title: "走行テスト（走る）", line: `${k + 1}歩目・${PHASE_LABEL[phase]}`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${where}を証拠に保存した。ちがい ${Math.abs(p.diff).toFixed(3)} は ${STEP_TOLERANCE} より大きい。証拠は一枚あれば十分。ロボに見せよう。` : `${where}は、ちがい ${Math.abs(p.diff).toFixed(3)} で ${STEP_TOLERANCE} より小さい。これでは証拠にならない。`);
+        say("you", p.distinguishable ? `${where}を証拠に保存した。ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, true)} は ${STEP_TOLERANCE} より大きい。証拠は一枚あれば十分。ロボに見せよう。` : `${where}は、ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, false)} で ${STEP_TOLERANCE} 以下。これでは証拠にならない。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("証拠", "win", 0.2);
@@ -2794,7 +2801,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(pb - pa) > VESSEL_ROBOT_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `v:${u}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
-      say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${Math.abs(pb - pa).toFixed(1)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。証拠に保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${Math.abs(pb - pa).toFixed(1)} [mmHg]。小さすぎて証拠にならない。`);
+      say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, true)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。証拠に保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, false)} [mmHg]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
       break;
@@ -2879,7 +2886,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(b - a) > ROBOT_STEADY_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `m:${t}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
-      say("you", ok ? `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。証拠に保存した。` : `ちがいは ${Math.abs(b - a).toFixed(2)} [mV]。小さすぎて証拠にならない。`);
+      say("you", ok ? `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, true)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。証拠に保存した。` : `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, false)} [mV]。小さすぎて証拠にならない。`);
       render();
       if (ok) await stamp("証拠", "win", 0.2);
       break;
