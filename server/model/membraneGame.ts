@@ -80,8 +80,8 @@ export interface MemRound {
 }
 
 export const MEM_ROUNDS: readonly MemRound[] = [
-  { id: 1, robotLine: `私が見るのは、離す直前の膜の電圧だけ。見本とのちがいが ${ROBOT_STEADY_TOL} mV より小さければ「同じ」と判定します。`, missionLine: `課題：離す直前の電圧は見本とそろえて「同じ」と言わせる。でも、ロボが見ない「離して ${HIDDEN_AFTER_MS} ms 後」の電圧は、見本と ${HIDDEN1_NEED} mV 以上ちがう膜にしよう。`, robotLabel: "離す直前の膜の電圧", hiddenLabel: `離して${HIDDEN_AFTER_MS} ms 後の膜の電圧` },
-  { id: 2, robotLine: `見る場所を変えます。今度は、離してから、電圧が半分の高さまで戻るのにかかる時間だけを見ます（−70 mV からの上がり分が半分になるまで）。見本とのちがいが ${HALF_TIME_TOL} ms より小さければ「同じ」です。`, missionLine: `課題：今度は、ロボが見ない「離す直前の電圧」を、見本と ${HIDDEN2_NEED} mV 以上ちがう膜にしよう。「半分に戻るまでの時間」は、見本とそろえたまま。`, robotLabel: "離した時の上がった高さが半分に戻るまでの時間", hiddenLabel: "離す直前の膜の電圧" },
+  { id: 1, robotLine: `私が見るのは、離す直前の膜の電圧だけ。見本とのちがいが ${ROBOT_STEADY_TOL} mV より小さければ「同じ」と判定します。`, missionLine: `課題：離す直前の電圧は、見本との差を ${ROBOT_STEADY_TOL} mV より小さくして「同じ」と言わせる。でも、ロボが見ない「離して ${HIDDEN_AFTER_MS} ms 後」の電圧は、見本との差を ${HIDDEN1_NEED} mV 以上にしよう。`, robotLabel: "離す直前の膜の電圧", hiddenLabel: `離して${HIDDEN_AFTER_MS} ms 後の膜の電圧` },
+  { id: 2, robotLine: `見る場所を変えます。今度は、離してから、電圧が半分の高さまで戻るのにかかる時間だけを見ます（−70 mV からの上がり分が半分になるまで）。見本とのちがいが ${HALF_TIME_TOL} ms より小さければ「同じ」です。`, missionLine: `課題：今度は、「半分に戻るまでの時間」を、見本との差 ${HALF_TIME_TOL} ms より小さくする。そして、ロボが見ない「離す直前の電圧」は、見本との差を ${HIDDEN2_NEED} mV 以上にしよう。`, robotLabel: "離した時の上がった高さが半分に戻るまでの時間", hiddenLabel: "離す直前の膜の電圧" },
 ];
 
 export interface MemDuelResult {
