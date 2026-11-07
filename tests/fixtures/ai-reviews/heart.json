@@ -1,0 +1,41 @@
+{
+ "note": "Claude（Claude Code のセッションの Claude）が 2026-11-07 に、先生役の指示文 r1（server/puzzle/reviewPrompt.ts）に答えた出力。人は手を加えない。",
+ "reviewer": "Claude（Claude Code）",
+ "promptVersion": "r1",
+ "net": "heart.v4.json",
+ "output": {
+  "ok": true,
+  "items": [
+   {
+    "partId": "inlet",
+    "ok": true,
+    "reason": "弁を一方通行の戸で表すのは shi2011 の総説どおり"
+   },
+   {
+    "partId": "room",
+    "ok": true,
+    "reason": "部屋の固さが脈の中で上がって下がるのは suga1973 の内容"
+   },
+   {
+    "partId": "outlet",
+    "ok": true,
+    "reason": "出口の弁も一方通行の戸。shi2011 で説明できる"
+   },
+   {
+    "partId": "wall",
+    "ok": true,
+    "reason": "太い血管のふくらみやすさは westerhof2009 の模型"
+   },
+   {
+    "partId": "exit",
+    "ok": true,
+    "reason": "先の細い血管の流れにくさも westerhof2009 の模型"
+   }
+  ],
+  "text": {
+   "ok": true,
+   "reason": "縮む部屋と戸の説明は教科書どおり。模型の外の話はない"
+  },
+  "summary": "心臓の部屋・弁・血管の見立ては、出典の内容と合っている。"
+ }
+}

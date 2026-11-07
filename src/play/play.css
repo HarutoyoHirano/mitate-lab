@@ -285,6 +285,7 @@ button { font: inherit; }
 .panel.notice .sub { color: var(--soft); margin: 0; font-size: max(12px, 1.05cqw); }
 .who.ai { background: #b9a6ff; color: #160d33; }
 .who.guide { background: var(--line); color: var(--ink); }
+.who.teach { background: #9fe3b8; color: #082414; }
 /* つづきの謎：題材の入力欄（題材の名前だけ。1e-4） */
 .topicbox { position: absolute; display: grid; gap: 0.4cqw; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 2px solid var(--line); border-radius: 14px; padding: 0.8cqw 1.2cqw; }
 .topicbox label { font-weight: 800; font-size: max(11px, 1cqw); color: var(--soft); }

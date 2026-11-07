@@ -2,21 +2,33 @@
 // ③どちらも使えなければ、AIが 11/5 に生成した記録（tests/fixtures/ai-nets の確かめに通ったもの）。どれも確かめは計算プログラムがその場で行う。
 import { verifyNetPuzzle, type Check, type NetPuzzleSpec, type NetVerdict } from "../../server/model/partsNet.js";
 import { netPrompt, netRetryPrompt } from "../../server/puzzle/netPrompt.js";
+import { reviewPrompt } from "../../server/puzzle/reviewPrompt.js";
+import { checkReview, reviewFailures, type Review } from "../../server/model/review.js";
 import VerifyWorker from "./verifyWorker.ts?worker&inline";
 import heart from "../../tests/fixtures/ai-nets/heart.v4.json";
 import lung from "../../tests/fixtures/ai-nets/lung.v4.json";
 import temp from "../../tests/fixtures/ai-nets/temp.v4.json";
 import kidney from "../../tests/fixtures/ai-nets/kidney.v4.json";
 import chain from "../../tests/fixtures/ai-nets/chain-heart-lung.v4.json";
+import rvHeart from "../../tests/fixtures/ai-reviews/heart.json";
+import rvLung from "../../tests/fixtures/ai-reviews/lung.json";
+import rvTemp from "../../tests/fixtures/ai-reviews/temp.json";
+import rvKidney from "../../tests/fixtures/ai-reviews/kidney.json";
+import rvChain from "../../tests/fixtures/ai-reviews/chain-heart-lung.json";
 
 export type MadeSource = "live" | "record";
 export interface Attempt {
   spec: unknown;
   verdict: NetVerdict;
+  /** 先生役の Claude の確かめ（計算プログラムに通ったときだけ。CLAUDE.md 1e-5） */
+  review?: Review;
 }
+/** この一回が通ったか（計算プログラムと先生役の両方） */
+export const attemptOk = (a: Attempt): boolean => a.verdict.ok && !!a.review?.pass;
 export interface Made {
   spec: NetPuzzleSpec;
   verdict: NetVerdict;
+  review: Review;
   source: MadeSource;
   attempts: Attempt[];
   topic: string;
@@ -26,8 +38,11 @@ interface Rec {
   topic: string;
   output: unknown;
   expectOk: boolean;
+  /** 先生役の Claude の出力の記録（tests/fixtures/ai-reviews） */
+  review?: unknown;
 }
-const RECORDS = ([heart, lung, temp, kidney, chain] as unknown as Rec[]).filter((r) => r.expectOk);
+const REVIEWS: unknown[] = [rvHeart, rvLung, rvTemp, rvKidney, rvChain].map((r) => (r as { output: unknown }).output);
+const RECORDS = ([heart, lung, temp, kidney, chain] as unknown as Rec[]).map((r, i) => ({ ...r, review: REVIEWS[i] })).filter((r) => r.expectOk);
 
 type Sample = ((input: string, opts?: Record<string, unknown>) => Promise<{ text: string }>) & { json: (input: string, opts?: Record<string, unknown>) => Promise<unknown> };
 let samplePromise: Promise<Sample | null> | null = null;
@@ -89,37 +104,46 @@ export function verifyAsync(spec: unknown, prev?: NetPuzzleSpec): Promise<NetVer
 }
 
 export interface MakeHooks {
-  onStatus: (s: string, who: "cl" | "calc" | "ai") => void;
+  onStatus: (s: string, who: "cl" | "calc" | "ai" | "teach") => void;
   /** 確かめが一回終わるたびに呼ぶ（画面が、落ちた理由と作り直しを見せるため） */
   onAttempt?: (a: Attempt, index: number) => void;
   signal?: AbortSignal;
 }
 
-/** 題材と前の謎から、次の謎をつくる。live が使えなければ記録。どれも確かめに通らなければ null */
+/** 題材と前の謎から、次の謎をつくる。組み立て役 → 計算プログラム → 先生役の Claude。
+ *  どちらかに落ちたら理由を戻して一度だけ作り直す。live が使えなければ記録（先生役の出力も記録）。 */
 export async function makeNext(topic: string, prev: NetPuzzleSpec, h: MakeHooks): Promise<{ made: Made | null; attempts: Attempt[] }> {
   const sample = await getSample();
   const attempts: Attempt[] = [];
   if (sample) {
-    h.onStatus("Claude が、部品箱から部品を選んで模型を組み立てています。", "ai");
-    let spec = await sample.json(netPrompt(topic, prev), { signal: h.signal, cache: false });
-    h.onStatus("計算プログラムが、組み立てた模型を計算して確かめています。", "calc");
-    let verdict = await verifyAsync(spec, prev);
-    attempts.push({ spec, verdict });
-    h.onAttempt?.(attempts[0]!, 0);
-    if (!verdict.ok) {
-      const failed: Check[] = verdict.checks.filter((c) => !c.ok);
-      h.onStatus("確かめに通らなかった点を伝えて、一度だけ組み立て直してもらっています。", "ai");
-      spec = await sample.json(netRetryPrompt(topic, prev, spec, failed), { signal: h.signal, cache: false });
-      verdict = await verifyAsync(spec, prev);
-      attempts.push({ spec, verdict });
-      h.onAttempt?.(attempts[1]!, 1);
+    let failed: Check[] = [];
+    let last: unknown = null;
+    for (let k = 0; k < 2; k++) {
+      h.onStatus(k === 0 ? "Claude が、部品箱から部品を選んで模型を組み立てています。" : "落ちた理由を伝えて、一度だけ組み立て直してもらっています。", "ai");
+      const spec = k === 0 ? await sample.json(netPrompt(topic, prev), { signal: h.signal, cache: false }) : await sample.json(netRetryPrompt(topic, prev, last, failed), { signal: h.signal, cache: false });
+      last = spec;
+      h.onStatus("計算プログラムが、組み立てた模型を計算して確かめています。", "calc");
+      const verdict = await verifyAsync(spec, prev);
+      const at: Attempt = { spec, verdict };
+      if (verdict.ok) {
+        h.onStatus("先生役の Claude が、体の見立てと出典が合っているかを確かめています。", "teach");
+        const raw = await sample.json(reviewPrompt(spec as NetPuzzleSpec), { signal: h.signal, cache: false }).catch(() => null);
+        at.review = checkReview(raw, spec as NetPuzzleSpec);
+      }
+      attempts.push(at);
+      h.onAttempt?.(at, k);
+      if (attemptOk(at)) return { made: { spec: spec as NetPuzzleSpec, verdict, review: at.review!, source: "live", attempts, topic }, attempts };
+      failed = verdict.ok ? reviewFailures(at.review!) : verdict.checks.filter((c) => !c.ok);
     }
-    return { made: verdict.ok ? { spec: spec as NetPuzzleSpec, verdict, source: "live", attempts, topic } : null, attempts };
+    return { made: null, attempts };
   }
   const rec = recordFor(topic, prev);
   if (!rec) return { made: null, attempts };
-  h.onStatus("この場ではAIを呼べないので、AIが11/5に組み立てた記録を使います。確かめは、いま計算プログラムが行います。", "calc");
+  h.onStatus("この場ではAIを呼べないので、AIが組み立てた記録を使います。確かめは、いま計算プログラムが行います。", "calc");
   const verdict = await verifyAsync(rec.output, prev);
-  attempts.push({ spec: rec.output, verdict });
-  return { made: verdict.ok ? { spec: rec.output as NetPuzzleSpec, verdict, source: "record", attempts, topic } : null, attempts };
+  const at: Attempt = { spec: rec.output, verdict };
+  if (verdict.ok) at.review = checkReview(rec.review, rec.output as NetPuzzleSpec);
+  attempts.push(at);
+  h.onAttempt?.(at, 0);
+  return { made: attemptOk(at) ? { spec: rec.output as NetPuzzleSpec, verdict, review: at.review!, source: "record", attempts, topic } : null, attempts };
 }

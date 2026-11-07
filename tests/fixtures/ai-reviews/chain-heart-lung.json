@@ -1,0 +1,31 @@
+{
+ "note": "Claude（Claude Code のセッションの Claude）が 2026-11-07 に、先生役の指示文 r1（server/puzzle/reviewPrompt.ts）に答えた出力。人は手を加えない。",
+ "reviewer": "Claude（Claude Code）",
+ "promptVersion": "r1",
+ "net": "chain-heart-lung.v4.json",
+ "output": {
+  "ok": true,
+  "items": [
+   {
+    "partId": "pump",
+    "ok": true,
+    "reason": "決まった量を送る装置は、bates2009 の一部屋模型の入力として使える"
+   },
+   {
+    "partId": "balloon",
+    "ok": true,
+    "reason": "肺をふくらむ風船で表すのは bates2009 の内容"
+   },
+   {
+    "partId": "airway",
+    "ok": true,
+    "reason": "空気の通り道の流れにくさは bates2009 の内容"
+   }
+  ],
+  "text": {
+   "ok": true,
+   "reason": "入る空気は管を通らない形だが、量を決めて送るので風船の圧は変わらない"
+  },
+  "summary": "肺の一部屋模型として出典と合っている。酸素の交換は扱っていない。"
+ }
+}

@@ -17,8 +17,8 @@ import { BASE_MEM, CASE3_B, deltaMv, HALF_TIME_TOL, HIDDEN1_NEED, HIDDEN2_NEED, 
 import { BRIDGE_SLIDERS, bridgeSolved, bridgeTimes, circuitAt, judgeBridge, materialForceAt, playerCircuit } from "../../server/model/bridge.js";
 import { balloonWhy, duelStepGraph, kneeSnap, retrainMap, runTimeline, overlayChart, seriesCircuit, beatChart, bubble, heartCircuit, legsStage, loopStage, miniGraph, membraneGraph, membranePatch, nerveStage, nerveWhole, robotArt, introMovie, movieLength, type MovieId, slsModel, slsAnim, SLS_ANIM_K, slsModelLabeled, ruleCard, usualPhase, usualTest, USUAL_CYCLE, memTestStrip, vesselCircuit, membraneCircuit, numBadge, partIcon, waveChart, syncChart, tankStage, type Mood } from "./art.js";
 import { beep, floatDamage, heartbeat, reduceMotion, rollNumbers, setSound, shake, sleep, sound, stamp, toneSet, toneStop } from "./fx.js";
-import { checkBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
-import { getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
+import { checkBoard, reviewBoard, fmtv, iconFor, lineChart, machine, machineScale, nextMovie, nextMovieLength, organ, partsBox, unitOf, wrapLines, type IconId, type MachineScale } from "./next.js";
+import { attemptOk, getSample, makeNext, recordFor, type Attempt, type Made } from "./nextGen.js";
 import { PREPARED_NETS } from "../../server/puzzle/netPrompt.js";
 import { probeSeries, runNet, SEE_REL, topicProblem, type DiffType, type NetPuzzleSpec } from "../../server/model/partsNet.js";
 import { refById } from "../../server/model/refs.js";
@@ -49,7 +49,7 @@ type Scene =
   | "n-movie"
   | "n-watch"
   | "n-reveal";
-type Who = "bot" | "you" | "cl" | "calc" | "guide" | "ai";
+type Who = "bot" | "you" | "cl" | "calc" | "guide" | "ai" | "teach";
 type Tag = "match" | "out" | "unsure";
 interface Cmd {
   act: string;
@@ -86,7 +86,7 @@ const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06f
 const LOOK: Record<CandidateId, string> = { overall: "20秒後もAとずれたまま", instant: "高さが違い、下がる速さはAと同じ", relax: "下がる速さが違う", same: "Aの線と重なる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
-const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "Claude（AI）・謎を組み立てる" };
+const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "Claude（AI）・謎を組み立てる", teach: "先生役 Claude（AI）・出典と照らして確かめる" };
 
 const state = {
   scene: "title" as Scene,
@@ -190,8 +190,10 @@ const state = {
     sc: null as MachineScale | null,
     shown: 0,
     /** 作り直しの見せ方（2026-11-06）："" ＝ふつう、fail1＝1回目が確かめに落ちて作り直し中、check2＝2回目を確かめ中 */
-    phase: "" as "" | "fail1" | "check2",
+    phase: "" as "" | "fail1" | "check2" | "rfail1" | "review",
     failShown: 0,
+    /** 先生役の Claude の確かめを、いくつ点けたか（CLAUDE.md 1e-5） */
+    rShown: 0,
     k: 0,
     playing: false,
     watch: 0,
@@ -1642,7 +1644,7 @@ function nPick(): View {
           <text x="0" y="72" fill="var(--ink)" font-size="22" font-weight="900" text-anchor="middle">${esc(t)}</text>
           <text x="0" y="100" fill="${c.disabled ? "var(--soft)" : "var(--you)"}" font-size="15" font-weight="900" text-anchor="middle">${esc(c.sub ?? "")}</text></g>`;
       }).join("")}
-      <text x="640" y="350" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">${state.nx.live ? "このページでは、あなたの Claude を使って、いま組み立てる。計算プログラムが、つなぎ方・数値・ロボの数字で区別できないこと・出典を確かめる。" : "この版ではAIを呼べないので、AIが11/5に組み立てた記録の題材から選ぶ（確かめは、いま計算する）。"}</text>`,
+      <text x="640" y="350" fill="var(--soft)" font-size="15" font-weight="900" text-anchor="middle">${state.nx.live ? "あなたの Claude が組み立て、計算プログラムが数値とつなぎ方を、先生役の Claude が体の見立てと出典を確かめる。" : "この版ではAIを呼べないので、AIが組み立てた記録と、先生役の Claude の確かめの記録から選ぶ（計算は、いま行う）。"}</text>`,
     html: nxTopicBox("left:22%;top:74%;width:56%"),
     who: state.line.who,
     text: state.line.text,
@@ -1655,28 +1657,37 @@ function nMake(): View {
   const spec = (m?.spec ?? (att?.spec as NetPuzzleSpec | undefined)) ?? null;
   const used = new Set<string>(spec && Array.isArray(spec.parts) ? [...spec.parts.map((p) => p.type), ...(spec.nodes ?? []).filter((n) => typeof n.fixed === "number" && n.fixed !== 0).map(() => "battery")] : []);
   const v = m?.verdict ?? att?.verdict;
-  const done = !!m && state.nx.shown >= (v?.checks.length ?? 0);
+  const rows = (rv: Attempt["review"]) => (rv ? (rv.readable ? rv.items.length + (rv.text ? 1 : 0) : 1) : 0);
+  const done = !!m && state.nx.phase === "review" && state.nx.rShown >= rows(m.review);
   const at = state.nx.attempts;
-  const history: ("ok" | "ng" | "wait")[] = at.map((a) => (a.verdict.ok ? "ok" : "ng"));
-  if (state.nx.phase === "fail1" && state.busy) history.push("wait");
+  const history: ("ok" | "ng" | "wait")[] = at.map((a) => (attemptOk(a) ? "ok" : "ng"));
+  if ((state.nx.phase === "fail1" || state.nx.phase === "rfail1") && state.busy) history.push("wait");
   const fail1 = state.nx.phase === "fail1" && at[0] && !at[0].verdict.ok;
   const f0 = fail1 ? at[0]!.verdict : null;
   const failAll = !!f0 && state.nx.failShown >= f0.checks.length;
+  const rf = state.nx.phase === "rfail1" ? at[at.length - 1] : null;
+  const rfAll = !!rf?.review && state.nx.rShown >= rows(rf.review);
+  const record = (m?.source ?? (state.nx.live ? "live" : "record")) === "record";
   const board = f0
     ? checkBoard(850, 20, f0.checks, state.nx.failShown, { history, stamp: failAll ? "fail" : null, title: "計算プログラムの確かめ（1回目）" })
-    : v
-      ? checkBoard(850, 20, v.checks, state.nx.shown, { history: at.length > 1 ? history : [], stamp: done ? "pass" : null, title: at.length > 1 ? "計算プログラムの確かめ（2回目）" : "計算プログラムの確かめ" })
-      : "";
-  const back = failAll
+    : rf?.review
+      ? reviewBoard(850, 20, rf.review, state.nx.rShown, { calcCount: rf.verdict.checks.length, stamp: rfAll ? "fail" : null, record, title: at.length > 1 ? "先生役の Claude の確かめ（2回目）" : undefined })
+      : m && state.nx.phase === "review"
+        ? reviewBoard(850, 20, m.review, state.nx.rShown, { calcCount: m.verdict.checks.length, stamp: done ? "pass" : null, record, title: at.length > 1 ? "先生役の Claude の確かめ（2回目）" : undefined })
+        : v
+          ? checkBoard(850, 20, v.checks, state.nx.shown, { history: at.length > 1 ? history : [], stamp: m && state.nx.shown >= v.checks.length ? "pass" : null, title: at.length > 1 ? "計算プログラムの確かめ（2回目）" : "計算プログラムの確かめ" })
+          : "";
+  const backLabel = failAll ? "落ちた理由を Claude へ戻す" : rfAll && state.nx.live && state.busy ? "先生役の理由を Claude へ戻す" : "";
+  const back = backLabel
     ? `<g><path class="dashmove" d="M846 ${120} C 700 ${70}, 480 ${70}, 330 ${120}" fill="none" stroke="var(--stamp)" stroke-width="5" stroke-dasharray="14 10"/><path d="M342 108 l-16 13 l20 6" fill="none" stroke="var(--stamp)" stroke-width="5"/>
-        <rect x="438" y="44" width="300" height="34" rx="17" fill="var(--paper)" stroke="var(--stamp)" stroke-width="2.5"/><text x="588" y="67" fill="var(--stamp)" font-size="17" font-weight="900" text-anchor="middle">落ちた理由を Claude へ戻す</text></g>`
+        <rect x="428" y="44" width="320" height="34" rx="17" fill="var(--paper)" stroke="var(--stamp)" stroke-width="2.5"/><text x="588" y="67" fill="var(--stamp)" font-size="17" font-weight="900" text-anchor="middle">${backLabel}</text></g>`
     : "";
   return {
     chap: "つづきの謎",
     goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
     svg: `${partsBox(20, 40, used)}
       <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : /記録/.test(state.line.text) ? "記録の部品を読み込んでいる…" : "Claude（AI）が部品を選んでいる…"}</text>
-      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="spin" r="60" fill="none" stroke="${fail1 ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 ? "組み立て直し中" : "組み立て中"}</text></g>`}
+      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="${rf && !state.busy ? "" : "spin"}" r="60" fill="none" stroke="${fail1 || rf ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 || rf ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 || (rf && state.busy) ? "組み立て直し中" : rf ? "使えない" : "組み立て中"}</text></g>`}
       ${back}${board}
       ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
     who: state.line.who,
@@ -1757,7 +1768,7 @@ function nxRefsHtml(): string {
   if (!m) return "<p>まだ謎がありません。</p>";
   const s = m.spec;
   return `<h2>${esc(s.title)}（${esc(nxSourceLabel())}）</h2>
-    <p>計算プログラムが確かめたのは、部品のつなぎ方と数値、ロボの数字では区別できないこと、別の時刻なら違いが見えること、出典が登録した文献でその部品の種類と対象を扱っていること。体の何にあたるか、文献の内容がその説明を本当に支えるかはAIの見立てで、先生の確認前。部品の見立ては出典の文献で知られている模型により、実物を完全に表すものではない。</p>
+    <p>計算プログラムが確かめたのは、部品のつなぎ方と数値、ロボの数字では区別できないこと、別の時刻なら違いが見えること、出典が登録した文献でその部品の種類と対象を扱っていること。体の何にあたるか、文献の内容がその説明を支えるかは、先生役の Claude（AI）が部品ごとに確かめた（AIの判断なので、まちがえることがある。授業で使う謎は作者も確認する）。部品の見立ては出典の文献で知られている模型により、実物を完全に表すものではない。</p>
     <table>${s.parts
       .map((p) => {
         const r = refById(p.ref);
@@ -1768,7 +1779,8 @@ function nxRefsHtml(): string {
     <p><b>見立て：</b>${esc(s.analogy)}</p>
     <p><b>この模型で扱わないこと：</b>${s.outOfScope.map(esc).join("、")}</p>
     ${s.missingParts?.length ? `<p><b>部品箱にないが、本当は要る部品（AIの申告）：</b>${s.missingParts.map(esc).join("、")}</p>` : ""}
-    <details><summary>確かめの記録（AIの出力とプログラムの判定）</summary>${state.nx.attempts.map((a, i) => `<p>${i + 1}回目：${a.verdict.ok ? "通った" : "通らなかった"}</p><ul>${a.verdict.checks.map((c) => `<li>${c.ok ? "✓" : "✗"} ${esc(c.label)} ${esc(c.detail)}</li>`).join("")}</ul>`).join("")}</details>`;
+    <p><b>先生役の Claude（AI）のまとめ：</b>${esc(m.review.summary)}</p>
+    <details><summary>確かめの記録（AIの出力・プログラムの判定・先生役の判定）</summary>${state.nx.attempts.map((a, i) => `<p>${i + 1}回目：計算プログラム ${a.verdict.ok ? "通った" : "通らなかった"}${a.review ? `／先生役 ${a.review.pass ? "通した" : "通さなかった"}` : ""}</p><ul>${a.verdict.checks.map((c) => `<li>${c.ok ? "✓" : "✗"} ${esc(c.label)} ${esc(c.detail)}</li>`).join("")}${a.review?.items.map((r) => `<li>${r.ok ? "✓" : "✗"} 先生役：${esc(r.name)} ${esc(r.reason)}</li>`).join("") ?? ""}</ul>`).join("")}</details>`;
 }
 let nxTimer = 0;
 function nxLoop(kind: "movie" | "watch"): void {
@@ -1812,6 +1824,7 @@ async function nxMake(topic: string): Promise<void> {
   state.nx.made = null;
   state.nx.attempts = [];
   state.nx.shown = 0;
+  state.nx.rShown = 0;
   state.nx.sc = null;
   state.nx.phase = "";
   state.nx.failShown = 0;
@@ -1819,28 +1832,51 @@ async function nxMake(topic: string): Promise<void> {
   go("n-make");
   state.busy = true;
   render();
+  const redraw = (): void => {
+    const svg = app.querySelector("svg.st");
+    if (svg && state.scene === "n-make") svg.innerHTML = nMake().svg;
+  };
+  const reviewRows = (a: Attempt): number => (a.review ? (a.review.readable ? a.review.items.length + (a.review.text ? 1 : 0) : 1) : 0);
   try {
     const { made, attempts } = await makeNext(topic, state.nx.prev, {
       onStatus: (text, who) => {
-        if (state.nx.phase === "fail1") return; // 落ちた理由を読んでいるあいだは、窓の文を替えない
+        if (state.nx.phase === "fail1" || state.nx.phase === "rfail1") return; // 落ちた理由を読んでいるあいだは、窓の文を替えない
         say(who, text);
         render();
       },
       onAttempt: (a, i) => {
-        if (i !== 0 || a.verdict.ok) return;
-        // 1回目が落ちた：確かめを一つずつ点け、落ちた行を赤くし、不合格のハンコと「理由を戻す」矢印を出す（作り直しの返事を待つあいだ）
-        state.nx.attempts = [a];
-        state.nx.phase = "fail1";
-        state.nx.failShown = 0;
-        const bad = a.verdict.checks.filter((c) => !c.ok);
-        say("calc", `1回目は、確かめに通らなかった。落ちたのは「${bad[0]?.label ?? "形"}」${bad.length > 1 ? `ほか ${bad.length - 1} 件` : ""}。理由を Claude に戻して、組み立て直してもらう。`);
+        if (attemptOk(a)) return;
+        const retry = state.nx.live && i === 0;
+        state.nx.attempts = [...state.nx.attempts.slice(0, i), a];
+        if (!a.verdict.ok) {
+          if (!retry) return;
+          // 計算プログラムに落ちた：確かめを一つずつ点け、落ちた行を赤くし、不合格のハンコと「理由を戻す」矢印を出す（作り直しの返事を待つあいだ）
+          state.nx.phase = "fail1";
+          state.nx.failShown = 0;
+          const bad = a.verdict.checks.filter((c) => !c.ok);
+          say("calc", `1回目は、確かめに通らなかった。落ちたのは「${bad[0]?.label ?? "形"}」${bad.length > 1 ? `ほか ${bad.length - 1} 件` : ""}。理由を Claude に戻して、組み立て直してもらう。`);
+          render();
+          void (async () => {
+            for (let k = 1; k <= a.verdict.checks.length; k++) {
+              state.nx.failShown = k;
+              redraw();
+              await sleep(reduceMotion() ? 0 : 150);
+            }
+          })();
+          return;
+        }
+        // 計算プログラムには通ったが、先生役の Claude が通さなかった
+        state.nx.phase = "rfail1";
+        state.nx.rShown = 0;
+        const bad = a.review?.readable ? a.review.items.find((x) => !x.ok) : undefined;
+        const why = bad ? `部品「${bad.name}」：${bad.reason}` : a.review?.text && !a.review.text.ok ? `話の文：${a.review.text.reason}` : "確かめの形が読めなかった";
+        say("teach", retry ? `計算には通った。でも、先生役の Claude が通さなかった。${why}。理由を組み立て役へ戻して、組み立て直してもらう。` : `計算には通った。でも、先生役の Claude が通さなかった。${why}。`);
         render();
         void (async () => {
-          for (let k = 1; k <= a.verdict.checks.length; k++) {
-            state.nx.failShown = k;
-            const svg = app.querySelector("svg.st");
-            if (svg && state.scene === "n-make") svg.innerHTML = nMake().svg;
-            await sleep(reduceMotion() ? 0 : 150);
+          for (let k = 1; k <= reviewRows(a); k++) {
+            state.nx.rShown = k;
+            redraw();
+            await sleep(reduceMotion() ? 0 : 320);
           }
         })();
       },
@@ -1849,7 +1885,11 @@ async function nxMake(topic: string): Promise<void> {
     if (!made) {
       state.busy = false;
       const last = attempts[attempts.length - 1];
-      say("calc", last ? `確かめに通らなかった。${last.verdict.checks.filter((c) => !c.ok).map((c) => c.label).slice(0, 2).join("。")}。題材を選びなおそう。` : "この題材は、この場ではつくれない。");
+      if (last && last.verdict.ok && last.review && !last.review.pass) {
+        state.nx.phase = "rfail1";
+        state.nx.rShown = reviewRows(last);
+        say("teach", state.nx.live ? "組み立て直しても、先生役の Claude の確かめに通らなかった。題材を選びなおそう。" : "この記録は、先生役の Claude の確かめに通らなかった。記録なので、ここでは組み立て直せない。ほかの題材を選ぼう。");
+      } else say("calc", last ? `確かめに通らなかった。${last.verdict.checks.filter((c) => !c.ok).map((c) => c.label).slice(0, 2).join("。")}。題材を選びなおそう。` : "この題材は、この場ではつくれない。");
       render();
       return;
     }
@@ -1863,9 +1903,19 @@ async function nxMake(topic: string): Promise<void> {
     const n = made.verdict.checks.length;
     for (let i = 1; i <= n; i++) {
       state.nx.shown = i;
-      const svg = app.querySelector("svg.st");
-      if (svg) svg.innerHTML = nMake().svg;
+      redraw();
       await sleep(reduceMotion() ? 0 : 160);
+    }
+    await sleep(reduceMotion() ? 0 : 500);
+    state.nx.phase = "review";
+    state.nx.rShown = 0;
+    say("teach", made.source === "record" ? "次に、先生役の Claude（記録）が、部品ごとに、体の見立てと出典が合っているかを確かめた。" : "次に、先生役の Claude が、部品ごとに、体の見立てと出典が合っているかを確かめる。");
+    render();
+    const rn = reviewRows(made.attempts[made.attempts.length - 1]!);
+    for (let i = 1; i <= rn; i++) {
+      state.nx.rShown = i;
+      redraw();
+      await sleep(reduceMotion() ? 0 : 420);
     }
     state.busy = false;
     say("ai", made.spec.link.story);
@@ -1921,7 +1971,7 @@ function panelHtml(): string {
       ? nxRefsHtml()
       : state.panel === "about"
       ? `<h2>このゲームについて</h2>
-      <p class="about-ai">AI（Claude）が動くのは、つづきの謎で、次の謎をつくるときだけです。そのときは上の段に「Claude（AI）」と出ます。${state.claude ? "謎1では、相棒の Claude（AI）も手伝います（隠れた答えは知りません）。" : ""}</p>
+      <p class="about-ai">AI（Claude）が動くのは、つづきの謎で、次の謎を組み立てる役と、それを確かめる先生役のときだけです。そのときは上の段に「Claude（AI）」と出ます。${state.claude ? "謎1では、相棒の Claude（AI）も手伝います（隠れた答えは知りません）。" : ""}</p>
       <p class="about-ai">検査ロボ TEJUN と、答えが合っているかの確かめは、AIではなく、決まった式で動くプログラムです。</p>
       <p class="about-ai">音をONにすると、脈の謎では鼓動の強さで、膜の謎では音の高さで、見本A（左）と試作品B（右）の違いが聞こえます。どちらも画面と同じ計算の値から鳴らしています。</p>
       <p class="about-ai">ラボ・試作品・検査ロボは架空です。値は、一般的なヒトの値を目安に置いた模型の値で、実際の機器を測った値や、病気の判定ではありません。</p>

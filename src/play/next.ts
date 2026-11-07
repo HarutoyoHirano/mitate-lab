@@ -389,6 +389,42 @@ export function checkBoard(x: number, y: number, checks: Check[], shown: number,
       .join("")}${stamp}</g>`;
 }
 
+/** 先生役の Claude の確かめ（CLAUDE.md 1e-5）。上に計算プログラムの結果を一行で、下に部品ごとの ✓／✗ と理由を shown 個まで */
+export function reviewBoard(x: number, y: number, rv: { items: readonly { name: string; ok: boolean; reason: string }[]; text: { ok: boolean; reason: string } | null; readable: boolean; problems: readonly string[] }, shown: number, o: { calcCount: number; stamp?: "pass" | "fail" | null; title?: string; record?: boolean }): string {
+  const rows = rv.readable
+    ? [...rv.items.map((i) => ({ ok: i.ok, head: i.name, reason: i.reason })), ...(rv.text ? [{ ok: rv.text.ok, head: "話の文", reason: rv.text.reason }] : [])]
+    : [{ ok: false, head: "形が読めなかった", reason: rv.problems[0] ?? "" }];
+  const shownRows = rows.slice(0, 8);
+  const top = 100;
+  const listH = shownRows.length * 30;
+  const h = top + listH + 78;
+  const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+  // 下の欄：いま点いた行の理由（落ちた行があれば、その理由）を二行で
+  const lit = shownRows.slice(0, shown);
+  const focus = (o.stamp === "fail" ? lit.find((r) => !r.ok) : undefined) ?? lit[lit.length - 1];
+  const wrap = (s: string): string[] => (s.length <= 25 ? [s] : [s.slice(0, 25), cut(s.slice(25), 25)]);
+  const stamp =
+    o.stamp === "pass"
+      ? `<g class="pop" transform="translate(318,${top + 30}) rotate(-10)"><rect x="-68" y="-26" width="136" height="52" rx="10" fill="var(--paper)" stroke="var(--you)" stroke-width="5"/><text y="10" fill="var(--you)" font-size="26" font-weight="900" text-anchor="middle">合格</text></g>`
+      : o.stamp === "fail"
+        ? `<g class="pop" transform="translate(318,${top + 30}) rotate(-10)"><rect x="-78" y="-26" width="156" height="52" rx="10" fill="var(--paper)" stroke="var(--stamp)" stroke-width="5"/><text y="10" fill="var(--stamp)" font-size="26" font-weight="900" text-anchor="middle">不合格</text></g>`
+        : "";
+  return `<g transform="translate(${x},${y})"><rect width="410" height="${h}" rx="14" fill="var(--panel)" stroke="${o.stamp === "fail" ? "var(--stamp)" : "var(--line)"}" stroke-width="${o.stamp === "fail" ? 3 : 2}"/>
+    <text x="16" y="26" fill="var(--you)" font-size="15" font-weight="900">✓ 計算プログラム：合格（${o.calcCount}項目）</text>
+    <line x1="12" y1="38" x2="398" y2="38" stroke="var(--line)" stroke-width="1.5"/>
+    <text x="16" y="62" fill="var(--ink)" font-size="16" font-weight="900">${esc(o.title ?? "先生役の Claude（AI）の確かめ")}</text>
+    <text x="16" y="84" fill="var(--soft)" font-size="14" font-weight="800">${o.record ? "記録：" : ""}体の見立てと出典が合っているか</text>
+    ${shownRows
+      .map((r, i) => {
+        const on = i < shown;
+        const yy = top + i * 30;
+        const col = !on ? "var(--line)" : r.ok ? "var(--you)" : "var(--stamp)";
+        return `${on && !r.ok ? `<rect x="8" y="${yy}" width="394" height="26" rx="5" fill="var(--stamp)" opacity=".16"/>` : ""}<text x="16" y="${yy + 19}" fill="${col}" font-size="15" font-weight="900">${on ? (r.ok ? "✓" : "✗") : "・"} ${esc(cut(r.head, 22))}</text>`;
+      })
+      .join("")}
+    ${focus ? `<rect x="10" y="${top + listH + 6}" width="390" height="62" rx="8" fill="${focus.ok ? "var(--you)" : "var(--stamp)"}" opacity=".12"/>${wrap(focus.reason).map((l, i) => `<text x="20" y="${top + listH + 30 + i * 24}" fill="var(--ink)" font-size="15" font-weight="800">${esc(l)}</text>`).join("")}` : ""}${stamp}</g>`;
+}
+
 // ---------- 導入ムービー（AIの場面と結び、見本Aの計算値から自動で描く） ----------
 
 export const NEXT_SCENE_DUR = [5, 5.5, 4.5] as const;

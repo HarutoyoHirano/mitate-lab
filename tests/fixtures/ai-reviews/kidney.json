@@ -1,0 +1,36 @@
+{
+ "note": "Claude（Claude Code のセッションの Claude）が 2026-11-07 に、先生役の指示文 r1（server/puzzle/reviewPrompt.ts）に答えた出力。人は手を加えない。",
+ "reviewer": "Claude（Claude Code）",
+ "promptVersion": "r1",
+ "net": "kidney.v4.json",
+ "output": {
+  "ok": false,
+  "items": [
+   {
+    "partId": "pump",
+    "ok": true,
+    "reason": "入ってくる血液を入力にする形は westerhof2009 と同じ"
+   },
+   {
+    "partId": "tuft",
+    "ok": false,
+    "reason": "westerhof2009 は太い動脈の話。糸球体の毛細血管がためる話ではない"
+   },
+   {
+    "partId": "filter",
+    "ok": true,
+    "reason": "圧の差で液がこし出されるのは deen1972 の内容"
+   },
+   {
+    "partId": "exit",
+    "ok": true,
+    "reason": "先の細い血管の流れにくさは westerhof2009 で説明できる"
+   }
+  ],
+  "text": {
+   "ok": true,
+   "reason": "こし出しの説明は教科書どおり。取りもどしの話はしていない"
+  },
+  "summary": "毛細血管のふくらみやすさに、太い動脈の文献を当てている。そこを直す必要がある。"
+ }
+}
