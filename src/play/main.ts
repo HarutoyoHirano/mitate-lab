@@ -83,7 +83,7 @@ interface View {
 }
 
 const COLOR: Record<CandidateId, string> = { overall: "#6aa8e8", instant: "#e06fb0", relax: "#b9a6ff", same: "#aab2c8" };
-const LOOK: Record<CandidateId, string> = { overall: "その原因なら：20秒後の高さも見本と違うはず", instant: "その原因なら：山の高さが違い、下がる速さは見本と同じはず", relax: "その原因なら：下がる速さが見本と違うはず", same: "その原因なら：見本と同じ線になるはず" };
+const LOOK: Record<CandidateId, string> = { overall: "その原因なら：下がりきった高さ（20秒後）が見本と違う線になる", instant: "その原因なら：山から、見本と同じ速さで下がる線になる", relax: "その原因なら：山から下がる速さが、見本と違う線になる", same: "その原因なら：見本と同じ線になる" };
 const PART: Record<CandidateId, string> = { overall: "模型では：左のばね", instant: "模型では：右のばね", relax: "模型では：ダンパ（ねばり）", same: "模型では：どの部品も同じ" };
 const SPEED: Record<number, string> = { 0.2: "すばやく（0.2秒）", 1: "ふつう（1秒）", 5: "ゆっくり（5秒）" };
 const WHO_LABEL: Record<Who, string> = { bot: "検査ロボ TEJUN", you: "あなた", cl: "相棒 Claude（AI）・答えを知らない", calc: "計算プログラム", guide: "案内", ai: "問題づくりの Claude（AI）・謎を組み立てる", teach: "先生役の Claude（AI）・別の指示で、出典と照らして確かめる" };
@@ -168,6 +168,7 @@ const state = {
   vWhatIf: null as "p" | "r" | null,
   vBet: null as "r" | "c" | "unknown" | null,
   syncR: 1,
+  vHint: 0,
   syncC: 1.5,
   syncDone: false,
   brR: 1,
@@ -1467,7 +1468,7 @@ function rtRechecks() {
     const [a, b] = s.split(",").map(Number) as [number, number];
     // 軟骨は「E1, τ」、膜は「g, C」で記録している
     const r = recheckDesign(c, state.rt.slots, b, a);
-    return { name: `${c === "cartilage" ? "仕掛けろ" : "謎3"}のあなた（${i + 1}）`, ...r };
+    return { name: `${c === "cartilage" ? "仕掛けろ" : "謎3の仕掛けろ"}であなたがつくった試作品${"①②③④⑤"[i] ?? i + 1}`, ...r };
   });
 }
 function rtRecheckCard(): string {
@@ -2259,7 +2260,7 @@ async function playRun(): Promise<void> {
   state.shown = RUN_POINTS.length;
   const hot = RUN_POINTS.filter((p) => Math.abs(pointValue(run.b, p.i) - pointValue(run.a, p.i)) > STEP_TOLERANCE);
   const steps = [...new Set(hot.map((p) => p.k + 1))];
-  say("you", hot.length ? "点線（A）と点（B）を見くらべよう。AとBのへこみが大きくちがう瞬間があれば、グラフの中でタッチしよう。" : `どの瞬間も、ちがいは ${STEP_TOLERANCE} より小さい。もう一度走らせてみよう。`);
+  say("you", hot.length ? "点線（A）と点（B）を見くらべよう。AとBのへこみが大きくちがう瞬間があれば、グラフの中の点をタッチ（クリック）して選び、「違いを保存」を押そう。" : `どの瞬間も、ちがいは ${STEP_TOLERANCE} より小さい。もう一度走らせてみよう。`);
   state.mood = hot.length ? "sweat" : "smug";
   render();
 }
@@ -2725,7 +2726,7 @@ app.addEventListener("click", async (e) => {
         const where = `${k + 1}歩目の「${PHASE_LABEL[phase]}」`;
         if (p.distinguishable && !state.evidence.some((x) => x.id === id))
           state.evidence.push({ id, case: 1, title: "走行テスト（走る）", line: `${k + 1}歩目・${PHASE_LABEL[phase]}`, big: `差 ${sgn(p.diff)}`, ok: p.distinguishable });
-        say("you", p.distinguishable ? `${where}の違いを保存した。ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, true)} は ${STEP_TOLERANCE} より大きい。一つあれば十分。ロボットに提示しよう。` : `${where}は、ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, false)} で ${STEP_TOLERANCE} 以下。これでは違いと言えない。`);
+        say("you", p.distinguishable ? `${where}の違いを保存した。ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, true)} は ${STEP_TOLERANCE} より大きい。一つあれば十分。ロボットに提示しよう。` : `${where}は、ちがい ${fmtVs(Math.abs(p.diff), STEP_TOLERANCE, 3, false)}。ロボの「同じ」の幅 ${STEP_TOLERANCE} 以下なので、見せても「同じ」と言われる。保存しなかった。`);
         state.note = null;
         render();
         if (p.distinguishable) await stamp("保存", "win", 0.2);
@@ -2781,7 +2782,7 @@ app.addEventListener("click", async (e) => {
         state.tags = {};
         state.answer = null;
         state.mood = "calm";
-        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。カードの色の線は、「その原因なら、Bの記録はこうなるはず」と計算した線（予想の線）。点に重なる線のカードを一つ選ぼう。`);
+        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。カードの色の線は、「その原因なら、Bの記録はこうなるはず」と計算した線（予想の線）。\fどの線も、山（押し終わった瞬間）はBの点に合わせてある。見るのは、山から下がっていくところ。点に重なるカードを一つ選んで、「計算で答え合わせ」を押そう。`);
         go("c1-line");
       }
       break;
@@ -3002,7 +3003,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(pb - pa) > VESSEL_ROBOT_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `v:${u}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 3, title: `脈の中 ${u.toFixed(2)} 秒`, line: `A ${pa.toFixed(0)}／B ${pb.toFixed(0)} mmHg`, big: `差 ${sgn(pb - pa, 1)}`, ok });
-      say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, true)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。違いを保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, false)} [mmHg]。小さすぎて違いと言えない。`);
+      say("you", ok ? `${u.toFixed(2)} 秒の圧は　A：${pa.toFixed(0)} [mmHg]　　B：${pb.toFixed(0)} [mmHg]。ちがい ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, true)} は、ロボの手順の ${VESSEL_ROBOT_TOL} より大きい。違いを保存した。` : `${u.toFixed(2)} 秒では、ちがいは ${fmtVs(Math.abs(pb - pa), VESSEL_ROBOT_TOL, 1, false)} [mmHg]。ロボの「同じ」の幅 ${VESSEL_ROBOT_TOL} 以下なので、見せても「同じ」と言われる。保存しなかった。`);
       render();
       if (ok) await stamp("保存", "win", 0.2);
       break;
@@ -3015,7 +3016,8 @@ app.addEventListener("click", async (e) => {
     case "to-sync":
       state.mood = "calm";
       state.vExplain = 0;
-      say("guide", "試験装置の人工血管で変えられるところは二つ。ふくらみやすさ（袋）と、出口の流れにくさ（細い管）。Bはどちらが見本と違う？");
+      state.vHint = 0;
+      say("guide", "ポンプは、AにもBにも同じ流れを送っている。だから違いうるのは人工血管の側の二つ。袋のふくらみやすさと、出口の細い管の流れにくさ。Bはどちらが見本と違う？");
       go("c3-sync");
       break;
     case "v-bet":
@@ -3023,7 +3025,7 @@ app.addEventListener("click", async (e) => {
       // 選んだ考えのつまみだけ動かせる。もう一方は見本の値で止める（2026-11-07 夜、作者の提案。1c-4）
       state.syncR = BASE_VESSEL.r;
       state.syncC = BASE_VESSEL.c;
-      say("guide", val === "c" ? "考え：ふくらみやすさが違う。出口の流れにくさは見本のまま止めて、ふくらみやすさのつまみで血管Bと同じ脈をつくろう。" : val === "r" ? "考え：出口の流れにくさが違う。ふくらみやすさは見本のまま止めて、流れにくさのつまみで血管Bと同じ脈をつくろう。" : "二つのつまみを動かして、血管Bと同じ脈をつくろう。");
+      say("guide", val === "c" ? "考え：ふくらみやすさが違う。出口の流れにくさは見本のまま止めて、ふくらみやすさのつまみで血管Bと同じ脈をつくろう。同じ脈にならなければ「考えを変える」。" : val === "r" ? "考え：出口の流れにくさが違う。ふくらみやすさは見本のまま止めて、流れにくさのつまみで血管Bと同じ脈をつくろう。同じ脈にならなければ「考えを変える」。" : "二つのつまみを動かして、血管Bと同じ脈をつくろう。");
       render();
       break;
     case "v-rebet":
@@ -3034,7 +3036,9 @@ app.addEventListener("click", async (e) => {
       render();
       break;
     case "sync-hint":
-      say("guide", "平均の圧は、出口の流れにくさで決まる。高い圧と低い圧の差は、主にふくらみやすさで変わる。");
+      // ヒントは段階的に（押すたびに次の段。1b の規則）
+      state.vHint = Math.min(3, state.vHint + 1);
+      say("guide", state.vHint === 1 ? "ロボの検査で、AとBで同じだった数字は何だった？" : state.vHint === 2 ? "平均が同じなら、平均を動かすつまみは見本のままでよいかも。どちらのつまみで平均が動くか、試してみよう。" : "平均の圧は、出口の流れにくさで決まる。高い圧と低い圧の差は、主にふくらみやすさで変わる。");
       render();
       break;
     // 謎3（膜）
@@ -3097,7 +3101,7 @@ app.addEventListener("click", async (e) => {
       const ok = Math.abs(b - a) > ROBOT_STEADY_TOL; // 証拠はロボの手順の幅より大きいときだけ（1d）
       const id = `m:${t}`;
       if (ok && !state.evidence.some((x) => x.id === id)) state.evidence.push({ id, case: 4, title: t <= PULSE_MS ? `押して ${t} ms` : `離して ${t - PULSE_MS} ms`, line: `A ${a.toFixed(2).replace("-", "−")}／B ${b.toFixed(2).replace("-", "−")} mV`, big: `差 ${sgn(b - a, 2)}`, ok });
-      say("you", ok ? `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, true)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。違いを保存した。` : `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, false)} [mV]。小さすぎて違いと言えない。`);
+      say("you", ok ? `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, true)} [mV]。ロボの手順の ${ROBOT_STEADY_TOL} より大きい。違いを保存した。` : `ちがいは ${fmtVs(Math.abs(b - a), ROBOT_STEADY_TOL, 2, false)} [mV]。ロボの「同じ」の幅 ${ROBOT_STEADY_TOL} 以下なので、見せても「同じ」と言われる。保存しなかった。`);
       render();
       if (ok) await stamp("保存", "win", 0.2);
       break;
@@ -3265,8 +3269,8 @@ app.addEventListener("click", async (e) => {
         // 再検査の根拠を、右の表の数で言う（2026-11-07 夜、作者の指摘「これは何で分かる？」。1c-4）
         const tolTxt = c === "membrane" ? `${ROBOT_STEADY_TOL} mV` : `${ROBOT_PASS}`;
         const biggest = (x: (typeof rc)[number]) => x.diffs.reduce((m, d) => (Math.abs(d.diff) > Math.abs(m) ? d.diff : m), 0);
-        const nums = rc.map((x) => `${x.name}は差 ${sgn(biggest(x), c === "membrane" ? 2 : 3)}`).join("、");
-        const back = rc.length ? `${rc.length === 1 ? rc[0]!.name : "あなたがつくった試作品"}は、前の検査では「同じ」とすり抜けました。新しく足した数字で測ると、${nums}（右の表）。${rc.every((x) => x.caught) ? `どれも ${tolTxt} より大きいので、見分けられます` : "まだ見分けられないものがあります"}。\f` : "";
+        const nums = rc.map((x) => `${rc.length > 1 ? `${x.name.slice(-1)}は` : ""}${sgn(biggest(x), c === "membrane" ? 2 : 3)}`).join("、");
+        const back = rc.length ? `${rc.length === 1 ? rc[0]!.name : `${c === "cartilage" ? "仕掛けろ" : "謎3の仕掛けろ"}であなたがつくった試作品`}は、前の検査では「同じ」とすり抜けました。新しく足した数字で測ると、見本との差は ${nums}（右の表で、いちばん大きい差）。${rc.every((x) => x.caught) ? `${rc.length === 1 ? "" : rc.length === 2 ? "どちらも " : "どれも "}${tolTxt} より大きいので、今度は見分けられます` : "まだ見分けられないものがあります"}。\f` : "";
         say("bot", `${back}これからは、${RT_PAGE[c].page}の検査で数字を ${1 + state.rt.slots.length} つ見ます。つまみの範囲で調べた ${res.cells.length} 通りの試作品では、すり抜けは 0。……ただし、調べたのはこの範囲だけ。違う部品が三つになれば、また数字が要るかもしれません。`);
         render();
         await stamp("鍛えなおした！", "win", 0.5);
