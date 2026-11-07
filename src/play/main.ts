@@ -77,6 +77,8 @@ interface View {
   text: string;
   sub?: string;
   extra?: string;
+  /** 行動を縦に並べ、補足（small）も見せる（試験台の押す速さなど、選ぶ理由を読ませたいとき） */
+  stack?: boolean;
   cmds: Cmd[];
 }
 
@@ -430,6 +432,7 @@ function c1Run(): View {
     chap: "謎1 軟骨：見破れ",
     goal: run ? "AとBの差が大きい瞬間を選んで、証拠に保存しよう" : "見本Aと試作品Bを、同じように走らせてみよう",
     svg: `${legsStage({ dentA: dents.a, dentB: dents.b, contact: dents.contact, impact: dents.impact, labelA: "見本 A", labelB: "試作品 B", diff, hot: diff !== null && Math.abs(diff) > STEP_TOLERANCE, x0: -92, y0: 34, scale: 0.76 })}
+      <text x="300" y="430" fill="var(--soft)" font-size="19" font-weight="900" text-anchor="middle">AにもBにも同じ体重をかけて、へこみを測る</text>
       ${runTimeline({ x: 648, y: 14, w: 616, h: 392, period: PLAY_RUN_PERIOD, steps: PLAY_RUN_STEPS, aLine, bPts, now: run ? cur : null, tol: STEP_TOLERANCE })}`,
     html: `<div class="timebar"><input type="range" id="c1-t" min="0" max="${RUN_T_MAX}" step="0.05" value="${cur}" ${!run || playing ? "disabled" : ""} aria-label="時間のバー（秒）"><b id="c1-t-label">${run && !playing ? (sel !== null ? pointLabel(sel) : "バーを動かすか、点を押して選ぶ") : ""}</b></div>`,
     who: state.line.who,
@@ -476,6 +479,7 @@ function c1Present(): View {
       // 押す速さは自分で選ぶ（2026-11-07、別のAIによる点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
       // 速さを選ぶ理由を一言で（2026-11-07、別のAIによる模擬評価「速さを選べるが、どれを選ぶ理由が弱い」）。どの速さが正解かは言わない
       cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: BENCH_WHY[p], hot: false, disabled: state.busy })),
+      stack: true,
     };
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
@@ -1983,7 +1987,7 @@ function render(): void {
     <div class="stage ${v.svg ? "" : "flow"}"><svg class="st" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet">${v.svg}</svg>${v.html ?? ""}</div>
     <div class="win">
       <div><span class="who ${shown.who}">${WHO_LABEL[shown.who]}</span>${peeking ? `<span class="peek-tag">読み返し中</span>` : ""}<p class="text ${!peeking && hasNext() ? "more" : ""}" aria-live="polite" ${!peeking && hasNext() ? `data-act="more" role="button" tabindex="0"` : ""}>${phrase(shown.text)}</p>${backRow}${v.sub ? `<p class="sub">${phrase(v.sub)}</p>` : ""}${v.extra ?? ""}${state.error ? `<p class="sub" style="color:var(--stamp)">${esc(state.error)}</p>` : ""}</div>
-      <div class="cmds ${v.cmds.length >= 3 ? "many" : ""}">${v.cmds
+      <div class="cmds ${v.stack ? "stack" : v.cmds.length >= 3 ? "many" : ""}">${v.cmds
         .map((c) => `<button class="cmd ${c.hot ? "hot" : ""} ${c.ghost ? "ghost" : ""}" data-act="${c.act}" ${c.val !== undefined ? `data-val="${c.val}"` : ""} ${c.disabled ? "disabled" : ""}>${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</button>`)
         .join("")}</div>
     </div>
@@ -2627,7 +2631,7 @@ app.addEventListener("click", async (e) => {
       if (state.curveId) {
         state.tags = {};
         state.mood = "calm";
-        say("guide", `試験台でBを${SPEED[Number(val) || 1]}押して、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？`);
+        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？`);
         go("c1-line");
       }
       break;
