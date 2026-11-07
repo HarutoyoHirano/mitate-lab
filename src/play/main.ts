@@ -477,7 +477,7 @@ function c1Present(): View {
   const base: Evidence = { id: "c1-base", case: 1, title: "いつもの検査", line: "押して20秒後の力", big: `差 ${sgn(r.diff)}`, ok: false };
   if (state.c1Hit)
     return {
-      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "なぜ違う？ 試験台でBを押して、押し返す力を記録しよう。どの説明を確かめたいかで、押す速さを選ぼう。"),
+      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "原因当てクイズ：Bはなぜ違う？ 答えの候補は4つ。まず試験台でBを押す実験をしよう。どの答えを確かめたいかで、押す速さを選ぼう。"),
       // 押す速さは自分で選ぶ（2026-11-07、別のAIによる点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
       // 速さを選ぶ理由を一言で（2026-11-07、別のAIによる模擬評価「速さを選べるが、どれを選ぶ理由が弱い」）。どの速さが正解かは言わない
       cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: BENCH_WHY[p], hot: false, disabled: state.busy })),
@@ -652,7 +652,7 @@ function c1Line(): View {
         ];
   return {
     chap: "謎1 軟骨：なぜ？",
-    goal: awaiting ? "Bの記録（点）は、どの説明の線と合う？ 4つとも選ぼう" : narrowed ? "4つの説明の中では、正体が一つに絞れた" : "まだ説明が二つ以上残る。別の速さで押そう",
+    goal: awaiting ? "原因当てクイズ：記録の点と予想の線が重なる答えはどれ？ 4つとも選ぼう" : narrowed ? "4つの答えの中では、正体が一つに絞れた" : "まだ答えが二つ以上残る。別の速さで押して実験しよう",
     svg: "",
     html: `<div class="lineup">${ghosts}</div>${zoomHtml(c, yMax, checked, narrowed ? v.narrowedTo : null, live)}`,
     who: state.line.who,
@@ -2688,7 +2688,7 @@ app.addEventListener("click", async (e) => {
       if (state.curveId) {
         state.tags = {};
         state.mood = "calm";
-        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。色の線は「この説明が正しければ、こうなるはず」という予想。点と線が重なる説明はどれ？`);
+        say("guide", `試験台でBを決まった深さまで${SPEED[Number(val) || 1]}押して止め、押し返す力を記録した（点）。色の線は「この答えが正しければ、こうなるはず」という予想。点と線が重なる答えはどれ？`);
         go("c1-line");
       }
       break;
