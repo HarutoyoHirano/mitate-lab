@@ -481,7 +481,7 @@ export function beatLane(x: number, y: number, notes: { shown: boolean; hot: boo
           <circle cx="${cx}" cy="35" r="${n.shown ? 19 : 12}" fill="${fill}"/>
           ${n.shown ? `<text x="${cx}" y="41" fill="var(--on-you)" font-size="14" font-weight="900" text-anchor="middle">${i + 1}</text>` : ""}
           ${n.sel ? `<rect x="${cx - 32}" y="-6" width="64" height="82" rx="14" fill="none" stroke="var(--gold)" stroke-width="4"/>` : ""}
-          ${n.shot ? `<text x="${cx}" y="98" fill="var(--gold)" font-size="13" font-weight="900" text-anchor="middle">証拠</text>` : ""}
+          ${n.shot ? `<text x="${cx}" y="98" fill="var(--gold)" font-size="13" font-weight="900" text-anchor="middle">保存</text>` : ""}
         </g>`;
       })
       .join("")}
@@ -522,11 +522,11 @@ export function runTimeline(o: {
     .map((p, i) =>
       !p.shown
         ? ""
-        : `<g class="note hit" data-act="note" data-val="${i}" role="button" aria-pressed="${p.sel ? "true" : "false"}" aria-label="${Math.floor(i / 4) + 1}歩目・${STEP_PHASE[i % 4]}。試作品Bのへこみ ${p.v.toFixed(2)}${p.shot ? "。証拠に保存済み" : ""}">
+        : `<g class="note hit" data-act="note" data-val="${i}" role="button" aria-pressed="${p.sel ? "true" : "false"}" aria-label="${Math.floor(i / 4) + 1}歩目・${STEP_PHASE[i % 4]}。試作品Bのへこみ ${p.v.toFixed(2)}${p.shot ? "。違いを保存済み" : ""}">
         <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="16" fill="transparent"/>
         ${p.sel ? `<circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="15" fill="none" stroke="var(--gold)" stroke-width="4"/>` : ""}
         <circle cx="${xs(p.t)}" cy="${ys(p.v)}" r="${p.hot ? 9 : 6}" fill="${p.hot ? "var(--stamp)" : "var(--pad-b-edge)"}" stroke="var(--panel)" stroke-width="2"/>
-        ${p.shot ? `<text x="${xs(p.t)}" y="${ys(p.v) - 18}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="middle">証拠</text>` : ""}
+        ${p.shot ? `<text x="${xs(p.t)}" y="${ys(p.v) - 18}" fill="var(--gold)" font-size="14" font-weight="900" text-anchor="middle">保存</text>` : ""}
       </g>`,
     )
     .join("");
@@ -1326,7 +1326,7 @@ export function retrainMap(x: number, y: number, w: number, h: number, cells: re
     <text x="0" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900">${xs[0]!.toFixed(1)}</text><text x="${w}" y="${oy + H + 22}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${xs[xs.length - 1]!.toFixed(1)}</text>
     ${zoom ? ys.map((v, i) => `<text x="-8" y="${(cy(i) + 5).toFixed(1)}" fill="var(--soft)" font-size="12" text-anchor="end">${v.toFixed(2)}</text>`).join("") + `<text x="0" y="${oy - 12}" fill="var(--soft)" font-size="13" font-weight="800">いままでの数字では見本と区別できない試作品だけを拡大（左の数字＝${axes.y}）</text>` : `<text x="0" y="-10" fill="var(--ink)" font-size="17" font-weight="900">↑ ${axes.y}</text><text x="-6" y="${h - 2}" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[0]!.toFixed(1)}</text><text x="-6" y="14" fill="var(--soft)" font-size="14" font-weight="900" text-anchor="end">${ys[ys.length - 1]!.toFixed(1)}</text>`}
     <g transform="translate(-20,${h + 40})" font-size="17" font-weight="900">
-      <rect width="22" height="22" rx="4" fill="var(--stamp)"/><text x="30" y="18" fill="var(--ink)">赤：すり抜ける（見本と違うのにロボが「同じ」）</text>
+      <rect width="22" height="22" rx="4" fill="var(--stamp)"/><text x="30" y="18" fill="var(--ink)">赤：ロボが見落とす試作品（見本と違うのに「同じ」）</text>
       <rect y="30" width="22" height="22" rx="4" fill="color-mix(in srgb, var(--you) 75%, var(--panel))"/><text x="30" y="48" fill="var(--ink)">緑：ロボが見分けられる（か、見本とほぼ同じ）</text>
       <rect y="60" width="22" height="22" rx="4" fill="color-mix(in srgb, var(--soft) 45%, var(--panel))"/><text x="30" y="78" fill="var(--ink)">灰：いままでの数字で見分けられる</text>
     </g>

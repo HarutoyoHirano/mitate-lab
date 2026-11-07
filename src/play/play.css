@@ -394,3 +394,18 @@ button { font: inherit; }
 .zoom .zwith { display: flex; flex-wrap: wrap; gap: 0.6cqw; align-items: center; }
 .zoom .zwith button { font: inherit; font-size: max(14px, 1.1cqw); font-weight: 900; color: var(--c); background: var(--panel); border: 2px solid var(--c); border-radius: 999px; padding: 0.25cqw 0.9cqw; cursor: pointer; }
 .zoom .zwith button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 18%, var(--panel)); }
+
+/* 原因当てクイズ：答えを一つ選ぶ（1c-4） */
+.pickb { justify-self: center; border: 2px solid var(--c, var(--you)); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 0.3cqw 1cqw; font-weight: 900; font-size: max(15px, 1.2cqw); cursor: pointer; }
+.pickb.on { background: var(--c, var(--you)); color: #0a0e1c; }
+.ztags { display: flex; justify-content: center; margin-top: 0.4cqw; }
+/* 話す人の顔（1c-4） */
+.speaker { display: flex; gap: 1cqw; align-items: flex-start; min-width: 0; }
+.speaker > div { min-width: 0; flex: 1; }
+.face { flex: none; width: max(44px, 4.4cqw); height: max(44px, 4.4cqw); border-radius: 12px; background: var(--stage-2, var(--panel)); border: 2px solid var(--line); display: grid; place-items: center; overflow: hidden; }
+.face svg { width: 92%; height: 92%; }
+.face.bot { border-color: var(--bot); }
+.face.you { border-color: var(--you); }
+.face.calc { border-color: var(--gold); }
+.face.cl, .face.ai { border-color: #b9a6ff; }
+.face.teach { border-color: #9fe3b8; }

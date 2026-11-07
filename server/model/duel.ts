@@ -32,11 +32,13 @@ export interface DuelRound {
   readonly robot: StepCheck;
   readonly hidden: StepCheck;
   readonly robotLine: string;
+  /** あなたの課題（案内が言う。ロボの手順とは分けて言う。1c-4） */
+  readonly missionLine: string;
 }
 
 export const DUEL_ROUNDS: readonly DuelRound[] = [
-  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: `検査を一つ足しました。私が見るのは二つだけ。①押して20秒後の力。②走って1歩目の「着地した直後」のへこみ。どちらも見本とのちがいが ${ROBOT_PASS} より小さければ「同じ」と判定します。私に見落とさせてみてください。ただし、私が見ない「足を上げた直後」では、見本と ${HIDDEN_NEED} 以上ちがう試作品で。` },
-  { id: 2, robot: LIFT_CHECK, hidden: LAND_CHECK, robotLine: `見る場所を変えます。今度は①押して20秒後の力と、②1歩目の「足を上げた直後」のへこみ。どちらも ${ROBOT_PASS} より小さければ「同じ」です。今度は「着地した直後」で見本と ${HIDDEN_NEED} 以上ちがう試作品で、私に見落とさせてみてください。前の試作品では、私は見落としません。` },
+  { id: 1, robot: LAND_CHECK, hidden: LIFT_CHECK, robotLine: `検査を一つ足しました。私が見るのは二つ。①押して20秒後の力のちがいが ${ROBOT_PASS} [N] より小さい。②走って1歩目の「着地した直後」のへこみのちがいが ${ROBOT_PASS} より小さい。両方そろえば「同じ」と判定します。`, missionLine: `課題：ロボが見る二つは見本とそろえて「同じ」と言わせる。でも、ロボが見ない「足を上げた直後」のへこみは、見本と ${HIDDEN_NEED} 以上ちがう試作品にする。見本とは別物なのに、ロボが見落とす試作品をつくろう。` },
+  { id: 2, robot: LIFT_CHECK, hidden: LAND_CHECK, robotLine: `見る場所を変えます。今度は①押して20秒後の力と、②1歩目の「足を上げた直後」のへこみ。どちらもちがいが ${ROBOT_PASS} より小さければ「同じ」です。前の試作品では、私は見落としません。`, missionLine: `課題：今度は、ロボが見ない「着地した直後」のへこみを、見本と ${HIDDEN_NEED} 以上ちがう試作品にしよう。ロボが見る二つは、見本とそろえたまま。` },
 ];
 
 export const DUEL_SLIDERS = {
