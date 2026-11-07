@@ -103,7 +103,7 @@ AIが役に立つのは、用意した問いの**続き**を、物理・化学�
 - **ブラウザですぐ遊ぶ（ログイン不要）**：https://harutoyohirano.github.io/mitate-lab-play/ 。サーバーを使わない試用版で、謎1〜3・まとめ・つづきの謎まで遊べる。ページから Claude は呼ばないので、つづきの謎は Claude が組み立てて確かめに通った記録で動く（画面に「記録」と出る）。謎1の隠れた試作品Bの値もページの中にある。デモ動画のつづきの謎は、作者のアカウントでその場で組み立てた場面（心臓）を撮ったもの。公開版のつづきの謎は、それとは別に保存した生成例で動く（同じ心臓でも、部品の値などは動画と違う）
 - 試用版を自分でつくる：`npm run build:trial` で一枚のHTML（`dist-trial/mitate-lab-trial.html`）をつくり、ブラウザで開く。計算・判定・画面は本番と同じコード。試用版では隠れた試作品Bもブラウザの中にあるため、授業では本番のサーバー構成を使う
 - 本番（Node.js 22 以上）：`npm install` → （任意）`cp .env.example .env` で `ANTHROPIC_API_KEY` と `CLAUDE_MODEL` を設定 → `npm run build` → `npm start`（http://localhost:8787）。鍵がなくても、つづきの謎は記録に切りかえて最後まで動く
-- 開発：`npm run dev`（http://localhost:5173）、テスト：`npm test`（`npx vitest run`。162 件すべて通る。動画に映したのは 11/7 の結果。Windows で取得しても改行が LF にそろうよう `.gitattributes` を置いた）
+- 開発：`npm run dev`（http://localhost:5173）、テスト：`npm test`（`npx vitest run`。166 件すべて通る。動画に映したのは 11/7 の結果。Windows で取得しても改行が LF にそろうよう `.gitattributes` を置いた）
 
 ## 公開前の点検（11/7）
 - **秘密の値**：追跡しているファイルに `.env` や鍵のファイルはない（`.env.example` の鍵の欄は空）。本体と試用版の二つのリポジトリについて、手元の完全な複製（浅い取得ではない）の全ブランチ・全タグ・全コミットを、Anthropic・GitHub・AWS・Google・Slack の鍵、秘密鍵、「key=長い文字列」の形で調べ、候補は 0 件（値は表示しない方法で調べた）。試用版のページに入る設定は、公開を前提にした先生用の合言葉だけ
