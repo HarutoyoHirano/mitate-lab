@@ -465,14 +465,17 @@ function presentView(c: 1 | 3 | 4, testimony: [string, string], base: Evidence, 
   };
 }
 
+/** 試験台の押す速さごとに、何がよく見えるか（正解は言わない。どの速さでも正しい説明は退けない＝テスト13） */
+const BENCH_WHY = { 0.2: "押した直後のかたさが、よく出る", 1: "ロボの検査と同じ押し方", 5: "押しているあいだに力が抜ける様子が見える" } as const;
 function c1Present(): View {
   const r = state.view!.intro;
   const base: Evidence = { id: "c1-base", case: 1, title: "いつもの検査", line: "押して20秒後の力", big: `差 ${sgn(r.diff)}`, ok: false };
   if (state.c1Hit)
     return {
-      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "なぜ違う？ 試験台でBを押して、押し返す力を記録しよう。押す速さはどれにする？"),
+      ...presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "なぜ違う？ 試験台でBを押して、押し返す力を記録しよう。どの説明を確かめたいかで、押す速さを選ぼう。"),
       // 押す速さは自分で選ぶ（2026-11-07、別のAIによる点検⑲「原因を調べる実験が自動で実行される」）。どの速さでも、正しい説明は退けない（テスト13）
-      cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: p === 0.2 ? "押し終わりと、そのあと20秒の力を記録" : "", hot: false, disabled: state.busy })),
+      // 速さを選ぶ理由を一言で（2026-11-07、別のAIによる模擬評価「速さを選べるが、どれを選ぶ理由が弱い」）。どの速さが正解かは言わない
+      cmds: ([0.2, 1, 5] as const).map((p) => ({ act: "to-bench", val: String(p), label: `${SPEED[p]}押す`, sub: BENCH_WHY[p], hot: false, disabled: state.busy })),
     };
   return presentView(1, ["「だから、AとBは", "　同じ軟骨です」"], base, "ロボに、違いが見えた証拠を見せよう");
 }
