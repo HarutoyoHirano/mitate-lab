@@ -190,8 +190,10 @@ const state = {
     sc: null as MachineScale | null,
     shown: 0,
     /** 作り直しの見せ方（2026-11-06）："" ＝ふつう、fail1＝1回目が確かめに落ちて作り直し中、check2＝2回目を確かめ中 */
-    phase: "" as "" | "fail1" | "check2" | "rfail1" | "review" | "rwait",
+    phase: "" as "" | "fail1" | "check2" | "rfail1" | "review" | "rwait" | "cannot",
     failShown: 0,
+    /** 問題づくりの Claude が謎を作らなかったときの返事（cannot。画面に出せる形に整えたもの） */
+    noReason: "",
     /** 先生役の Claude の確かめを、いくつ点けたか（CLAUDE.md 1e-5） */
     rShown: 0,
     k: 0,
@@ -1668,7 +1670,15 @@ function nMake(): View {
   const rf = state.nx.phase === "rfail1" ? at[at.length - 1] : null;
   const rfAll = !!rf?.review && state.nx.rShown >= rows(rf.review);
   const record = (m?.source ?? (state.nx.live ? "live" : "record")) === "record";
-  const board = f0
+  const passed = state.nx.phase === "cannot" && !state.busy; // 問題づくりの Claude が「支える文献がない」と返して、謎を作らなかった（終わった状態）
+  const board = passed
+    ? `<g transform="translate(850,20)"><rect width="330" height="250" rx="16" fill="var(--panel)" stroke="var(--line)" stroke-width="2"/>
+        <text x="20" y="36" fill="var(--soft)" font-size="16" font-weight="900">見送りの理由</text>
+        ${wrapLines("手元の文献一覧から、この見立ての根拠を示せなかった。", 16, 2).map((l, i) => `<text x="20" y="${72 + i * 28}" fill="var(--ink)" font-size="19" font-weight="900">${esc(l)}</text>`).join("")}
+        <text x="20" y="140" fill="var(--soft)" font-size="14" font-weight="900">問題づくりの Claude の返事</text>
+        ${wrapLines(`「${state.nx.noReason}」`, 18, 2).map((l, i) => `<text x="20" y="${164 + i * 22}" fill="var(--ink)" font-size="15" font-weight="800">${esc(l)}</text>`).join("")}
+        <g transform="translate(240,212) rotate(-8)"><rect x="-62" y="-26" width="124" height="52" rx="10" fill="none" stroke="var(--gold)" stroke-width="5"/><text y="11" fill="var(--gold)" font-size="28" font-weight="900" text-anchor="middle">見送り</text></g></g>`
+    : f0
     ? checkBoard(850, 20, f0.checks, state.nx.failShown, { history, stamp: failAll ? "fail" : null, title: "計算プログラムの確かめ（1回目）" })
     : rf?.review
       ? reviewBoard(850, 20, rf.review, state.nx.rShown, { calcCount: rf.verdict.checks.length, stamp: rfAll ? "fail" : null, record, title: at.length > 1 ? "先生役の Claude の確かめ（2回目）" : undefined })
@@ -1684,10 +1694,10 @@ function nMake(): View {
     : "";
   return {
     chap: "つづきの謎",
-    goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : `「${state.nx.topic}」を組み立て中`,
+    goal: m ? `${nxSourceLabel()}：「${m.spec.title}」` : passed ? `「${state.nx.topic}」は、謎を作らなかった（根拠の文献がない）` : `「${state.nx.topic}」を組み立て中`,
     svg: `${partsBox(20, 40, used)}
-      <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : /記録/.test(state.line.text) ? "記録の部品を読み込んでいる…" : "Claude（AI）が部品を選んでいる…"}</text>
-      ${m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="${rf && !state.busy ? "" : "spin"}" r="60" fill="none" stroke="${fail1 || rf ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 || rf ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 || (rf && state.busy) ? "組み立て直し中" : rf ? "使えない" : state.nx.phase === "rwait" ? "先生役が確かめ中" : "組み立て中"}</text></g>`}
+      <text x="170" y="370" fill="${used.size ? "var(--you)" : "var(--soft)"}" font-size="14" font-weight="800" text-anchor="middle">${used.size ? "AIが選んだ部品" : passed ? "部品は選ばなかった" : /記録/.test(state.line.text) ? "記録の部品を読み込んでいる…" : "Claude（AI）が部品を選んでいる…"}</text>
+      ${passed ? `<g transform="translate(580,220)"><circle r="60" fill="none" stroke="var(--line)" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="var(--soft)" font-size="17" font-weight="900" text-anchor="middle">謎はなし</text></g>` : m && state.nx.sc ? machine(m.spec, m.verdict.runA!, 0, state.nx.sc, { x: 336, y: 50, w: 500, h: 300, tag: at.length > 1 ? "AIが組み立て直した装置" : "AIが組み立てた装置", tagColor: "var(--gold)", scale: 1.15 }) : `<g transform="translate(580,220)"><circle class="${rf && !state.busy ? "" : "spin"}" r="60" fill="none" stroke="${fail1 || rf ? "var(--stamp)" : "var(--line)"}" stroke-width="6" stroke-dasharray="20 14"/><text y="8" fill="${fail1 || rf ? "var(--stamp)" : "var(--soft)"}" font-size="17" font-weight="900" text-anchor="middle">${fail1 || (rf && state.busy) ? "組み立て直し中" : rf ? "使えない" : state.nx.phase === "rwait" ? "先生役が確かめ中" : "組み立て中"}</text></g>`}
       ${back}${board}
       ${m && done && m.verdict.diff ? `<g transform="translate(586,388)"><text fill="var(--soft)" font-size="13" font-weight="800" text-anchor="middle">前の謎の模型から（計算プログラムが数えた）</text>${wrapLines([...m.verdict.diff.added.map((t) => "＋" + DIFF_NAME[t]), ...m.verdict.diff.removed.map((t) => "−" + DIFF_NAME[t])].join("　"), 20, 3).map((l, i) => `<text y="${24 + i * 22}" fill="var(--you)" font-size="17" font-weight="900" text-anchor="middle">${esc(l)}</text>`).join("")}</g>` : ""}`,
     who: state.line.who,
@@ -1890,7 +1900,10 @@ async function nxMake(topic: string): Promise<void> {
     state.nx.attempts = attempts;
     if (!made && cannot) {
       state.busy = false;
-      say("ai", `この題材は作りませんでした。確かめた文献の一覧に、支える文献がないためです（問題づくりの Claude の返事：${cannot}）。ほかの題材を選ぼう。`);
+      state.nx.phase = "cannot";
+      state.nx.noReason = cannot;
+      state.nx.attempts = []; // 謎は作らなかったので、途中の組み立ては画面に残さない
+      say("ai", `この題材では謎を作れませんでした。手元の文献一覧から、この見立ての根拠を示せなかったためです（問題づくりの Claude の返事：${cannot}）。ほかの題材を選ぼう。`);
       render();
       return;
     }
