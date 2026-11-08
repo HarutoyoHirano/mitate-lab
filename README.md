@@ -163,3 +163,5 @@ GNU Affero General Public License v3.0（AGPL-3.0-only。全文は `LICENSE`）�
 
 - 授業や研究で使う・改造する・配ることは自由です。改造した版を配ったり、サーバーで提供したりするときは、その版のソースも AGPL-3.0 で公開してください
 - AGPL-3.0 の条件では使えない場合（ソースを公開できない製品に組み込むなど）は、作者に別の契約についてご相談ください
+
+**使っている外部のソフトウェア**：@anthropic-ai/sdk（MIT License、Copyright 2023 Anthropic, PBC.）。公開試用版のページはこのコードを一枚の HTML に含んで配っているので、ページの中に MIT License の全文と著作権表示を入れています（`scripts/pages-page.mjs`）。
