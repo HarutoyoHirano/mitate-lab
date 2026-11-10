@@ -9,7 +9,7 @@ writeFileSync(
 <meta name="description" content="見立てラボ（試用版）：検査ロボが「区別できません」と言った試作品の見落としを見つけるゲーム。ラボ・試作品・検査ロボは架空で、値は模型の値です。">
 <style>html,body{margin:0}</style>
 <!--
-見立てラボ（試用版） Copyright (C) 2026 Harutoyo Hirano. GNU Affero General Public License v3.0（AGPL-3.0-only）。ソース：https://github.com/HarutoyoHirano/mitate-lab
+見立てラボ（試用版） Copyright (C) 2026 mitate-lab authors. GNU Affero General Public License v3.0（AGPL-3.0-only）。ソース：https://github.com/HarutoyoHirano/mitate-lab
 
 このページには、次の外部のソフトウェアが含まれています。
 @anthropic-ai/sdk — MIT License
